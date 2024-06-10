@@ -4,20 +4,20 @@
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSelector.
+// This file is part of DataSearches.
 //
-// DataSelector is free software: you can redistribute it and/or modify
+// DataSearches is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSelector is distributed in the hope that it will be useful,
+// DataSearches is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSelector.  If not, see <http://www.gnu.org/licenses/>.
+// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
@@ -69,7 +69,7 @@ namespace DataSearches.UI
             PrimaryMenuList.Clear();
 
             PrimaryMenuList.Add(new TabControl() { Text = "Profile", Tooltip = "Select XML profile" });
-            PrimaryMenuList.Add(new TabControl() { Text = "Query", Tooltip = "Build SQL query" });
+            PrimaryMenuList.Add(new TabControl() { Text = "Search", Tooltip = "Run data search" });
 
             // Load the default XML profile (or let the user choose a profile.
             _paneH1VM = new PaneHeader1ViewModel(_dockPane);
@@ -84,8 +84,8 @@ namespace DataSearches.UI
             // If the default (and only) profile was loaded.
             if (_paneH1VM.XMLLoaded)
             {
-                // Initialise the query pane.
-                bool initialised = await InitialiseQueryPaneAsync(false);
+                // Initialise the search pane.
+                bool initialised = await InitialiseSearchPaneAsync(false);
                 if (!initialised)
                     return;
 
@@ -94,7 +94,7 @@ namespace DataSearches.UI
             }
             else
             {
-                // Select the query tab.
+                // Select the search tab.
                 SelectedPanelHeaderIndex = 0;
             }
 
@@ -137,7 +137,7 @@ namespace DataSearches.UI
         /// <summary>
         /// ID of the DockPane.
         /// </summary>
-        private const string _dockPaneID = "DataSelector_UI_DockpaneMain";
+        private const string _dockPaneID = "DataSearches_UI_DockpaneMain";
 
         public static string DockPaneID
         {
@@ -230,26 +230,26 @@ namespace DataSearches.UI
             }
         }
 
-        private bool _tableListLoading;
+        private bool _layersListLoading;
 
         /// <summary>
-        /// Is the SQL table list loading?
+        /// Is the layers list loading?
         /// </summary>
-        public bool TableListLoading
+        public bool LayersListLoading
         {
-            get { return _tableListLoading; }
-            set { _tableListLoading = value; }
+            get { return _layersListLoading; }
+            set { _layersListLoading = value; }
         }
 
-        private bool _queryRunning;
+        private bool _searchRunning;
 
         /// <summary>
-        /// Is the SQL query running?
+        /// Is the search running?
         /// </summary>
-        public bool QueryRunning
+        public bool SearchRunning
         {
-            get { return _queryRunning; }
-            set { _queryRunning = value; }
+            get { return _searchRunning; }
+            set { _searchRunning = value; }
         }
 
         private string _helpURL;
@@ -268,59 +268,59 @@ namespace DataSearches.UI
         #region Methods
 
         /// <summary>
-        /// Initialise the query pane.
+        /// Initialise the search pane.
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> InitialiseQueryPaneAsync(bool messages)
+        public async Task<bool> InitialiseSearchPaneAsync(bool messages)
         {
             _paneH2VM = new PaneHeader2ViewModel(_dockPane, _paneH1VM.ToolConfig);
 
-            string sdeFileName = _paneH1VM.ToolConfig.GetSDEName;
+            //string sdeFileName = _paneH1VM.ToolConfig.GetSDEName; ???
 
-            // Check if the SDE file exists.
-            if (!FileFunctions.FileExists(sdeFileName))
-            {
-                if (messages)
-                    MessageBox.Show("SDE connection file '" + sdeFileName + "' not found.", "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+            //// Check if the SDE file exists.
+            //if (!FileFunctions.FileExists(sdeFileName))
+            //{
+            //    if (messages)
+            //        MessageBox.Show("SDE connection file '" + sdeFileName + "' not found.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
 
-                return false;
-            }
+            //    return false;
+            //}
 
-            // Open the SQL Server geodatabase.
-            bool sdeConnectionValid;
-            try
-            {
-                sdeConnectionValid = await SQLServerFunctions.CheckSDEConnection(sdeFileName);
-            }
-            catch (Exception)
-            {
-                if (messages)
-                    MessageBox.Show("SDE connection file '" + sdeFileName + "' not valid.", "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+            //// Open the SQL Server geodatabase.
+            //bool sdeConnectionValid;
+            //try
+            //{
+            //    sdeConnectionValid = await SQLServerFunctions.CheckSDEConnection(sdeFileName);
+            //}
+            //catch (Exception)
+            //{
+            //    if (messages)
+            //        MessageBox.Show("SDE connection file '" + sdeFileName + "' not valid.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
 
-                _paneH2VM = null;
-                return false;
-            }
+            //    _paneH2VM = null;
+            //    return false;
+            //}
 
-            // In the SDE connection is not valid.
-            if (!sdeConnectionValid)
-            {
-                if (messages)
-                    MessageBox.Show("SDE connection file '" + sdeFileName + "' not valid.", "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+            //// In the SDE connection is not valid.
+            //if (!sdeConnectionValid)
+            //{
+            //    if (messages)
+            //        MessageBox.Show("SDE connection file '" + sdeFileName + "' not valid.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
 
-                _paneH2VM = null;
-                return false;
-            }
+            //    _paneH2VM = null;
+            //    return false;
+            //}
 
-            // Trigger getting the SQL Server table names (don't wait for the response).
-            _paneH2VM.GetTableNames(false);
+            // Trigger getting the layer names (don't wait for the response).
+            _paneH2VM.LoadLayersAsync(null);
 
             return true;
         }
 
         /// <summary>
-        /// Clear the query pane.
+        /// Reset the search pane.
         /// </summary>
-        public void ClearQueryPane()
+        public void ResetSearchPane()
         {
             _paneH2VM = null;
         }

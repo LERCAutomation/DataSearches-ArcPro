@@ -1,6 +1,6 @@
 ﻿using System.Windows.Controls;
 
-namespace DataSelector.UI
+namespace DataSearches.UI
 {
     /// <summary>
     /// Interaction logic for PaneHeader1View.xaml

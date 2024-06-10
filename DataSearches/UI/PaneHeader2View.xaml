@@ -1,9 +1,9 @@
-﻿<UserControl x:Class="DataSelector.UI.PaneHeader2View"
+﻿<UserControl x:Class="DataSearches.UI.PaneHeader2View"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:local="clr-namespace:DataSelector.UI"
+             xmlns:local="clr-namespace:DataSearches.UI"
              d:DataContext="{d:DesignInstance Type=local:PaneHeader2ViewModel}"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="300">
@@ -13,18 +13,19 @@
 
         <Grid DockPanel.Dock="Top">
             <Grid.RowDefinitions>
-                <RowDefinition MinHeight="166" Height="*" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition MinHeight="91" Height="*" />
-                <RowDefinition MinHeight="76" Height="*" />
-                <RowDefinition MinHeight="76" Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Name="GridColumns" Grid.Row="0" Margin="0,4,0,4">
+            <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -34,7 +35,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Label Name="AsterixColumns"
+                <Label Name="AsterixSearchRef"
                        Content="*"
                        Grid.Row="0"
                        Grid.Column="0"
@@ -42,29 +43,165 @@
                        Padding="0"
                        Foreground="Red"
                        VerticalAlignment="Center" />
-                <Label Name="LabelColumns"
-                       Content="Select:"
+                <Label Name="LabelSearchRef"
+                       Content="Search Reference:"
                        Grid.Row="0"
                        Grid.Column="1"
                        Margin="0,0,0,2"
                        Padding="0"
                        VerticalAlignment="Center" />
-                <TextBox Name="TextColumns"
+                <TextBox Name="TextSearchRef"
                          Grid.Row="1"
                          Grid.Column="1"
                          Margin="0,0,0,0"
                          IsEnabled="True"
                          IsReadOnly="False"
-                         Text="{Binding ColumnsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Text="{Binding SearchRefText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          TextAlignment="Left"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Visible"
-                         ToolTip="{Binding ColumnsTooltip}"
-                         MouseDoubleClick="TextColumns_MouseDoubleClick" />
+                         ToolTip="Enter a search reference" />
             </Grid>
 
-            <Grid Name="GridTables" Grid.Row="1" Margin="0,4,0,4">
+            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Label Name="AsterixSiteName"
+                       Content="*"
+                       Grid.Row="0"
+                       Grid.Column="0"
+                       Margin="0,0,0,0"
+                       Padding="0"
+                       Foreground="Red"
+                       VerticalAlignment="Center" />
+                <Label Name="LabelSiteName"
+                       Content="Site Name:"
+                       Grid.Row="0"
+                       Grid.Column="1"
+                       Margin="0,0,0,2"
+                       Padding="0"
+                       VerticalAlignment="Center" />
+                <TextBox Name="TextSiteName"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="0,0,0,0"
+                         IsEnabled="{Binding Path=SiteNameTextEnabled}"
+                         IsReadOnly="False"
+                         Text="{Binding SiteNameText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         TextAlignment="Left"
+                         ToolTip="{Binding SiteNameTooltip}" />
+            </Grid>
+
+            <Grid Name="GridLayers" Grid.Row="2" Margin="0,4,0,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Label Name="AsterixLayers"
+                       Content="*"
+                       Grid.Row="0"
+                       Grid.Column="0"
+                       Margin="0,0,0,0"
+                       Padding="0"
+                       Foreground="Red"
+                       VerticalAlignment="Center" />
+                <Label Name="LabelLayers"
+                       Content="Layers to Search:"
+                       Grid.Row="0"
+                       Grid.Column="1"
+                       Margin="0,0,0,2"
+                       Padding="0"
+                       VerticalAlignment="Center" />
+                <ListBox Name="ListBoxLayers"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="0,0,4,0"
+                         SelectionMode="Extended"
+                         IsEnabled="{Binding Path=LayersListEnabled}"
+                         ItemsSource="{Binding Path=LayersList,
+                                               Mode=OneWay,
+                                               UpdateSourceTrigger=PropertyChanged}"
+                         SelectedValue="{Binding Path=SelectedLayers}"
+                         ToolTip="Select layers to search" />
+            </Grid>
+
+            <Grid Name="GridBuffer" Grid.Row="3" Margin="0,4,0,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="50" />
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Label Name="AsterixBufferSize"
+                       Content="*"
+                       Grid.Row="0"
+                       Grid.Column="0"
+                       Margin="0,0,0,0"
+                       Padding="0"
+                       Foreground="Red"
+                       VerticalAlignment="Center" />
+                <Label Name="LabelBufferSize"
+                       Content="Buffer Size:"
+                       Grid.Row="0"
+                       Grid.Column="1"
+                       Margin="0,0,0,2"
+                       Padding="0"
+                       VerticalAlignment="Center" />
+                <TextBox Name="TextBufferSize"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="0,0,0,0"
+                         IsEnabled="True"
+                         IsReadOnly="False"
+                         Text="{Binding BufferSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         TextAlignment="Left"
+                         ToolTip="Select a buffer size" />
+                <Label Name="AsterixBufferUnits"
+                       Content="*"
+                       Grid.Row="0"
+                       Grid.Column="3"
+                       Margin="0,0,0,0"
+                       Padding="0"
+                       Foreground="Red"
+                       VerticalAlignment="Center" />
+                <Label Name="LabelBufferUnits"
+                    Content="Buffer Units:"
+                    Grid.Row="0"
+                    Grid.Column="4"
+                    Margin="0,0,0,2"
+                    Padding="0"
+                    VerticalAlignment="Center" />
+                <ComboBox Name="ComboBoxBufferUnits"
+                        Grid.Row="1"
+                        Grid.Column="4"
+                        Margin="0,0,4,0"
+                        IsEditable="False"
+                        IsReadOnly="True"
+                        ToolTip="Select a buffer unit"
+                        IsEnabled="{Binding Path=BufferUnitsListEnabled}"
+                        ItemsSource="{Binding Path=BufferUnitsList,
+                                            Mode=OneWay,
+                                            UpdateSourceTrigger=PropertyChanged}"
+                        SelectedValue="{Binding Path=SelectedBufferUnits}" />
+            </Grid>
+
+            <Grid Name="GridAddToMap" Grid.Row="5" Margin="0,4,0,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -72,10 +209,9 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="22" />
                 </Grid.ColumnDefinitions>
 
-                <Label Name="AsterixTables"
+                <Label Name="AsterixAddToMap"
                        Content="*"
                        Grid.Row="0"
                        Grid.Column="0"
@@ -83,226 +219,127 @@
                        Padding="0"
                        Foreground="Red"
                        VerticalAlignment="Center" />
-                <Label Name="LabelTables"
-                    Content="From:"
+                <Label Name="LabelAddToMap"
+                    Content="Add Selected Layers to Map:"
                     Grid.Row="0"
                     Grid.Column="1"
                     Margin="0,0,0,2"
                     Padding="0"
-                    VerticalAlignment="Center" />
-                <ComboBox Name="ComboBoxTables"
+                    VerticalAlignment="Center"
+                        Visibility="{Binding Path=AddToMapListVisibility}" />
+                <ComboBox Name="ComboBoxAddToMap"
                         Grid.Row="1"
                         Grid.Column="1"
                         Margin="0,0,4,0"
                         IsEditable="False"
                         IsReadOnly="True"
-                        ToolTip="Select a source table"
-                        IsEnabled="{Binding Path=TablesListEnabled}"
-                        ItemsSource="{Binding Path=TablesList,
+                        ToolTip="Select a buffer unit"
+                        IsEnabled="{Binding Path=AddToMapListEnabled}"
+                        Visibility="{Binding Path=AddToMapListVisibility}"
+                        ItemsSource="{Binding Path=AddToMapList,
                                             Mode=OneWay,
                                             UpdateSourceTrigger=PropertyChanged}"
-                        SelectedValue="{Binding Path=SelectedTable}" />
-                <Button Name="ButtonLoadColumns"
-                    Grid.Row="1"
-                    Grid.Column="1"
-                    Margin="0,0,0,0"
-                    IsEnabled="{Binding Path=LoadColumnsEnabled}"
-                    Command="{Binding Path=LoadColumnsCommand}"
-                    IsCancel="False"
-                    Visibility="Hidden">
-                </Button>
-                <Button Name="ButtonTablesListRefresh"
-                        Grid.Row="1"
-                        Grid.Column="2"
-                        Margin="0,0,0,0"
-                        MinWidth="0"
-                        MinHeight="0"
-                        Padding="0"
-                        Width="22"
-                        Height="22"
-                        BorderThickness="0"
-                        Background="Transparent"
-                        FontWeight="Normal"
-                        VerticalAlignment="Center"
-                        IsEnabled="{Binding Path=TablesListEnabled}"
-                        Command="{Binding RefreshTablesListCommand}"
-                        ToolTip="Refresh tables list"
-                        Style="{DynamicResource Esri_SimpleButton}">
-                    <Image Source="{Binding ButtonTablesListRefreshImg}" Width="16" Height="16" />
-                </Button>
-            </Grid>
+                        SelectedValue="{Binding Path=SelectedAddToMap}" />
+        </Grid>
 
-            <Grid Name="GridWhere" Grid.Row="2" Margin="0,4,0,4">
+            <Grid Name="GridOverwriteLabels" Grid.Row="6" Margin="0,4,0,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Label Name="AsterixWhere"
+                <Label Name="AsterixOverwriteLabels"
                        Content="*"
                        Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
-                <Label Name="LabelWhere"
-                       Content="Where:"
-                       Grid.Row="0"
-                       Grid.Column="1"
-                       Margin="0,0,0,2"
-                       Padding="0"
-                       VerticalAlignment="Center" />
-                <TextBox Name="TextWhere"
-                         Grid.Row="1"
-                         Grid.Column="1"
-                         Margin="0,0,0,0"
-                         IsEnabled="True"
-                         IsReadOnly="False"
-                         Text="{Binding WhereText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         TextAlignment="Left"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Visible" />
-            </Grid>
-
-            <Grid Name="GridGroupBy" Grid.Row="3" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Label Name="LabelGroupBy"
-                       Content="Group By:"
-                       Grid.Row="0"
-                       Grid.Column="1"
-                       Margin="0,0,0,2"
-                       Padding="0"
-                       VerticalAlignment="Center" />
-                <TextBox Name="TextGroupBy"
-                         Grid.Row="1"
-                         Grid.Column="1"
-                         Margin="0,0,0,0"
-                         IsEnabled="True"
-                         IsReadOnly="False"
-                         Text="{Binding GroupByText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         TextAlignment="Left"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Visible" />
-            </Grid>
-
-            <Grid Name="GridOrderBy" Grid.Row="4" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Label Name="LabelOrderBy"
-                       Content="Order By:"
-                       Grid.Row="0"
-                       Grid.Column="1"
-                       Margin="0,0,0,2"
-                       Padding="0"
-                       VerticalAlignment="Center" />
-                <TextBox Name="TextOrderBy"
-                         Grid.Row="1"
-                         Grid.Column="1"
-                         Margin="0,0,0,0"
-                         IsEnabled="True"
-                         IsReadOnly="False"
-                         Text="{Binding OrderByText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         TextAlignment="Left"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap"
-                         VerticalScrollBarVisibility="Visible" />
-            </Grid>
-
-            <Grid Name="GridOutputFormat" Grid.Row="5" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="28" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Label Name="AsterixOutputFormat"
-                       Content="*"
-                       Grid.Row="0"
-                       Grid.Column="0"
-                       Margin="0,0,0,0"
-                       Padding="0"
-                       Foreground="Red"
-                       VerticalAlignment="Center" />
-                <Label Name="LabelOutputFormat"
-                       Content="Output File Format:"
-                       Grid.Row="0"
-                       Grid.Column="1"
-                       Margin="0,0,0,0"
-                       Padding="0"
-                       VerticalAlignment="Center" />
-                <ComboBox Name="ComboBoxOutputFormat"
-                          Grid.Row="1"
-                          Grid.Column="1"
-                          Margin="0,0,0,2"
-                          VerticalAlignment="Center"
-                          IsEditable="False"
-                          IsReadOnly="True"
-                          ToolTip="Select an output format"
-                          ItemsSource="{Binding Path=OutputFormats,
-                                                Mode=OneWay,
-                                                UpdateSourceTrigger=PropertyChanged}"
-                          SelectedValue="{Binding Path=SelectedOutputFormat}" />
-            </Grid>
-
-            <Grid Name="GridOptions" Grid.Row="6" Margin="0,4,0,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <!--
-                <CheckBox Name="CheckBoxSetSymbology"
-                        Grid.Row="0"
-                        Grid.Column="0"
-                        Margin="0,0,2,2"
-                        Padding="0"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Center"
-                        IsChecked="{Binding SetSymbology, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <Label Name="LabelSetSymbology"
-                    Content="Set Default Symbology?"
+                       VerticalAlignment="Center"
+                        Visibility="{Binding Path=OverwriteLabelsListVisibility}" />
+                <Label Name="LabelOverwriteLabels"
+                    Content="Overwrite Map Labels:"
                     Grid.Row="0"
                     Grid.Column="1"
-                    Margin="2,0,0,2"
+                    Margin="0,0,0,2"
                     Padding="0"
                     VerticalAlignment="Center" />
-                -->
+                <ComboBox Name="ComboBoxOverwriteLabels"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="0,0,4,0"
+                        IsEditable="False"
+                        IsReadOnly="True"
+                        ToolTip="Select whether to overwrite labels or not"
+                        IsEnabled="{Binding Path=OverwriteLabelsListEnabled}"
+                        Visibility="{Binding Path=OverwriteLabelsListVisibility}"
+                        ItemsSource="{Binding Path=OverwriteLabelsList,
+                                            Mode=OneWay,
+                                            UpdateSourceTrigger=PropertyChanged}"
+                        SelectedValue="{Binding Path=SelectedOverwriteLabels}" />
+            </Grid>
+
+            <Grid Name="GridCombinedSites" Grid.Row="7" Margin="0,4,0,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Label Name="AsterixCombinedSites"
+                       Content="*"
+                       Grid.Row="0"
+                       Grid.Column="0"
+                       Margin="0,0,0,0"
+                       Padding="0"
+                       Foreground="Red"
+                       VerticalAlignment="Center"
+                        Visibility="{Binding Path=CombinedSitesListVisibility}" />
+                <Label Name="LabelCombinedSites"
+                    Content="Create Combined Sites Table:"
+                    Grid.Row="0"
+                    Grid.Column="1"
+                    Margin="0,0,0,2"
+                    Padding="0"
+                    VerticalAlignment="Center" />
+                <ComboBox Name="ComboBoxCombinedSites"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="0,0,4,0"
+                        IsEditable="False"
+                        IsReadOnly="True"
+                        ToolTip="Select a buffer unit"
+                        IsEnabled="{Binding Path=CombinedSitesListEnabled}"
+                        Visibility="{Binding Path=CombinedSitesListVisibility}"
+                        ItemsSource="{Binding Path=CombinedSitesList,
+                                            Mode=OneWay,
+                                            UpdateSourceTrigger=PropertyChanged}"
+                        SelectedValue="{Binding Path=SelectedCombinedSites}" />
+            </Grid>
+
+            <Grid Name="GridOptions" Grid.Row="8" Margin="0,4,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
                 <CheckBox Name="CheckBoxClearLogFile"
                           Grid.Row="0"
@@ -320,14 +357,6 @@
                        Margin="2,2,0,0"
                        Padding="0"
                        VerticalAlignment="Center" />
-                <!--
-                <controls:InfoButton
-                        Grid.Row="0"
-                        Grid.Column="3"
-                        Margin="2,0,0,0"
-				        Header="Clear log file"
-				        Description="Clear the log file before the process starts?" />
-                -->
                 <CheckBox Name="CheckBoxOpenLogFile"
                           Grid.Row="0"
                           Grid.Column="5"
@@ -344,87 +373,34 @@
                        Margin="2,2,0,0"
                        Padding="0"
                        VerticalAlignment="Center" />
-                <!--
-                <controls:InfoButton
-                        Grid.Row="0"
-                        Grid.Column="7"
-                        Margin="2,0,0,0"
-				        Header="Open log file"
-				        Description="Open the log file when the process has complete?" />
-                -->
             </Grid>
 
-            <Grid Name="GridButtons" Grid.Row="7" Margin="0,18,0,0">
+            <Grid Name="GridButtons" Grid.Row="9" Margin="0,18,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="24" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="48" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="70" />
                 </Grid.ColumnDefinitions>
 
-                <Button Name="ButtonLoad"
+                <Button Name="ButtonReset"
                         Grid.Column="0"
                         Margin="0,0,2,0"
                         Padding="0"
                         MinWidth="0"
                         MinHeight="0"
-                        Command="{Binding Path=LoadCommand}"
+                        Command="{Binding Path=ResetCommand}"
                         IsCancel="False"
                         IsDefault="False"
-                        IsEnabled="{Binding Path=LoadButtonEnabled}"
+                        IsEnabled="{Binding Path=ResetButtonEnabled}"
                         Style="{DynamicResource Esri_SimpleButton}"
                         TabIndex="1"
-                        Content="Load"
-                        ToolTip="Load an existing query" />
-                <Button Name="ButtonSave"
-                        Grid.Column="1"
-                        Margin="0,0,2,0"
-                        Padding="0"
-                        MinWidth="0"
-                        MinHeight="0"
-                        Command="{Binding Path=SaveCommand}"
-                        IsCancel="False"
-                        IsDefault="False"
-                        IsEnabled="{Binding Path=SaveButtonEnabled}"
-                        Style="{DynamicResource Esri_SimpleButton}"
-                        TabIndex="2"
-                        Content="Save"
-                        ToolTip="Save the query" />
-                <Button Name="ButtonClear"
-                        Grid.Column="2"
-                        Margin="0,0,2,0"
-                        Padding="0"
-                        MinWidth="0"
-                        MinHeight="0"
-                        Command="{Binding Path=ClearCommand}"
-                        IsCancel="False"
-                        IsDefault="False"
-                        IsEnabled="{Binding Path=ClearButtonEnabled}"
-                        Style="{DynamicResource Esri_SimpleButton}"
-                        TabIndex="3"
-                        Content="Clear"
-                        ToolTip="Clear the query form" />
-                <Button Name="ButtonVerify"
-                        Grid.Column="3"
-                        Margin="0,0,2,0"
-                        Padding="0"
-                        MinWidth="0"
-                        MinHeight="0"
-                        Command="{Binding Path=VerifyCommand}"
-                        IsCancel="False"
-                        IsDefault="False"
-                        IsEnabled="{Binding Path=VerifyButtonEnabled}"
-                        Style="{DynamicResource Esri_SimpleButton}"
-                        TabIndex="4"
-                        Content="Verify"
-                        ToolTip="Verify the query is valid" />
+                        Content="Reset"
+                        ToolTip="Reset the form" />
                 <Button Name="ButtonRun"
-                        Grid.Column="5"
+                        Grid.Column="2"
                         Margin="2,0,0,0"
                         Padding="0"
                         MinWidth="0"
@@ -433,7 +409,7 @@
                         IsCancel="False"
                         IsDefault="True"
                         IsEnabled="{Binding Path=RunButtonEnabled}"
-                        TabIndex="5"
+                        TabIndex="2"
                         Style="{DynamicResource Esri_SimpleButton}">
                     <StackPanel Orientation="Horizontal">
                         <Image Source="{Binding ButtonRunImg}" Width="16" Height="16" />
@@ -441,7 +417,7 @@
                     </StackPanel>
                     <Button.ToolTip>
                         <ToolTip>
-                            <TextBlock Text="Run the query" FontWeight="Normal"></TextBlock>
+                            <TextBlock Text="Run the search" FontWeight="Normal"></TextBlock>
                         </ToolTip>
                     </Button.ToolTip>
                 </Button>

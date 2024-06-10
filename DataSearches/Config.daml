@@ -1,10 +1,10 @@
-﻿<ArcGIS defaultAssembly="DataSelector.dll" defaultNamespace="DataSelector" xmlns="http://schemas.esri.com/DADF/Registry" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
-	<AddInInfo id="{46e995cb-90ef-4d68-9f66-67839c8807e9}" version="1.0.1" desktopVersion="3.3">
-		<Name>DataSelector</Name>
-		<Description>DataSelector is an ArcGIS .NET tool and associated SQL scripts to extract information from SQL Server based on any selection criteria. The output files can be created as ESRI Geodatabase (.gdb) files, ESRI Shapefile (.shp) files, Comma Separated Value (.csv) or Tab Delimited (.txt) files.</Description>
+﻿<ArcGIS defaultAssembly="DataSearches.dll" defaultNamespace="DataSearches" xmlns="http://schemas.esri.com/DADF/Registry" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
+	<AddInInfo id="{454F6EF2-F0B6-4EF9-8DA5-CB04E5937182}" version="1.0.0" desktopVersion="3.3">
+		<Name>DataSearches</Name>
+		<Description>DataSearches is an ArcGIS .NET tool which lists available GIS layers and allows the user to select which layers to extract for the current data search, specifying a radius from a feature of interest. The output files are created as ESRI Shapefiles (.shp) files, Comma Separated Value (.csv) files or Text (.txt) files.</Description>
 		<Image>Images\AddinDesktop32.png</Image>
-		<!--	  <Image>"pack://application:,,,/DataSelector;component/Images/DataSelector32.png"></Image> -->
-		<!--	    <Image>Images\DataSelector32AddIn.png</Image>   -->
+		<!--	  <Image>"pack://application:,,,/DataSearches;component/Images/DataSearches32.png"></Image> -->
+		<!--	    <Image>Images\DataSearches32AddIn.png</Image>   -->
 		<Author>Andy Foy, andy@andyfoyconsulting.co.uk</Author>
 		<Company>Andy Foy Consulting</Company>
 		<Date>31/05/2024 12:48:00 PM</Date>
@@ -13,53 +13,53 @@
                     Content, Framework, Editing, Geodatabase, Geometry, Geoprocessing, Layouts, Map Authoring, Map Exploration -->
 	</AddInInfo>
 	<modules>
-		<insertModule id="DataSelector_Module"
-					  className="DataSelector"
+		<insertModule id="DataSearches_Module"
+					  className="DataSearches"
 					  autoLoad="true"
-					  caption="Data Selector module">
+					  caption="Data Searches module">
 			<!-- uncomment to have the control hosted on a separate tab-->
 			<tabs>
-				<tab id="DataSelector_Tab"
+				<tab id="Data_Tab"
 					 caption="Tools"
 					 keytip="T">
-					<group refID="DataSelector_Group" />
+					<group refID="Data_Group" />
 				</tab>
 			</tabs>
 			<groups>
 				<!-- comment this out if you have no controls on the Addin tab to avoid
               an empty group-->
-				<group id="DataSelector_Group"
+				<group id="Data_Group"
 					   caption="Data Tools"
 					   appearsOnAddInTab="false"
 					   keytip="D">
 					<!-- host controls within groups -->
-					<button refID="DataSelector_btnDataSelectorDockPane"
+					<button refID="DataSearches_btnDataSearchesDockPane"
 							size="large" />
 				</group>
 			</groups>
 			<controls>
 				<!-- add your controls here -->
-				<button id="DataSelector_btnDataSelectorDockPane"
-						caption="Data Selector"
-						className="DataSelector.UI.DockpaneMain_ShowButton"
+				<button id="DataSearches_btnDataSearchesDockPane"
+						caption="Data Searches"
+						className="DataSearches.UI.DockpaneMain_ShowButton"
 						loadOnClick="true"
 						keytip="D"
-						smallImage="pack://application:,,,/DataSelector;component/Images/DataSelector16.png"
-						largeImage="pack://application:,,,/DataSelector;component/Images/DataSelector32.png">
-					<tooltip heading="Data Selector tool">
-						Define, load, save and run SQL queries.<disabledText />
+						smallImage="pack://application:,,,/DataSearches;component/Images/DataSearches16.png"
+						largeImage="pack://application:,,,/DataSearches;component/Images/DataSearches32.png">
+					<tooltip heading="Data Searches tool">
+						Automate routine geographic data searches.<disabledText />
 					</tooltip>
 				</button>
 			</controls>
 			<dockPanes>
-				<dockPane id="DataSelector_UI_DockpaneMain"
+				<dockPane id="DataSearches_UI_DockpaneMain"
 						  hasHelp="true"
 						  autoHide="false"
-						  caption="Data Selector"
-						  className="DataSelector.UI.DockpaneMainViewModel"
+						  caption="Data Searches"
+						  className="DataSearches.UI.DockpaneMainViewModel"
 						  dock="group"
 						  dockWith="esri_core_projectDockPane">
-					<content className="DataSelector.UI.DockpaneMainView" />
+					<content className="DataSearches.UI.DockpaneMainView" />
 				</dockPane>
 			</dockPanes>
 		</insertModule>

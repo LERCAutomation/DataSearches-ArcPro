@@ -4,24 +4,24 @@
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSelector.
+// This file is part of DataSearches.
 //
-// DataSelector is free software: you can redistribute it and/or modify
+// DataSearches is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSelector is distributed in the hope that it will be useful,
+// DataSearches is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSelector.  If not, see <http://www.gnu.org/licenses/>.
+// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Desktop.Framework;
 using DataSearches;
-using DataSelector.Properties;
+using DataSearches.Properties;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -43,7 +43,7 @@ namespace DataSearches.UI
 
         private readonly DockpaneMainViewModel _dockPane;
 
-        private const string _displayName = "DataSelector";
+        private const string _displayName = "DataSearches";
 
         #endregion Fields
 
@@ -224,8 +224,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return !_dockPane.QueryRunning
-                    && !_dockPane.TableListLoading;
+                return !_dockPane.SearchRunning
+                    && !_dockPane.LayersListLoading;
             }
         }
 
@@ -318,26 +318,26 @@ namespace DataSearches.UI
             // Check the file (still) exists.
             if (!FileFunctions.FileExists(xmlConfigFile))
             {
-                MessageBox.Show("The selected XML file '" + SelectedXMLProfile + "' was not found in the XML directory.", "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("The selected XML file '" + SelectedXMLProfile + "' was not found in the XML directory.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             // Load the selected profile.
             LoadXMLProfile(xmlConfigFile, true);
 
-            // Clear the query pane if the XML wasn't loaded.
+            // Reset the search pane if the XML wasn't loaded.
             if (!XMLLoaded)
             {
-                // Clear the query pane.
-                _dockPane.ClearQueryPane();
+                // Reset the search pane.
+                _dockPane.ResetSearchPane();
                 return;
             }
 
-            // Initialise the query pane.
-            bool initialised = await _dockPane.InitialiseQueryPaneAsync(true);
+            // Initialise the search pane.
+            bool initialised = await _dockPane.InitialiseSearchPaneAsync(true);
             if (initialised)
             {
-                // Select the query pane.
+                // Select the search pane.
                 _dockPane.SelectedPanelHeaderIndex = 1;
             }
         }
@@ -353,8 +353,8 @@ namespace DataSearches.UI
             get
             {
                 return !string.IsNullOrEmpty(SelectedXMLProfile)
-                    && !_dockPane.QueryRunning
-                    && !_dockPane.TableListLoading;
+                    && !_dockPane.SearchRunning
+                    && !_dockPane.LayersListLoading;
             }
         }
 
@@ -362,9 +362,9 @@ namespace DataSearches.UI
 
         #region Properties
 
-        private DataSelectorConfig _xmlConfig;
+        private DataSearchesConfig _xmlConfig;
 
-        public DataSelectorConfig ToolConfig
+        public DataSearchesConfig ToolConfig
         {
             get
             {
@@ -481,7 +481,7 @@ namespace DataSearches.UI
                 // If no valid files were found.
                 if (xmlFilesList is null || xmlFilesList.Count == 0)
                 {
-                    MessageBox.Show("No valid XML files found in the XML directory.", "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("No valid XML files found in the XML directory.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
             }
@@ -585,7 +585,7 @@ namespace DataSearches.UI
             if (!_xmlConfig.XMLFound)
             {
                 if (msgErrors)
-                    MessageBox.Show(string.Format("XML file '{0}' not found.", xmlConfigPath), "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(string.Format("XML file '{0}' not found.", xmlConfigPath), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
 
                 _xmlLoaded = false;
                 return;
@@ -594,7 +594,7 @@ namespace DataSearches.UI
             // If the XML config file can't be loaded.
             if (!_xmlConfig.XMLLoaded)
             {
-                //MessageBox.Show(string.Format("Error loading XML File '{0}'.", _xmlConfigPath), "Data Selector", MessageBoxButton.OK, MessageBoxImage.Error);
+                //MessageBox.Show(string.Format("Error loading XML File '{0}'.", _xmlConfigPath), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
                 _xmlLoaded = false;
                 return;
             }
@@ -605,7 +605,7 @@ namespace DataSearches.UI
 
         /// <summary>
         /// Refresh the buttons on the pane (before/after the
-        /// query runs from the second pane).
+        /// search runs from the second pane).
         /// </summary>
         public void RefreshButtons()
         {

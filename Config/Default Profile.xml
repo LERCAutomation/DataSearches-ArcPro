@@ -7,99 +7,1318 @@ can also be commented out as below.
 -->
 
 <!--
-This config file contains all the variables used by the DataSelector
+This config file contains all the variables used by the DataSearches
 ArcGIS Pro add-in.
 
 The 'configuration' node is the 'root' node and signifies the start of the
 contents of the configuration file.
 
-The 'DataSelector' node contains all of the entries relating to the
+The 'DataSearches' node contains all of the entries relating to the
 ArcGIS Pro add-in variables.
 
-Each entry relates to a file, folder, table name, column name or SQL statement
-used by the ArcGIS Pro add-in to select and export SQL data for use in GIS or
-as a spreadsheet.
+Each entry relates to a file, folder, table name, column name or other variable
+used by the ArcGIS Pro add-in to select and export GIS data for each data search.
 -->
 
 <configuration>
-<DataSelector>
+<DataSearches>
 
-  <!-- The existing file location where log files will be saved with output messages. -->
-  <LogFilePath>
-	<value>D:\DataSelector\Logfiles</value>
-  </LogFilePath>
+	<!-- The database where all the data search details are stored. -->
+	<Database>
+		<value>H:\Dev\LERCAutomation\DataSearches--ArcObjects2\Access\SxBRC Data Searches v3.52.mdb</value>
+	</Database>
 
-  <!-- The location of the SDE file that specifies which SQL Server database to connect to. -->
-  <SDEFile>
-	<value>D:\DataSelector\Config\NBNExtract.sde</value>
-  </SDEFile>
+	<!-- The field name of the search reference unique value. -->
+	<RefColumn>
+		<value>EnquiryRef</value>
+	</RefColumn>
 
-  <!-- The stored procedure to execute selection in SQL Server. -->
-  <SelectStoredProcedure>
-	<value>AFSelectSppSubset</value>
-  </SelectStoredProcedure>
+	<!-- The field name of the search reference site name. -->
+	<SiteColumn>
+		<value>SiteName</value>
+	</SiteColumn>
 
-  <!-- The stored procedure to clear selection in SQL Server. -->
-  <ClearStoredProcedure>
-	<value>AFClearSppSubset</value>
-  </ClearStoredProcedure>
+	<!-- The field name of the search reference organisation. -->
+	<OrgColumn>
+		<value>Organisation</value>
+	</OrgColumn>
 
-  <!-- The existing file location where extracts will be saved by default. -->
-  <DefaultExtractPath>
-	<value>D:\DataSelector\Extracts</value>
-  </DefaultExtractPath>
+	<!-- The field name of the search reference radius. -->
+	<RadiusColumn>
+		<value>Radius</value>
+	</RadiusColumn>
 
-  <!-- The existing file location where queries will be saved and loaded by default. -->
-  <DefaultQueryPath>
-	<value>D:\DataSelector\Queries\</value>
-  </DefaultQueryPath>
+	<!-- Is a site name required? Yes/No -->
+	<RequireSiteName>
+		<value>No</value>
+	</RequireSiteName>
 
-  <!-- The default format of the output files to be created. -->
-  <DefaultFormat>
-	<value></value>
-  </DefaultFormat>
+	<!-- The character(s) used to replace any special characters in folder names. Space is allowed -->
+	<RepChar>
+		<value> </value>
+	</RepChar>
 
-  <!-- The schema used in the SQL Server database. -->
-  <DatabaseSchema>
-	<value>dbo</value>
-  </DatabaseSchema>
+	<!-- The folder where the layer files are stored. -->
+	<LayerFolder>
+		<value>H:\Dev\LERCAutomation\DataSearches--ArcObjects2\LayerFiles</value>
+	</LayerFolder>
 
-  <!-- The Include wildcard for table names to list all the species tables in SQL Server that can be selected
-         by the user to extract from. -->
-  <IncludeWildcard>
-	<value>Spp_PointPoly_*Names|Spp_Poly_*Names</value>
-  </IncludeWildcard>
+	<!-- The file location where all data search folders are stored. -->
+	<SaveRootDir>
+		<value>H:\Dev\LERCAutomation\DataSearches--ArcObjects2\Reports</value>
+	</SaveRootDir>
 
-  <!-- The Exclude wildcard for table names that should NOT be used for species tables in SQL Server that can be selected
-       by the user to extract from. -->
-  <ExcludeWildcard>
-	<value>Spp_*_*_*</value>
-  </ExcludeWildcard>
+	<!-- The folder where the report will be saved. -->
+	<SaveFolder>
+		<value>%ref%_%sitename%</value>
+	</SaveFolder>
 
-  <!-- The default for whether the symbology should be set for feature classes or not. -->
-  <DefaultSetSymbology>
-	<value>Yes</value>
-  </DefaultSetSymbology>
+	<!-- The sub-folder where all data search extracts will be written to -->
+	<GISFolder>
+		<value>GIS</value>
+	</GISFolder>
 
-  <!-- The location of layer files. -->
-  <LayerLocation>
-	<value>D:\DataSelector\LayerFiles\Test.lyrx</value>
-  </LayerLocation>
+	<!-- The log file name created by the tool to output messages -->
+	<LogFileName>
+		<value>DataSearch_%subref%.log</value>
+	</LogFileName>
 
-  <!-- The default for whether an existing log file should be cleared by default. -->
-  <DefaultClearLogFile>
-	<value>Yes</value>
-  </DefaultClearLogFile>
-  
-  <!-- The default for whether log file should be opened by default. -->
-  <DefaultOpenLogFile>
-	<value>No</value>
-  </DefaultOpenLogFile>
-  
-  <!-- Whether to validate the SQL before running. -->
-  <ValidateSQL>
-	<value>Yes</value>
-  </ValidateSQL>
-  
-</DataSelector>
+	<!-- By default, should an existing log file be cleared? -->
+	<DefaultClearLogFile>
+		<value>Yes</value>
+	</DefaultClearLogFile>
+
+	<!-- By default, should the log file be opened after running-->
+	<DefaultOpenLogFile>
+		<value>Yes</value>
+	</DefaultOpenLogFile>
+
+	<!-- The default size to use for the buffer -->
+	<DefaultBufferSize>
+		<value>1</value>
+	</DefaultBufferSize>
+
+	<!-- The options for the buffer units. It is not recommended that these are changed -->
+	<!-- These are read as: unit to display; unit that ArcGIS uses (American spelling); abbreviated unit -->
+	<BufferUnitOptions>
+		<value>Centimetres;Centimeters;cm$Metres;Meters;m$Kilometres;Kilometers;km$Feet;Feet;ft$Yards;Yards;yds$Miles;Miles;mi</value>
+	</BufferUnitOptions>
+
+	<!-- The default option (position in the list) to use for the buffer units -->
+	<DefaultBufferUnit>
+		<value>3</value>
+	</DefaultBufferUnit>
+
+	<!-- Whether the search table should be updated. -->
+	<UpdateTable>
+		<value>Yes</value>
+	</UpdateTable>
+
+	<!-- Are we keeping the buffer GIS file? Yes/No -->
+	<KeepBufferArea>
+		<value>Yes</value>
+	</KeepBufferArea>
+
+	<!-- The output name for the buffer GIS file. The size of the buffer will be added automatically. -->
+	<BufferSaveName>
+		<value>Buffer_%subref%</value>
+	</BufferSaveName>
+
+	<!-- The name of the buffer symbology layer file -->
+	<BufferLayerName>
+		<value>BufferOutline.lyr</value>
+	</BufferLayerName>
+
+	<!-- The base name of the layer to use as the search area -->
+	<SearchLayer>
+		<value>SearchSites</value>
+	</SearchLayer>
+
+	<!-- The extension names for point, polygon and line search area layers. 
+	Leave blank to just use the SearchLayer name -->
+	<SearchLayerExtensions>
+		<value>_point;_poly;_line</value>
+	</SearchLayerExtensions>
+
+	<!-- The column name in the search area layer used to store the search reference -->
+	<SearchColumn>
+		<value>ref</value>
+	</SearchColumn>
+
+	<!-- Are we keeping the search feature as a layer? Yes/No -->
+	<KeepSearchFeature>
+		<value>Yes</value>
+	</KeepSearchFeature>
+
+	<!-- The name of the search feature output layer -->
+	<SearchFeatureName>
+		<value>%sitename%</value>
+	</SearchFeatureName>
+
+	<!-- The base name of the search layer symbology file (without the .lyr). 
+	Note the relevant extension (from SearchLayerExtensions) will be added -->
+	<SearchSymbologyBase>
+		<value>FeatureSymbology</value>
+	</SearchSymbologyBase>
+
+	<!-- The buffer aggregate column values. Delimited with semicolons -->
+	<AggregateColumns>
+		<value>ref;org;sitename</value>
+	</AggregateColumns>
+
+	<!-- The options for showing the selected tables -->
+	<AddSelectedLayersOptions>
+		<value>No;Yes - Without labels;Yes - With labels</value><!-- do not change -->
+	</AddSelectedLayersOptions>
+
+	<!-- The default option (position in the list) for whether selected map layers should be added to the map window -->
+	<DefaultAddSelectedLayers>
+		<value>3</value>
+	</DefaultAddSelectedLayers>
+
+	<!-- The name of the group layer that will be created in the ArcGIS table of contents -->
+	<GroupLayerName>
+		<value>%subref%_%sitename%_%radius%</value>
+	</GroupLayerName>
+
+	<!-- The options for overwritting the map labels -->
+	<OverwriteLabelOptions>
+		<value>No;Yes - Reset Each Layer;Yes - Reset Each Group;Yes - Do Not Reset</value><!-- do not change -->
+	</OverwriteLabelOptions>
+
+	<!-- Whether any map label columns should be overwritten (default setting) -->
+	<DefaultOverwriteLabels>
+		<value>2</value>
+	</DefaultOverwriteLabels>
+
+	<AreaMeasurementUnit><!-- The units any area measurements will be done in. Choose from Ha, Km2, m2. Default is Ha. -->
+		<value>ha</value>
+	</AreaMeasurementUnit>
+
+	<!-- Options for filling out the Combined Sites table dropdown (do not change) -->
+	<CombinedSitesTableOptions>
+		<value>None;Append to existing table;Overwrite existing table</value>
+	</CombinedSitesTableOptions>
+
+	<!-- Whether a combined sites table should be created by default -->
+	<DefaultCombinedSitesTable>
+		<value>1</value> <!-- 1, 2, 3 -->
+	</DefaultCombinedSitesTable>
+
+	<!-- The details of the combined sites table -->
+	<CombinedSitesTable>
+		<Name>
+			<value>Sites_%subref%</value> <!-- do not include .txt or .csv -->
+		</Name>
+		<Columns>
+			<value>Site_Type,Site_Name,Site_Area,Map_Label</value>
+		</Columns>
+		<Format>
+			<value>csv</value>
+		</Format>
+	</CombinedSitesTable>
+
+
+	<!-- map layer attributes -->
+	<!-- The names, local names, suffixes, SQL clauses and formats of the map tables -->
+	<MapLayers>
+		<Sites_-_Ramsar>
+			<LayerName> <!-- The name of the layer in the display -->
+				<value>Ramsar</value>
+			</LayerName>
+			<GISOutputName> <!-- The name used for any GIS data extracts -->
+				<value>Ramsar</value>
+			</GISOutputName>
+			<TableOutputName> <!-- The name used for any tabular extracts -->
+				<value>ramsars</value>
+			</TableOutputName>
+			<Columns> <!-- The columns to be used in the tabular extracts -->
+				<value>SUM_AREA</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns> <!-- The columns that should be used for grouping results -->
+				<value></value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns> <!-- If grouping is used, any statistics that should be generated. -->
+				<value>AREA;SUM</value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns. Any columns by which the results should be ordered -->
+				<value></value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</OrderColumns>
+			<Criteria> <!-- Any criteria that should be applied to this layer before extracts are saved -->
+				<value></value> <!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance> <!-- Yes / No attribute to define whether a Distance field should be included -->
+				<value>No</value>
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn> <!-- The column in this layer that contains the unique identifier -->
+				<value></value>
+			</KeyColumn>
+			<Format> <!-- The format that any tabular data will be saved as -->
+				<value>csv</value>
+			</Format>
+			<KeepLayer> <!-- A Yes/No attribute to define whether a GIS extract should be saved -->
+				<value>No</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>Yes</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName> <!-- The name of a layer file (*.lyr) that should be used to symbolise the extract -->
+				<value></value> <!-- Overrides any label settings defined below -->
+			</LayerFileName>
+			<OverwriteLabels> <!-- A Yes/No attribute to define whether labels may be overwritten -->
+				<value>No</value>
+			</OverwriteLabels>
+			<LabelColumn> <!-- The name of the label column in this layer (if any) -->
+				<value></value>
+			</LabelColumn>
+			<LabelClause> <!-- The definition of the labels for this layer (if any) -->
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns> <!-- The columns to be used in the combined sites table. -->
+				<!-- Leave blank if the layer should not be included in the combined sites table -->
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"Sites", "Ramsar", SUM_AREA</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns> <!-- Columns that should be used to group data before inclusion in the combined sites table, if any -->
+				<value></value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns> <!-- Statistics columns and their required stats to be used for the combined sites table if CombinedSitesGroupColumns has been specified -->
+				<value>AREA;SUM</value> <!-- Must include the remaining columns -->
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns> <!-- Columns by which results should be ordered in the Combined Sites table -->
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Sites_-_Ramsar>
+		<Points_-_ExampleSpeciesPoints>
+			<LayerName> <!-- The name of the layer in the display -->
+				<value>ExampleSpeciesPoints</value>
+			</LayerName>
+			<GISOutputName> 
+				<value>%subref%_ExampleSpecies</value><!-- The name used for any GIS data extracts -->
+			</GISOutputName>
+			<TableOutputName> 
+				<value>%shortref%_spptable</value><!-- The name used for any tabular extracts -->
+			</TableOutputName>
+			<Columns> <!-- The columns to be used in the tabular extracts -->
+				<value>Species, Year, COUNT_Spec, MIN_DISTAN</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns> <!-- The columns that should be used for grouping results -->
+				<value>Species, Year</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns> <!-- If grouping is used, any statistics that should be generated. -->
+				<value>Species;COUNT$Distance;MIN</value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns. Any columns by which the results should be ordered -->
+				<value></value>
+			</OrderColumns>
+			<Criteria> <!-- Any criteria that should be applied to this layer before extracts are saved -->
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>No</value>
+			</IncludeArea>
+			<IncludeDistance> <!-- Yes / No attribute to define whether a Distance field should be included -->
+				<value>Yes</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>Yes</value>
+			</IncludeRadius>
+			<KeyColumn> <!-- The column in this layer that contains the unique identifier -->
+				<value>FID</value>
+			</KeyColumn>
+			<Format> <!-- The format that any tabular data will be saved as -->
+				<value>Csv</value>
+			</Format>
+			<KeepLayer> <!-- A Yes/No attribute to define whether a GIS extract should be saved -->
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>Yes</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName> <!-- The name of a layer file (*.lyr) that should be used to symbolise the extract -->
+				<value></value><!-- Overrides any label settings defined below -->
+			</LayerFileName>
+			<OverwriteLabels> <!-- A Yes/No attribute to define whether labels may be overwritten -->
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn> <!-- The name of the label column in this layer (if any) -->
+				<value></value>
+			</LabelColumn>
+			<LabelClause> <!-- The definition of the labels for this layer (if any) -->
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns> <!-- The columns to be used in the combined sites table. -->
+				<!-- Leave blank if the layer should not be included in the combined sites table -->
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes -->
+				<!-- "SSSI", SSSI_NAME, SSSI_AREA, Map_Label -->
+				<value>"Species","N/A",Distance,Radius</value><!-- Just a proof of concept setting -->
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns> <!-- Columns that should be used to group data before inclusion in the combined sites table, if any -->
+				<value></value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns> <!-- Statistics columns and their required stats to be used for the combined sites table if CombinedSitesGroupColumns has been specified -->
+				<value></value> <!-- Must include the remaining columns -->
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns> <!-- Columns by which results should be ordered in the Combined Sites table -->
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Points_-_ExampleSpeciesPoints> 
+		<Polys_-_SACs>
+			<LayerName>
+				<value>Sussex_SACs</value>
+			</LayerName>
+			<GISOutputName>
+				<value>%shortref%_SACs</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>%subref%_sacs</value>
+			</TableOutputName>
+			<Columns>
+				<value>SAC_NAME, SAC_CODE</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>SAC_NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>SAC_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName>
+				<value>TestLayer2.lyr</value><!-- Overrides any label settings defined below -->
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>Map_Label</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value>Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:OnePerShape</value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"SAC", SAC_NAME, SUM_SAC_AR, Map_Label</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>SAC_NAME</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value>SAC_AREA;SUM</value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys_-_SACs>
+		<Polys_-_SPAs>
+			<LayerName>
+				<value>Sussex_SPAs</value>
+			</LayerName>
+			<GISOutputName>
+				<value>SPAs</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_spas</value>
+			</TableOutputName>
+			<Columns>
+				<value>SPA_NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>SPA_NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>SPA_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName> <!-- Overrides any label settings defined below -->
+				<value>SPALayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>Map_Label</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"SPA", SPA_NAME, FIRST_SPA_, Map_Label</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>SPA_NAME, Map_Label</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value>SPA_AREA;FIRST</value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys_-_SPAs>
+		<Polys_-_Ramsars>
+			<LayerName>
+				<value>Sussex_Ramsars</value>
+			</LayerName>
+			<GISOutputName>
+				<value>Ramsars</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_ramsars</value>
+			</TableOutputName>
+			<Columns>
+				<value>NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>TestLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>Map_Label</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"Ramsar", NAME, FIRST_AREA, Map_Label</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>NAME, Map_Label</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value>AREA;FIRST</value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys_-_Ramsars>
+		<Polys1_-_SSSIs>
+			<LayerName>
+				<value>Sussex SSSIs</value>
+			</LayerName>
+			<GISOutputName>
+				<value>%subref%_SSSIs</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>%shortref%_sssis</value>
+			</TableOutputName>
+			<Columns>
+				<value>SSSI_NAME, SUM_ArEA, FIRST_STAT, MIN_DISTAN</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>SSSI_NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value>AREA;SUM$STATUS;FIRST</value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. Note the Area field is recalculated. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>Yes</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>SSSI_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Csv</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>Yes</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>TestLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>Map_Label</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<!-- "SSSI", SSSI_NAME, SSSI_AREA, Map_Label -->
+				<value>"SSSI", SSSI_NAME, SUM_AREA, Map_Label</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>SSSI_NAME, Map_Label</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value>SSSI_AREA;FIRST$AREA;SUM</value> <!-- Must include the remaining columns -->
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys1_-_SSSIs>
+		<Polys1_-_NNRs>
+			<LayerName>
+				<value>Sussex_NNRs</value>
+			</LayerName>
+			<GISOutputName>
+				<value>NNRs</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>%shortref%_nnrs</value>
+			</TableOutputName>
+			<Columns>
+				<value>NNR_NAME, theBla</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>NNR_NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>NNR_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>TestLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>No</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>NNR_Name</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"NNR", NNR_NAME, NNR_AREA, NNR_NAME</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>NNR_NAME, NNR_AREA</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value></value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys1_-_NNRs>
+		<Polys1_-_LNRs>
+			<LayerName>
+				<value>Sussex_LNR</value>
+			</LayerName>
+			<GISOutputName>
+				<value>LNRs</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_lnrs</value>
+			</TableOutputName>
+			<Columns>
+				<value>LNR_Name,Area</value> <!-- Use commas to separate. NOTE case sensitive! Area and Distance may be included
+												even if the fields don't exist yet if IncludeArea / IncludeDistance are set to Yes -->
+			</Columns>
+			<GroupColumns>
+				<value></value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>Yes</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>LNR_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>Yes</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>LNRLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>No</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>LNR_NAME</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value>Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:OnePerName</value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"LNR", LNR_NAME, SUM_AREA, LNR_NAME</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>LNR_NAME</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value>area;SUM</value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys1_-_LNRs>
+		<Polys2_-_LWS>
+			<LayerName>
+				<value>LWS_Sussex</value>
+			</LayerName>
+			<GISOutputName>
+				<value>LWS</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>%shortname%_lws</value>
+			</TableOutputName>
+			<Columns>
+				<value>siteid</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>siteid</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value>Distance</value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>Yes</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>siteid</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>TestLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>Map_Label</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value>Font:Arial$Size:10$Red:255$Green:0$Blue:0$Type:OnePerShape</value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"LWS", siteid, area_ha, Map_Label</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>siteid, area_ha, Map_Label</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value></value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys2_-_LWS>
+		<Polys2_-_AONBs>
+			<LayerName>
+				<value>Sussex_AONBs</value>
+			</LayerName>
+			<GISOutputName>
+				<value>AONBs</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_aonbs</value>
+			</TableOutputName>
+			<Columns>
+				<value>NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>Yes</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>TestLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>Yes</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value>Map_Label</value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value>"AONBs", NAME, STAT_AREA, Map_Label</value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value>NAME, STAT_AREA, Map_Label</value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value></value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys2_-_AONBs>
+		<Polys_-_CountryParks> <!-- This is an experiment with a layer that will not be added or have its labels ovewritten -->
+			<LayerName>
+				<value>Sussex_Country_Parks</value>
+			</LayerName>
+			<GISOutputName>
+				<value>CountryPks</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_cps</value>
+			</TableOutputName>
+			<Columns>
+				<value>NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</Columns>
+			<GroupColumns>
+				<value>NAME</value> <!-- Use commas to separate. NOTE case sensitive! -->
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- Overrides GroupColumns -->
+				<value></value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Txt</value>
+			</Format>
+			<KeepLayer>
+				<value>No</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value>TestLayer.lyr</value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>No</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value></value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value></value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value></value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value></value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</Polys_-_CountryParks>
+		<SppProt>
+			<LayerName>
+				<value>Protected Species</value>
+			</LayerName>
+			<GISOutputName>
+				<value>SppProt</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_sppprot</value>
+			</TableOutputName>
+			<Columns> <!-- Use commas to separate. NOTE case sensitive! -->
+				<value>LATIN_NAME, SPP_NAME, STATUS_PLANNING, STATUS_OTHER, QUALIFIER, Distance(CentroidX(Select_Table.obj), CentroidY(Select_Table.obj), CentroidX(Buffer_Area.obj), CentroidY(Buffer_Area.obj), "m")"DISTANCE", CentroidX(Select_Table.obj)"SppX", CentroidY(Select_Table.obj)"SppY", CentroidX(Buffer_Area.obj)"SearchX", CentroidY(Buffer_Area.obj)"SearchY", DATE_START, DATE_END, DATE_RANGE, BREEDING_STATUS</value>
+			</Columns>
+			<GroupColumns> <!-- Use commas to separate. NOTE case sensitive! -->
+				<value></value>
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- optional if GroupColumns is filled in -->
+				<value>SORTORDER, LATIN_NAME, DISTANCE</value>
+			</OrderColumns>
+			<Criteria>
+				<value>CONFIDENTIAL = ""</value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>Yes</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>LATIN_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Dbf</value>
+			</Format>
+			<KeepLayer>
+				<value>No</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>No</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value></value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>No</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value></value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value></value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value></value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value></value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</SppProt>
+		<SppINNS>
+			<LayerName>
+				<value>All Species</value>
+			</LayerName>
+			<GISOutputName>
+				<value>SppINNS</value>
+			</GISOutputName>
+			<TableOutputName>
+				<value>_sppinns</value>
+			</TableOutputName>
+			<Columns> <!-- Use commas to separate. NOTE case sensitive! -->
+				<value>LATIN_NAME, SPP_NAME, STATUS_LISI, QUALIFIER, Distance(CentroidX(Select_Table.obj), CentroidY(Select_Table.obj), CentroidX(Buffer_Area.obj), CentroidY(Buffer_Area.obj), "m")"DISTANCE", DATE_START, DATE_END, DATE_RANGE, GRIDREF</value>
+			</Columns>
+			<GroupColumns> <!-- Use commas to separate. NOTE case sensitive! -->
+				<value></value>
+			</GroupColumns>
+			<StatisticsColumns>
+				<value></value><!-- example: area_ha;SUM$Status;FIRST -->
+			</StatisticsColumns>
+			<OrderColumns> <!-- optional if GroupColumns is filled in -->
+				<value>SORTORDER, LATIN_NAME</value>
+			</OrderColumns>
+			<Criteria>
+				<value></value><!-- example: Name = 'myName' OR area_ha > 5 -->
+			</Criteria>
+			<IncludeArea> <!-- Yes / No attribute to define whether an Area field should be included. Ignored for points. -->
+				<value>Yes</value>
+			</IncludeArea>
+			<IncludeDistance>
+				<value>No</value><!-- Yes / No -->
+			</IncludeDistance>
+			<IncludeRadius> <!-- Yes / No attribute to define whether a Radius field should be included -->
+				<value>No</value>
+			</IncludeRadius>
+			<KeyColumn>
+				<value>LATIN_NAME</value>
+			</KeyColumn>
+			<Format>
+				<value>Dbf</value>
+			</Format>
+			<KeepLayer>
+				<value>No</value>
+			</KeepLayer>
+			<OutputType><!-- Whether the layer that is kept should be copied, clipped, overlaid with or intersected with the search area -->
+				<value>Clip</value> <!-- Must be "Copy" (default), "Clip", "Overlay" or "Intersect" -->
+			</OutputType>
+			<LoadWarning>
+				<value>Yes</value>
+			</LoadWarning>
+			<PreselectLayer>
+				<value>No</value>
+			</PreselectLayer>
+			<DisplayLabels> <!-- switch to decide whether the defined labels should be switched on when displayed. -->
+				<value>No</value>
+			</DisplayLabels>
+			<LayerFileName><!-- Overrides any label settings defined below -->
+				<value></value>
+			</LayerFileName>
+			<OverwriteLabels>
+				<value>No</value>
+			</OverwriteLabels>
+			<LabelColumn>
+				<value></value>
+			</LabelColumn>
+			<LabelClause>
+				<!-- format: Font:Arial$Size:10$Red:0$Green:0$Blue:0$Type:NoRestrictions -->
+				<!-- Types: NoRestrictions / OnePerName / OnePerPart / OnePerShape -->
+				<!-- If no clause is filled in the above settings are applied -->
+				<value></value>
+			</LabelClause>
+			<CombinedSitesColumns>
+				<!-- Distance may be included as a keyword if IncludeDistance is set to Yes-->
+				<value></value>
+			</CombinedSitesColumns>
+			<CombinedSitesGroupColumns>
+				<value></value>
+			</CombinedSitesGroupColumns>
+			<CombinedSitesStatisticsColumns>
+				<value></value>
+			</CombinedSitesStatisticsColumns>
+			<CombinedSitesOrderByColumns>
+				<value></value> <!-- Overrides CombinedSitesGroupColumns -->
+			</CombinedSitesOrderByColumns>
+		</SppINNS>
+	</MapLayers>
+</DataSearches>
 </configuration>

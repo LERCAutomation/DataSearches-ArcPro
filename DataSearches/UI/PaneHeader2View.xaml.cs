@@ -1,7 +1,7 @@
 ﻿using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace DataSelector.UI
+namespace DataSearches.UI
 {
     /// <summary>
     /// Interaction logic for PaneHeader2View.xaml
@@ -11,12 +11,6 @@ namespace DataSelector.UI
         public PaneHeader2View()
         {
             InitializeComponent();
-        }
-
-        private void TextColumns_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            if (this.ButtonLoadColumns.Command.CanExecute(null))
-                this.ButtonLoadColumns.Command.Execute(null);
         }
     }
 }
