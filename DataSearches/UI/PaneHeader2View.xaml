@@ -4,6 +4,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="clr-namespace:DataSearches.UI"
+             xmlns:controls="clr-namespace:ArcGIS.Desktop.Framework.Controls;assembly=ArcGIS.Desktop.Framework"
              d:DataContext="{d:DesignInstance Type=local:PaneHeader2ViewModel}"
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="300">
@@ -15,7 +16,8 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition MinHeight="91" Height="*" />
+                <RowDefinition MinHeight="200" Height="*" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -125,7 +127,7 @@
                 <ListBox Name="ListBoxLayers"
                          Grid.Row="1"
                          Grid.Column="1"
-                         Margin="0,0,4,0"
+                         Margin="0,0,0,0"
                          SelectionMode="Extended"
                          IsEnabled="{Binding Path=LayersListEnabled}"
                          ItemsSource="{Binding Path=LayersList,
@@ -142,8 +144,8 @@
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="50" />
-                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -190,7 +192,7 @@
                 <ComboBox Name="ComboBoxBufferUnits"
                         Grid.Row="1"
                         Grid.Column="4"
-                        Margin="0,0,4,0"
+                        Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select a buffer unit"
@@ -218,7 +220,8 @@
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center"
+                       Visibility="{Binding Path=AddToMapListVisibility}" />
                 <Label Name="LabelAddToMap"
                     Content="Add Selected Layers to Map:"
                     Grid.Row="0"
@@ -226,11 +229,11 @@
                     Margin="0,0,0,2"
                     Padding="0"
                     VerticalAlignment="Center"
-                        Visibility="{Binding Path=AddToMapListVisibility}" />
+                    Visibility="{Binding Path=AddToMapListVisibility}" />
                 <ComboBox Name="ComboBoxAddToMap"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Margin="0,0,4,0"
+                        Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select a buffer unit"
@@ -260,18 +263,19 @@
                        Padding="0"
                        Foreground="Red"
                        VerticalAlignment="Center"
-                        Visibility="{Binding Path=OverwriteLabelsListVisibility}" />
+                       Visibility="{Binding Path=OverwriteLabelsListVisibility}" />
                 <Label Name="LabelOverwriteLabels"
                     Content="Overwrite Map Labels:"
                     Grid.Row="0"
                     Grid.Column="1"
                     Margin="0,0,0,2"
                     Padding="0"
-                    VerticalAlignment="Center" />
+                    VerticalAlignment="Center"
+                    Visibility="{Binding Path=OverwriteLabelsListVisibility}" />
                 <ComboBox Name="ComboBoxOverwriteLabels"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Margin="0,0,4,0"
+                        Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select whether to overwrite labels or not"
@@ -301,18 +305,19 @@
                        Padding="0"
                        Foreground="Red"
                        VerticalAlignment="Center"
-                        Visibility="{Binding Path=CombinedSitesListVisibility}" />
+                       Visibility="{Binding Path=CombinedSitesListVisibility}" />
                 <Label Name="LabelCombinedSites"
                     Content="Create Combined Sites Table:"
                     Grid.Row="0"
                     Grid.Column="1"
                     Margin="0,0,0,2"
                     Padding="0"
-                    VerticalAlignment="Center" />
+                    VerticalAlignment="Center"
+                    Visibility="{Binding Path=CombinedSitesListVisibility}" />
                 <ComboBox Name="ComboBoxCombinedSites"
                         Grid.Row="1"
                         Grid.Column="1"
-                        Margin="0,0,4,0"
+                        Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select a buffer unit"
@@ -370,12 +375,12 @@
                        Content="Open log file when run?"
                        Grid.Row="0"
                        Grid.Column="6"
-                       Margin="2,2,0,0"
+                       Margin="2,2,2,0"
                        Padding="0"
                        VerticalAlignment="Center" />
             </Grid>
 
-            <Grid Name="GridButtons" Grid.Row="9" Margin="0,18,0,0">
+            <Grid Name="GridButtons" Grid.Row="9" Margin="0,12,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="24" />
                 </Grid.RowDefinitions>
@@ -395,8 +400,8 @@
                         IsCancel="False"
                         IsDefault="False"
                         IsEnabled="{Binding Path=ResetButtonEnabled}"
-                        Style="{DynamicResource Esri_SimpleButton}"
                         TabIndex="1"
+                        Style="{DynamicResource Esri_SimpleButton}"
                         Content="Reset"
                         ToolTip="Reset the form" />
                 <Button Name="ButtonRun"
@@ -423,13 +428,27 @@
                 </Button>
             </Grid>
 
-            <Label Name="LabelProcessing"
-                   Grid.Row="8"
-                   Margin="0,16,0,0"
-                   Height="22"
-                   Padding="0"
-                   BorderThickness="0"
-                   Content="{Binding Path=ProcessingLabel}" />
+            <Grid Name="GridProcessing" Grid.Row="10" Margin="0,16,0,0" Height="Auto">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="22" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <controls:CircularAnimationControl
+                    Grid.Column="0"
+                    Foreground="{DynamicResource Esri_BorderSelectedBrush }"
+                    SpeedRatio="0.5"
+                    Width="22"
+                    Height="22"
+                    Visibility="{Binding ProcessingAnimation}" />
+                <Label Name="LabelProcessing"
+                       Grid.Column="2"
+                       VerticalAlignment="Center"
+                       Padding="0"
+                       BorderThickness="0"
+                       Content="{Binding Path=ProcessingLabel}" />
+            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

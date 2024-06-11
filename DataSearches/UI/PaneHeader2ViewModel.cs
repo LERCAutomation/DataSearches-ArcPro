@@ -298,19 +298,37 @@ namespace DataSearches.UI
             //SiteNameText = null;  ???
             //SelectedLayers = null;
             BufferSizeText = _toolConfig.DefaultBufferSize.ToString();
+
+            BufferUnitsList = _toolConfig.BufferUnitOptionsDisplay;
             if (_toolConfig.DefaultBufferUnit > 0)
                 SelectedBufferUnits = _toolConfig.BufferUnitOptionsDisplay[_toolConfig.DefaultBufferUnit - 1];
+
+            AddToMapList = _toolConfig.AddSelectedLayersOptions;
             if (_toolConfig.DefaultAddSelectedLayers > 0)
                 SelectedAddToMap = _toolConfig.AddSelectedLayersOptions[_toolConfig.DefaultAddSelectedLayers - 1];
+
+            OverwriteLabelsList = _toolConfig.OverwriteLabelOptions;
             if (_toolConfig.DefaultOverwriteLabels > 0)
                 SelectedOverwriteLabels = _toolConfig.OverwriteLabelOptions[_toolConfig.DefaultOverwriteLabels - 1];
+
+            CombinedSitesList = _toolConfig.CombinedSitesTableOptions;
             if (_toolConfig.DefaultCombinedSitesTable > 0)
                 SelectedCombinedSites = _toolConfig.CombinedSitesTableOptions[_toolConfig.DefaultCombinedSitesTable - 1];
+
             ClearLogFile = _toolConfig.DefaultClearLogFile;
             OpenLogFile = _toolConfig.DefaultOpenLogFile;
 
             // Update the fields and buttons in the form.
             //PreSelectLayers();    ???
+            OnPropertyChanged(nameof(BufferSizeText));
+            OnPropertyChanged(nameof(BufferUnitsList));
+            OnPropertyChanged(nameof(SelectedBufferUnits));
+            OnPropertyChanged(nameof(AddToMapList));
+            OnPropertyChanged(nameof(SelectedAddToMap));
+            OnPropertyChanged(nameof(OverwriteLabelsList));
+            OnPropertyChanged(nameof(SelectedOverwriteLabels));
+            OnPropertyChanged(nameof(CombinedSitesList));
+            OnPropertyChanged(nameof(SelectedCombinedSites));
             OnPropertyChanged(nameof(RunButtonEnabled));
         }
 
@@ -552,7 +570,7 @@ namespace DataSearches.UI
                 _bufferUnitsList = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(BufferUnitsListEnabled));
             }
         }
 
@@ -572,7 +590,7 @@ namespace DataSearches.UI
                 _selectedBufferUnits = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                //OnPropertyChanged(nameof(BufferUnitsListEnabled));
             }
         }
 
@@ -593,7 +611,7 @@ namespace DataSearches.UI
                 _addToMapList = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(AddToMapListEnabled));
             }
         }
 
@@ -633,7 +651,7 @@ namespace DataSearches.UI
                 _overwriteLabelsList = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(OverwriteLabelsListEnabled));
             }
         }
 
@@ -673,7 +691,7 @@ namespace DataSearches.UI
                 _combinedSitesList = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(CombinedSitesListEnabled));
             }
         }
 
@@ -728,6 +746,17 @@ namespace DataSearches.UI
             set
             {
                 _openLogFile = value;
+            }
+        }
+
+        public Visibility ProcessingAnimation
+        {
+            get
+            {
+                if (_processingLabel != null)
+                    return Visibility.Visible;
+                else
+                    return Visibility.Hidden;
             }
         }
 
