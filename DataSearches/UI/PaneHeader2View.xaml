@@ -16,7 +16,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition MinHeight="200" Height="*" />
+                <RowDefinition MinHeight="297" Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -27,34 +27,28 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,8" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <Label Name="AsterixSearchRef"
                        Content="*"
-                       Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelSearchRef"
                        Content="Search Reference:"
-                       Grid.Row="0"
                        Grid.Column="1"
-                       Margin="0,0,0,2"
+                       Margin="0,0,4,2"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextSearchRef"
-                         Grid.Row="1"
-                         Grid.Column="1"
+                         Grid.Column="2"
                          Margin="0,0,0,0"
                          IsEnabled="True"
                          IsReadOnly="False"
@@ -63,34 +57,28 @@
                          ToolTip="Enter a search reference" />
             </Grid>
 
-            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,8" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
 
                 <Label Name="AsterixSiteName"
                        Content="*"
-                       Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelSiteName"
                        Content="Site Name:"
-                       Grid.Row="0"
                        Grid.Column="1"
-                       Margin="0,0,0,2"
+                       Margin="0,0,4,2"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextSiteName"
-                         Grid.Row="1"
-                         Grid.Column="1"
+                         Grid.Column="2"
                          Margin="0,0,0,0"
                          IsEnabled="{Binding Path=SiteNameTextEnabled}"
                          IsReadOnly="False"
@@ -99,7 +87,7 @@
                          ToolTip="{Binding SiteNameTooltip}" />
             </Grid>
 
-            <Grid Name="GridLayers" Grid.Row="2" Margin="0,4,0,4">
+            <Grid Name="GridLayers" Grid.Row="2" Margin="0,4,0,8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -116,7 +104,7 @@
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelLayers"
                        Content="Layers to Search:"
                        Grid.Row="0"
@@ -137,37 +125,32 @@
                          ToolTip="Select layers to search" />
             </Grid>
 
-            <Grid Name="GridBuffer" Grid.Row="3" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <Grid Name="GridBuffer" Grid.Row="3" Margin="0,4,0,8" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="60" />
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <Label Name="AsterixBufferSize"
                        Content="*"
-                       Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelBufferSize"
                        Content="Buffer Size:"
-                       Grid.Row="0"
                        Grid.Column="1"
-                       Margin="0,0,0,2"
+                       Margin="0,0,4,2"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextBufferSize"
-                         Grid.Row="1"
-                         Grid.Column="1"
+                         Grid.Column="2"
                          Margin="0,0,0,0"
                          IsEnabled="True"
                          IsReadOnly="False"
@@ -176,22 +159,19 @@
                          ToolTip="Select a buffer size" />
                 <Label Name="AsterixBufferUnits"
                        Content="*"
-                       Grid.Row="0"
-                       Grid.Column="3"
+                       Grid.Column="4"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelBufferUnits"
-                    Content="Buffer Units:"
-                    Grid.Row="0"
-                    Grid.Column="4"
-                    Margin="0,0,0,2"
+                    Content="Units:"
+                    Grid.Column="5"
+                    Margin="0,0,4,2"
                     Padding="0"
                     VerticalAlignment="Center" />
                 <ComboBox Name="ComboBoxBufferUnits"
-                        Grid.Row="1"
-                        Grid.Column="4"
+                        Grid.Column="6"
                         Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
@@ -203,133 +183,106 @@
                         SelectedValue="{Binding Path=SelectedBufferUnits}" />
             </Grid>
 
-            <Grid Name="GridAddToMap" Grid.Row="5" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <Grid Name="GridAddToMap" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
 
                 <Label Name="AsterixAddToMap"
                        Content="*"
-                       Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center"
-                       Visibility="{Binding Path=AddToMapListVisibility}" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelAddToMap"
-                    Content="Add Selected Layers to Map:"
-                    Grid.Row="0"
+                    Content="Add Layers to Map:"
                     Grid.Column="1"
-                    Margin="0,0,0,2"
+                    Margin="0,0,4,2"
                     Padding="0"
-                    VerticalAlignment="Center"
-                    Visibility="{Binding Path=AddToMapListVisibility}" />
+                    VerticalAlignment="Center" />
                 <ComboBox Name="ComboBoxAddToMap"
-                        Grid.Row="1"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select a buffer unit"
                         IsEnabled="{Binding Path=AddToMapListEnabled}"
-                        Visibility="{Binding Path=AddToMapListVisibility}"
                         ItemsSource="{Binding Path=AddToMapList,
                                             Mode=OneWay,
                                             UpdateSourceTrigger=PropertyChanged}"
                         SelectedValue="{Binding Path=SelectedAddToMap}" />
-        </Grid>
+            </Grid>
 
-            <Grid Name="GridOverwriteLabels" Grid.Row="6" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <Grid Name="GridOverwriteLabels" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <Label Name="AsterixOverwriteLabels"
                        Content="*"
-                       Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center"
-                       Visibility="{Binding Path=OverwriteLabelsListVisibility}" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelOverwriteLabels"
-                    Content="Overwrite Map Labels:"
-                    Grid.Row="0"
+                    Content="Overwrite Labels:"
                     Grid.Column="1"
-                    Margin="0,0,0,2"
+                    Margin="0,0,4,2"
                     Padding="0"
-                    VerticalAlignment="Center"
-                    Visibility="{Binding Path=OverwriteLabelsListVisibility}" />
+                    VerticalAlignment="Center" />
                 <ComboBox Name="ComboBoxOverwriteLabels"
-                        Grid.Row="1"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select whether to overwrite labels or not"
                         IsEnabled="{Binding Path=OverwriteLabelsListEnabled}"
-                        Visibility="{Binding Path=OverwriteLabelsListVisibility}"
                         ItemsSource="{Binding Path=OverwriteLabelsList,
                                             Mode=OneWay,
                                             UpdateSourceTrigger=PropertyChanged}"
                         SelectedValue="{Binding Path=SelectedOverwriteLabels}" />
             </Grid>
 
-            <Grid Name="GridCombinedSites" Grid.Row="7" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+            <Grid Name="GridCombinedSites" Grid.Row="7" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <Label Name="AsterixCombinedSites"
                        Content="*"
-                       Grid.Row="0"
                        Grid.Column="0"
                        Margin="0,0,0,0"
                        Padding="0"
                        Foreground="Red"
-                       VerticalAlignment="Center"
-                       Visibility="{Binding Path=CombinedSitesListVisibility}" />
+                       VerticalAlignment="Top" />
                 <Label Name="LabelCombinedSites"
-                    Content="Create Combined Sites Table:"
-                    Grid.Row="0"
+                    Content="Combined Sites Table:"
                     Grid.Column="1"
-                    Margin="0,0,0,2"
+                    Margin="0,0,4,2"
                     Padding="0"
-                    VerticalAlignment="Center"
-                    Visibility="{Binding Path=CombinedSitesListVisibility}" />
+                    VerticalAlignment="Center" />
                 <ComboBox Name="ComboBoxCombinedSites"
-                        Grid.Row="1"
-                        Grid.Column="1"
+                        Grid.Column="2"
                         Margin="0,0,0,0"
                         IsEditable="False"
                         IsReadOnly="True"
                         ToolTip="Select a buffer unit"
                         IsEnabled="{Binding Path=CombinedSitesListEnabled}"
-                        Visibility="{Binding Path=CombinedSitesListVisibility}"
                         ItemsSource="{Binding Path=CombinedSitesList,
                                             Mode=OneWay,
                                             UpdateSourceTrigger=PropertyChanged}"
                         SelectedValue="{Binding Path=SelectedCombinedSites}" />
             </Grid>
 
-            <Grid Name="GridOptions" Grid.Row="8" Margin="0,4,0,0">
+            <Grid Name="GridOptions" Grid.Row="8" Margin="0,4,0,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -397,6 +350,7 @@
                         MinWidth="0"
                         MinHeight="0"
                         Command="{Binding Path=ResetCommand}"
+                        CommandParameter="{Binding ElementName=ListBoxLayers, Path=SelectedItems}"
                         IsCancel="False"
                         IsDefault="False"
                         IsEnabled="{Binding Path=ResetButtonEnabled}"

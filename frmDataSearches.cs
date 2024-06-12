@@ -39,60 +39,7 @@ namespace DataSearches
 
 
 
-            // Delete any temporary shapefile
-            // fix any illegal characters in the user name string
-            strUserID = myStringFuncs.StripIllegals(Environment.UserName, "_", false);
-            string strSaveRootDir = myConfig.GetSaveRootDir();
-            //string strTempFolder = strSaveRootDir + @"\Temp";
-            //if (!Directory.Exists(strTempFolder)) // Create new, hidden directory.
-            //{
-            //    DirectoryInfo di = Directory.CreateDirectory(strTempFolder);
-            //    di.Attributes = FileAttributes.Directory | FileAttributes.Hidden;
-            //}
-            //strTempFile = strTempFolder + @"\TempShapes_" + strUserID + ".shp";
-            //if (myFileFuncs.FileExists(strTempFile))
-            //{
-            //    myArcMapFuncs.DeleteFeatureclass(strTempFile); // This may not work but exception is handled.
-            //}
 
-            // Fix any illegal characters in the user name string
-            strUserID = myStringFuncs.StripIllegals(Environment.UserName, "_", false);
-
-            // We've found the XML and loaded it successfully. Fill in the form.
-            List<string> AllLayers = myConfig.GetMapLayers(); // All possible layers by name
-            List<string> AllDisplayLayers = myConfig.GetMapNames(); // All possible layers by display name
-            List<bool> blLoadWarnings = myConfig.GetMapLoadWarnings(); // A list telling us whether to warn users if layer not present
-            List<bool> blPreselectLayers = myConfig.GetMapPreselectLayers(); // A list telling us which layers to preselect in the form
-            List<string> OpenLayers = new List<string>(); // The open layers by name
-            List<bool> PreselectLayers = new List<bool>(); // The preselect options of the open layers
-            List<string> ClosedLayers = new List<string>(); // The closed layers by name
-
-            int i = 0;
-            foreach (string aLayer in AllDisplayLayers)
-            {
-                if (myArcMapFuncs.LayerLoaded(aLayer))
-                {
-                    OpenLayers.Add(AllLayers[i]);
-                    PreselectLayers.Add(blPreselectLayers[i]);
-                }
-                else
-                {
-                    if (blLoadWarnings[i] == true) // Only add if the user wants to be warned of this one.
-                        ClosedLayers.Add(aLayer);
-                }
-                i++;
-            }
-
-            // Add the available layers to the form.
-            lstLayers.Items.AddRange(OpenLayers.ToArray());
-
-            // Highlight the preselected ones
-            i = 0;
-            foreach (string aLayer in OpenLayers)
-            {
-                lstLayers.SetSelected(i, PreselectLayers[i]);
-                i++;
-            }
 
 
             // Fill in the rest of the form.

@@ -37,6 +37,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -231,33 +232,42 @@ namespace DataSearches.UI
         /// <summary>
         /// Is the list of add to map options visible?
         /// </summary>
-        public bool AddToMapListVisibility
+        public Visibility AddToMapListVisibility
         {
             get
             {
-                return (_toolConfig.DefaultAddSelectedLayers == 0);
+                if (_toolConfig.DefaultAddSelectedLayers == -1)
+                    return Visibility.Collapsed;
+                else
+                    return Visibility.Visible;
             }
         }
 
         /// <summary>
         /// Is the list of overwrite options visible?
         /// </summary>
-        public bool OverwriteLabelsListVisibility
+        public Visibility OverwriteLabelsListVisibility
         {
             get
             {
-                return (_toolConfig.DefaultOverwriteLabels == 0);
+                if (_toolConfig.DefaultOverwriteLabels == -1)
+                    return Visibility.Collapsed;
+                else
+                    return Visibility.Visible;
             }
         }
 
         /// <summary>
         /// Is the list of combined sites options visible?
         /// </summary>
-        public bool CombinedSitesListVisibility
+        public Visibility CombinedSitesListVisibility
         {
             get
             {
-                return (_toolConfig.DefaultCombinedSitesTable == 0);
+                if (_toolConfig.DefaultCombinedSitesTable == -1)
+                    return Visibility.Collapsed;
+                else
+                    return Visibility.Visible;
             }
         }
 
@@ -293,42 +303,112 @@ namespace DataSearches.UI
         /// <remarks></remarks>
         private void ResetCommandClick(object param)
         {
-            // Reset all of the fields.
-            SearchRefText = null;
-            //SiteNameText = null;  ???
-            //SelectedLayers = null;
-            BufferSizeText = _toolConfig.DefaultBufferSize.ToString();
+            ResetForm(param);
+        }
 
+        /// <summary>
+        /// Reset all of the form fields to their default values.
+        /// </summary>
+        public void ResetForm(object param)
+        {
+            // Get the list of selected layers (as a test).
+            List<string> selecctedLayers = [];
+            foreach (object a in (IEnumerable<object>)param)
+            {
+                selecctedLayers.Add(a.ToString());
+            }
+
+            // Search ref and site name.
+            SearchRefText = null;
+            SiteNameText = null;
+
+            // Create a new map functions object.
+            MapFunctions mapFunctions = new();
+
+            // Check if there is an active map.
+            bool mapOpen = (mapFunctions.MapName != null);
+
+            // Load the layer list.
+            if (mapOpen)
+            {
+                List<string> AllLayers = _toolConfig.MapLayers; // All possible layers by name
+                List<string> AllDisplayLayers = _toolConfig.MapNames; // All possible layers by display name
+                List<bool> blLoadWarnings = _toolConfig.MapLoadWarnings; // A list telling us whether to warn users if layer not present
+                List<bool> blPreselectLayers = _toolConfig.MapPreselectLayers; // A list telling us which layers to preselect in the form
+                ObservableCollection<string> OpenLayers = []; // The open layers by name
+                List<bool> PreselectLayers = []; // The preselect options of the open layers
+                List<string> ClosedLayers = []; // The closed layers by name
+
+                _layersList = [];
+
+                int i = 0;
+                foreach (string aLayer in AllDisplayLayers)
+                {
+                    if (mapFunctions.FindLayer(aLayer) != null)
+                    {
+                        _layersList.Add(AllLayers[i]);
+                        PreselectLayers.Add(blPreselectLayers[i]);
+                    }
+                    else
+                    {
+                        if (blLoadWarnings[i] == true) // Only add if the user wants to be warned of this one.
+                            ClosedLayers.Add(aLayer);
+                    }
+                    i++;
+                }
+
+                //// Highlight the preselected ones
+                //i = 0;
+                //foreach (string aLayer in OpenLayers)
+                //{
+                //    lstLayers.SetSelected(i, PreselectLayers[i]);
+                //    i++;
+                //}
+            }
+
+            // Buffer size and units.
+            BufferSizeText = _toolConfig.DefaultBufferSize.ToString();
             BufferUnitsList = _toolConfig.BufferUnitOptionsDisplay;
             if (_toolConfig.DefaultBufferUnit > 0)
                 SelectedBufferUnits = _toolConfig.BufferUnitOptionsDisplay[_toolConfig.DefaultBufferUnit - 1];
 
+            // Add layers to map.
             AddToMapList = _toolConfig.AddSelectedLayersOptions;
             if (_toolConfig.DefaultAddSelectedLayers > 0)
                 SelectedAddToMap = _toolConfig.AddSelectedLayersOptions[_toolConfig.DefaultAddSelectedLayers - 1];
 
+            // Overwrite map layers.
             OverwriteLabelsList = _toolConfig.OverwriteLabelOptions;
             if (_toolConfig.DefaultOverwriteLabels > 0)
                 SelectedOverwriteLabels = _toolConfig.OverwriteLabelOptions[_toolConfig.DefaultOverwriteLabels - 1];
 
+            // Combined sites table.
             CombinedSitesList = _toolConfig.CombinedSitesTableOptions;
             if (_toolConfig.DefaultCombinedSitesTable > 0)
                 SelectedCombinedSites = _toolConfig.CombinedSitesTableOptions[_toolConfig.DefaultCombinedSitesTable - 1];
 
+            // Log file.
             ClearLogFile = _toolConfig.DefaultClearLogFile;
             OpenLogFile = _toolConfig.DefaultOpenLogFile;
 
             // Update the fields and buttons in the form.
+            OnPropertyChanged(nameof(SearchRefText));
+            OnPropertyChanged(nameof(SiteNameText));
+            OnPropertyChanged(nameof(LayersList));
+            OnPropertyChanged(nameof(LayersListEnabled));
             //PreSelectLayers();    ???
             OnPropertyChanged(nameof(BufferSizeText));
             OnPropertyChanged(nameof(BufferUnitsList));
             OnPropertyChanged(nameof(SelectedBufferUnits));
             OnPropertyChanged(nameof(AddToMapList));
             OnPropertyChanged(nameof(SelectedAddToMap));
+            OnPropertyChanged(nameof(AddToMapListVisibility));
             OnPropertyChanged(nameof(OverwriteLabelsList));
             OnPropertyChanged(nameof(SelectedOverwriteLabels));
+            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
             OnPropertyChanged(nameof(CombinedSitesList));
             OnPropertyChanged(nameof(SelectedCombinedSites));
+            OnPropertyChanged(nameof(CombinedSitesListVisibility));
             OnPropertyChanged(nameof(RunButtonEnabled));
         }
 
@@ -375,6 +455,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "User ID not found. User ID used will be 'Temp'");
             }
 
+            string strSaveRootDir = _toolConfig.SaveRootDir;    //??? remove str prefix
 
 
 
