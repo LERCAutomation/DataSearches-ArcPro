@@ -26,6 +26,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Forms;
 using System.Xml;
+using DataSearches.UI;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 
 //This configuration file reader loads all of the variables to
@@ -659,368 +660,378 @@ namespace DataSearches
             // Now cycle through all of the maps.
             if (MapLayerCollection != null)
             {
-                foreach (XmlNode aNode in MapLayerCollection)
+                foreach (XmlNode node in MapLayerCollection)
                 {
                     // Only process if not a comment
-                    if (aNode.NodeType != XmlNodeType.Comment)
+                    if (node.NodeType != XmlNodeType.Comment)
                     {
-                        string strName = aNode.Name;
-                        strName = strName.Replace("_", " "); // Replace any underscores with spaces for better display.
-                        MapLayers.Add(strName);
+                        string nodeName = node.Name;
+                        nodeName = nodeName.Replace("_", " "); // Replace any underscores with spaces for better display.
+
+                        // Create a new layer for this node.
+                        Layers layer = new Layers(nodeName);
+
                         try
                         {
-                            MapNames.Add(aNode["LayerName"].InnerText);
+                            layer.LayerName = node["LayerName"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'LayerName' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'LayerName' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            MapGISOutNames.Add(aNode["GISOutputName"].InnerText);
+                            layer.GISOutputName = node["GISOutputName"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'GISOutputName' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'GISOutputName' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            MapTableOutNames.Add(aNode["TableOutputName"].InnerText);
+                            layer.TableOutputName = node["TableOutputName"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'TableOutputName' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'TableOutputName' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            MapColumns.Add(aNode["Columns"].InnerText);
+                            layer.Columns = node["Columns"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'Columns' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'Columns' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            string strGroupColumns = aNode["GroupColumns"].InnerText;
+                            string groupColumns = node["GroupColumns"].InnerText;
                             // Replace the commas and any spaces.
-                            strGroupColumns = StringFunctions.GetGroupColumnsFormatted(strGroupColumns);
-                            MapGroupColumns.Add(strGroupColumns);
+                            groupColumns = StringFunctions.GetGroupColumnsFormatted(groupColumns);
+
+                            layer.GroupColumns = groupColumns;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'GroupColumns' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'GroupColumns' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            string strStatsColumns = aNode["StatisticsColumns"].InnerText;
+                            string statsColumns = node["StatisticsColumns"].InnerText;
                             // Format the string
-                            if (strStatsColumns != null)
-                                strStatsColumns = StringFunctions.GetStatsColumnsFormatted(strStatsColumns);
-                            MapStatisticsColumns.Add(strStatsColumns);
+                            if (statsColumns != null)
+                                statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
+
+                            layer.StatisticsColumns = statsColumns;
 
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'StatisticsColumns' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'StatisticsColumns' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            MapOrderColumns.Add(aNode["OrderColumns"].InnerText); // May need to deal with.
+                            layer.OrderColumns = node["OrderColumns"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'OrderColumns' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'OrderColumns' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            MapCriteria.Add(aNode["Criteria"].InnerText);
+                            layer.Criteria = node["Criteria"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'Criteria' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'Criteria' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            bool blIncludeArea = false;
-                            strRawText = aNode["IncludeArea"].InnerText;
+                            bool includeArea = false;
+                            strRawText = node["IncludeArea"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blIncludeArea = true;
+                                includeArea = true;
 
-                            MapIncludeAreas.Add(blIncludeArea);
+                            layer.IncludeArea = includeArea;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapIncludeAreas.Add(false);
+                            layer.IncludeArea =false;
                         }
 
 
                         try
                         {
-                            bool blIncludDistance = false;
-                            strRawText = aNode["IncludeDistance"].InnerText;
+                            bool includeDistance = false;
+                            strRawText = node["IncludeDistance"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blIncludDistance = true;
+                                includeDistance = true;
 
-                            MapIncludeDistances.Add(blIncludDistance);
+                            layer.IncludeDistance = includeDistance;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapIncludeDistances.Add(false);
+                            layer.IncludeDistance = false;
                         }
 
                         try
                         {
-                            bool blIncludeRadius = false;
-                            strRawText = aNode["IncludeRadius"].InnerText;
+                            bool includeRadius = false;
+                            strRawText = node["IncludeRadius"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blIncludeRadius = true;
+                                includeRadius = true;
 
-                            MapIncludeRadii.Add(blIncludeRadius);
+                            layer.IncludeRadius = includeRadius;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapIncludeRadii.Add(false);
+                            layer.IncludeRadius = false;
                         }
 
                         try
                         {
-                            MapKeyColumns.Add(aNode["KeyColumn"].InnerText);
+                            layer.KeyColumn = node["KeyColumn"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'KeyColumn' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'KeyColumn' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            MapFormats.Add(aNode["Format"].InnerText);
+                            layer.Format = node["Format"].InnerText;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'Format' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'Format' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            bool blKeepLayer = false;
-                            strRawText = aNode["KeepLayer"].InnerText;
+                            bool keepLayer = false;
+                            strRawText = node["KeepLayer"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blKeepLayer = true;
+                                keepLayer = true;
 
-                            MapKeepLayers.Add(blKeepLayer);
+                            layer.KeepLayer = keepLayer;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapKeepLayers.Add(false);
+                            layer.KeepLayer = false;
                         }
 
                         try
                         {
-                            string strMapOutput = aNode["OutputType"].InnerText;
-                            string strOutputType;
+                            string strMapOutput = node["OutputType"].InnerText;
+                            string outputType;
                             switch (strMapOutput.ToLower(System.Globalization.CultureInfo.CurrentCulture))
                             {
                                 case "copy":
-                                    strOutputType = "COPY";
+                                    outputType = "COPY";
                                     break;
 
                                 case "clip":
-                                    strOutputType = "CLIP";
+                                    outputType = "CLIP";
                                     break;
 
                                 case "overlay":
-                                    strOutputType = "OVERLAY";
+                                    outputType = "OVERLAY";
                                     break;
 
                                 case "intersect":
-                                    strOutputType = "INTERSECT";
+                                    outputType = "INTERSECT";
                                     break;
 
                                 default:
-                                    strOutputType = "COPY";
+                                    outputType = "COPY";
                                     break;
                             }
 
-                            MapOutputTypes.Add(strOutputType);
+                            layer.OutputType = outputType;
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'OutputType' for map layer " + strName + " in the XML file");
+                            throw new("Could not locate the item 'OutputType' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
-                            bool blLoadWarning = false;
-                            strRawText = aNode["LoadWarning"].InnerText;
+                            bool loadWarning = false;
+                            strRawText = node["LoadWarning"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blLoadWarning = true;
+                                loadWarning = true;
 
-                            MapLoadWarnings.Add(blLoadWarning);
+                            layer.LoadWarning = loadWarning;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapLoadWarnings.Add(false);
+                            layer.LoadWarning = false;
                         }
 
                         try
                         {
-                            bool blPreselectLayer = false;
-                            strRawText = aNode["PreselectLayer"].InnerText;
+                            bool preselectLayer = false;
+                            strRawText = node["PreselectLayer"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blPreselectLayer = true;
+                                preselectLayer = true;
 
-                            MapPreselectLayers.Add(blPreselectLayer);
+                            layer.PreselectLayer = preselectLayer;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapPreselectLayers.Add(false);
+                            layer.PreselectLayer = false;
                         }
 
                         try
                         {
-                            bool blDisplayLabels = false;
-                            strRawText = aNode["DisplayLabels"].InnerText;
+                            bool displayLabels = false;
+                            strRawText = node["DisplayLabels"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blDisplayLabels = true;
+                                displayLabels = true;
 
-                            MapDisplayLabels.Add(blDisplayLabels);
+                            layer.DisplayLabels = displayLabels;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapDisplayLabels.Add(false);
+                            layer.DisplayLabels = false;
                         }
 
                         try
                         {
-                            MapLayerFiles.Add(aNode["LayerFileName"].InnerText);
+                            layer.LayerFileName = node["LayerFileName"].InnerText;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapLayerFiles.Add("");
+                            layer.LayerFileName = null;
                         }
 
                         try
                         {
-                            bool blOverwriteLabels = false;
-                            strRawText = aNode["OverwriteLabels"].InnerText;
+                            bool overwriteLabels = false;
+                            strRawText = node["OverwriteLabels"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                blOverwriteLabels = true;
+                                overwriteLabels = true;
 
-                            MapOverwriteLabels.Add(blOverwriteLabels);
+                            layer.OverwriteLabels = overwriteLabels;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapOverwriteLabels.Add(false);
+                            layer.OverwriteLabels = false;
                         }
 
                         try
                         {
-                            MapLabelColumns.Add(aNode["LabelColumn"].InnerText);
+                            layer.LabelColumn = node["LabelColumn"].InnerText;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapLabelColumns.Add("");
+                            layer.LabelColumn = null;
                         }
 
                         try
                         {
-                            MapLabelClauses.Add(aNode["LabelClause"].InnerText);
+                            layer.LabelClause = node["LabelClause"].InnerText;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapLabelClauses.Add("");
+                            layer.LabelClause = null;
                         }
 
                         try
                         {
-                            MapMacroNames.Add(aNode["MacroName"].InnerText);
+                            layer.MacroName = node["MacroName"].InnerText;
                         }
                         catch
                         {
                             // This is an optional node
-                            MapMacroNames.Add("");
+                            layer.MacroName = null;
                         }
 
-                        bool blCombinedSites = false;
+                        bool combinedSites = false;
                         try
                         {
-                            string strSitesColumns = aNode["CombinedSitesColumns"].InnerText;
-                            if (strSitesColumns != "")
+                            string sitesColumns = node["CombinedSitesColumns"].InnerText;
+                            if (sitesColumns != "")
                             {
-                                blCombinedSites = true;
-                                MapCombinedSitesColumns.Add(strSitesColumns);
+                                combinedSites = true;
+                                layer.CombinedSitesColumns = node["CombinedSitesColumns"].InnerText;
                             }
                             else
                             {
-                                MapCombinedSitesColumns.Add("");
-                                MapCombinedSitesGroupColumns.Add("");
-                                MapCombinedSitesStatsColumns.Add("");
-                                MapCombinedSitesOrderColumns.Add("");
+                                layer.CombinedSitesColumns = null;
+                                layer.CombinedSitesGroupColumns = null;
+                                layer.CombinedSitesStatisticsColumns = null;
+                                layer.CombinedSitesOrderByColumns = null;
                             }
                         }
                         catch
                         {
                             // This is an optional node
-                            MapCombinedSitesColumns.Add("");
-                            MapCombinedSitesGroupColumns.Add("");
-                            MapCombinedSitesStatsColumns.Add("");
-                            MapCombinedSitesOrderColumns.Add("");
+                            layer.CombinedSitesColumns = null;
+                            layer.CombinedSitesGroupColumns = null;
+                            layer.CombinedSitesStatisticsColumns = null;
+                            layer.CombinedSitesOrderByColumns = null;
                         }
 
                         // If there are any combined sites columns get the other settings
-                        if (blCombinedSites)
+                        if (combinedSites)
                         {
                             try
                             {
-                                string strGroupColumns = aNode["CombinedSitesGroupColumns"].InnerText;
+                                string groupColumns = node["CombinedSitesGroupColumns"].InnerText;
                                 // Replace delimiters
-                                strGroupColumns = StringFunctions.GetGroupColumnsFormatted(strGroupColumns);
-                                MapCombinedSitesGroupColumns.Add(strGroupColumns);
+                                groupColumns = StringFunctions.GetGroupColumnsFormatted(groupColumns);
+
+                                layer.CombinedSitesGroupColumns = groupColumns;
                             }
                             catch
                             {
-                                throw new("Could not locate the item 'CombinedSitesGroupColumns' for map layer " + strName + " in the XML file");
+                                throw new("Could not locate the item 'CombinedSitesGroupColumns' for map layer " + nodeName + " in the XML file");
                             }
 
                             try
                             {
-                                string strStatsColumns = aNode["CombinedSitesStatisticsColumns"].InnerText;
+                                string statsColumns = node["CombinedSitesStatisticsColumns"].InnerText;
                                 // Format the string
-                                strStatsColumns = StringFunctions.GetStatsColumnsFormatted(strStatsColumns);
-                                MapCombinedSitesStatsColumns.Add(strStatsColumns);
+                                statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
+
+                                layer.CombinedSitesStatisticsColumns = statsColumns;
                             }
                             catch
                             {
-                                throw new("Could not locate the item 'CombinedSitesStatisticsColumns' for map layer " + strName + " in the XML file");
+                                throw new("Could not locate the item 'CombinedSitesStatisticsColumns' for map layer " + nodeName + " in the XML file");
                             }
 
                             try
                             {
-                                MapCombinedSitesOrderColumns.Add(aNode["CombinedSitesOrderByColumns"].InnerText); // May need to deal.
+                                layer.CombinedSitesOrderByColumns = node["CombinedSitesOrderByColumns"].InnerText;
                             }
                             catch
                             {
-                                throw new("Could not locate the item 'CombinedSitesOrderByColumns' for map layer " + strName + " in the XML file");
+                                throw new("Could not locate the item 'CombinedSitesOrderByColumns' for map layer " + nodeName + " in the XML file");
                             }
+
+                            // Add the layer to the list of map layers.
+                            MapLayers.Add(layer);
                         }
                     }
                 }
@@ -1355,207 +1366,11 @@ namespace DataSearches
 
         #region Map Variables
 
-        private List<string> _mapLayers = [];
+        private List<Layers> _mapLayers = [];
 
-        public List<string> MapLayers
+        public List<Layers> MapLayers
         {
             get { return _mapLayers; }
-        }
-
-        private List<string> _mapNames = [];
-
-        public List<string> MapNames
-        {
-            get { return _mapNames; }
-        }
-
-        private List<string> _mapGISOutNames = [];
-
-        public List<string> MapGISOutNames
-        {
-            get { return _mapGISOutNames; }
-        }
-
-        private List<string> _mapTableOutNames = [];
-
-        public List<string> MapTableOutNames
-        {
-            get { return _mapTableOutNames; }
-        }
-
-        private List<string> _mapColumns = [];
-
-        public List<string> MapColumns
-        {
-            get { return _mapColumns; }
-        }
-
-        private List<string> _mapGroupColumns = [];
-
-        public List<string> MapGroupColumns
-        {
-            get { return _mapGroupColumns; }
-        }
-
-        private List<string> _mapStatisticsColumns = [];
-
-        public List<string> MapStatisticsColumns
-        {
-            get { return _mapStatisticsColumns; }
-        }
-
-        private List<string> _mapOrderColumns = [];
-
-        public List<string> MapOrderColumns
-        {
-            get { return _mapOrderColumns; }
-        }
-
-        private List<string> _mapCriteria = [];
-
-        public List<string> MapCriteria
-        {
-            get { return _mapCriteria; }
-        }
-
-        private List<bool> _mapIncludeAreas = [];
-
-        public List<bool> MapIncludeAreas
-        {
-            get { return _mapIncludeAreas; }
-        }
-
-        private List<bool> _mapIncludeDistances = [];
-
-        public List<bool> MapIncludeDistances
-        {
-            get { return _mapIncludeDistances; }
-        }
-
-        private List<bool> _mapIncludeRadii = [];
-
-        public List<bool> MapIncludeRadii
-        {
-            get { return _mapIncludeRadii; }
-        }
-
-        private List<string> _mapKeyColumns = [];
-
-        public List<string> MapKeyColumns
-        {
-            get { return _mapKeyColumns; }
-        }
-
-        private List<string> _mapFormats = [];
-
-        public List<string> MapFormats
-        {
-            get { return _mapFormats; }
-        }
-
-        private List<bool> _mapKeepLayers = [];
-
-        public List<bool> MapKeepLayers
-        {
-            get { return _mapKeepLayers; }
-        }
-
-        private List<string> _mapOutputTypes = [];
-
-        public List<string> MapOutputTypes
-        {
-            get { return _mapOutputTypes; }
-        }
-
-        private List<bool> _mapIntersectOutputs = [];
-
-        public List<bool> MapIntersectOutputs
-        {
-            get { return _mapIntersectOutputs; }
-        }
-
-        private List<bool> _mapLoadWarnings = [];
-
-        public List<bool> MapLoadWarnings
-        {
-            get { return _mapLoadWarnings; }
-        }
-
-        private List<bool> _mapPreselectLayers = [];
-
-        public List<bool> MapPreselectLayers
-        {
-            get { return _mapPreselectLayers; }
-        }
-
-        private List<bool> _mapDisplayLabels = [];
-
-        public List<bool> MapDisplayLabels
-        {
-            get { return _mapDisplayLabels; }
-        }
-
-        private List<string> _mapLayerFiles = [];
-
-        public List<string> MapLayerFiles
-        {
-            get { return _mapLayerFiles; }
-        }
-
-        private List<bool> _mapOverwriteLabels = [];
-
-        public List<bool> MapOverwriteLabels
-        {
-            get { return _mapOverwriteLabels; }
-        }
-
-        private List<string> _mapLabelColumns = [];
-
-        public List<string> MapLabelColumns
-        {
-            get { return _mapLabelColumns; }
-        }
-
-        private List<string> _mapLabelClauses = [];
-
-        public List<string> MapLabelClauses
-        {
-            get { return _mapLabelClauses; }
-        }
-
-        private List<string> _mapMacroNames = [];
-
-        public List<string> MapMacroNames
-        {
-            get { return _mapMacroNames; }
-        }
-
-        private List<string> _mapCombinedSitesColumns = [];
-
-        public List<string> MapCombinedSitesColumns
-        {
-            get { return _mapCombinedSitesColumns; }
-        }
-
-        private List<string> _mapCombinedSitesGroupColumns = [];
-
-        public List<string> MapCombinedSitesGroupColumns
-        {
-            get { return _mapCombinedSitesGroupColumns; }
-        }
-
-        private List<string> _mapCombinedSitesStatsColumns = [];
-
-        public List<string> MapCombinedSitesStatsColumns
-        {
-            get { return _mapCombinedSitesStatsColumns; }
-        }
-
-        private List<string> _mapCombinedSitesOrderColumns = [];
-
-        public List<string> MapCombinedSitesOrderColumns
-        {
-            get { return _mapCombinedSitesOrderColumns; }
         }
 
         #endregion Variables

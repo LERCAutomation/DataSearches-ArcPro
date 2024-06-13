@@ -329,7 +329,7 @@ namespace DataSearches.UI
             if (!XMLLoaded)
             {
                 // Reset the search pane.
-                _dockPane.ResetSearchPane();
+                _dockPane.ClearSearchPane();
                 return;
             }
 

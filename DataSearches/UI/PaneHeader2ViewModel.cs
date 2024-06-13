@@ -41,6 +41,7 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
+using DataSearches.UI;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 
 namespace DataSearches.UI
@@ -119,9 +120,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.LayersListLoading)
+                return (_processingLabel == null);
                     //&& (_requireSiteName) ???
-                    && (!_dockPane.SearchRunning));
             }
         }
 
@@ -132,9 +132,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.LayersListLoading)
-                    && (_layersList != null)
-                    && (!_dockPane.SearchRunning));
+                return ((_processingLabel == null)
+                    && (_openLayersList != null));
             }
         }
 
@@ -145,9 +144,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.LayersListLoading)
-                    && (_bufferUnitsList != null)
-                    && (!_dockPane.SearchRunning));
+                return ((_processingLabel == null)
+                    && (_bufferUnitsList != null));
             }
         }
 
@@ -158,9 +156,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.LayersListLoading)
-                    && (_addToMapList != null)
-                    && (!_dockPane.SearchRunning));
+                return ((_processingLabel == null)
+                    && (_addToMapList != null));
             }
         }
 
@@ -171,9 +168,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.LayersListLoading)
-                    && (_overwriteLabelsList != null)
-                    && (!_dockPane.SearchRunning));
+                return ((_processingLabel == null)
+                    && (_overwriteLabelsList != null));
             }
         }
 
@@ -184,9 +180,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.LayersListLoading)
-                    && (_combinedSitesList != null)
-                    && (!_dockPane.SearchRunning));
+                return ((_processingLabel == null)
+                    && (_combinedSitesList != null));
             }
         }
 
@@ -200,8 +195,7 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!_dockPane.SearchRunning)
-                    && (!_dockPane.LayersListLoading));
+                return (_processingLabel == null);
             }
         }
         /// <summary>
@@ -211,17 +205,17 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((_layersList != null)
-                    && (!_dockPane.LayersListLoading)
-                    && (!_dockPane.SearchRunning)
-                    && (_selectedLayers != null) //???
+                //return true;
+                return ((_processingLabel == null)
+                    && (_openLayersList != null)
+                    && (_openLayersList.Where(p => p.IsSelected).Count() > 0)
                     && (_searchRefText != null)
                     //&& (!_requireSiteName || _siteNameText != null)   ???
                     && (_bufferSizeText != null)
                     && (_selectedBufferUnits != null)
-                    && (_selectedAddToMap != null)
-                    && (_selectedOverwriteLabels != null)
-                    && (_selectedCombinedSites != null));
+                    && (_toolConfig.DefaultAddSelectedLayers <= 0 || _selectedAddToMap != null)
+                    && (_toolConfig.DefaultOverwriteLabels <= 0 || _selectedOverwriteLabels != null)
+                    && (_toolConfig.DefaultCombinedSitesTable <= 0 || _selectedCombinedSites != null));
             }
         }
 
@@ -303,113 +297,8 @@ namespace DataSearches.UI
         /// <remarks></remarks>
         private void ResetCommandClick(object param)
         {
-            ResetForm(param);
-        }
-
-        /// <summary>
-        /// Reset all of the form fields to their default values.
-        /// </summary>
-        public void ResetForm(object param)
-        {
-            // Get the list of selected layers (as a test).
-            List<string> selecctedLayers = [];
-            foreach (object a in (IEnumerable<object>)param)
-            {
-                selecctedLayers.Add(a.ToString());
-            }
-
-            // Search ref and site name.
-            SearchRefText = null;
-            SiteNameText = null;
-
-            // Create a new map functions object.
-            MapFunctions mapFunctions = new();
-
-            // Check if there is an active map.
-            bool mapOpen = (mapFunctions.MapName != null);
-
-            // Load the layer list.
-            if (mapOpen)
-            {
-                List<string> AllLayers = _toolConfig.MapLayers; // All possible layers by name
-                List<string> AllDisplayLayers = _toolConfig.MapNames; // All possible layers by display name
-                List<bool> blLoadWarnings = _toolConfig.MapLoadWarnings; // A list telling us whether to warn users if layer not present
-                List<bool> blPreselectLayers = _toolConfig.MapPreselectLayers; // A list telling us which layers to preselect in the form
-                ObservableCollection<string> OpenLayers = []; // The open layers by name
-                List<bool> PreselectLayers = []; // The preselect options of the open layers
-                List<string> ClosedLayers = []; // The closed layers by name
-
-                _layersList = [];
-
-                int i = 0;
-                foreach (string aLayer in AllDisplayLayers)
-                {
-                    if (mapFunctions.FindLayer(aLayer) != null)
-                    {
-                        _layersList.Add(AllLayers[i]);
-                        PreselectLayers.Add(blPreselectLayers[i]);
-                    }
-                    else
-                    {
-                        if (blLoadWarnings[i] == true) // Only add if the user wants to be warned of this one.
-                            ClosedLayers.Add(aLayer);
-                    }
-                    i++;
-                }
-
-                //// Highlight the preselected ones
-                //i = 0;
-                //foreach (string aLayer in OpenLayers)
-                //{
-                //    lstLayers.SetSelected(i, PreselectLayers[i]);
-                //    i++;
-                //}
-            }
-
-            // Buffer size and units.
-            BufferSizeText = _toolConfig.DefaultBufferSize.ToString();
-            BufferUnitsList = _toolConfig.BufferUnitOptionsDisplay;
-            if (_toolConfig.DefaultBufferUnit > 0)
-                SelectedBufferUnits = _toolConfig.BufferUnitOptionsDisplay[_toolConfig.DefaultBufferUnit - 1];
-
-            // Add layers to map.
-            AddToMapList = _toolConfig.AddSelectedLayersOptions;
-            if (_toolConfig.DefaultAddSelectedLayers > 0)
-                SelectedAddToMap = _toolConfig.AddSelectedLayersOptions[_toolConfig.DefaultAddSelectedLayers - 1];
-
-            // Overwrite map layers.
-            OverwriteLabelsList = _toolConfig.OverwriteLabelOptions;
-            if (_toolConfig.DefaultOverwriteLabels > 0)
-                SelectedOverwriteLabels = _toolConfig.OverwriteLabelOptions[_toolConfig.DefaultOverwriteLabels - 1];
-
-            // Combined sites table.
-            CombinedSitesList = _toolConfig.CombinedSitesTableOptions;
-            if (_toolConfig.DefaultCombinedSitesTable > 0)
-                SelectedCombinedSites = _toolConfig.CombinedSitesTableOptions[_toolConfig.DefaultCombinedSitesTable - 1];
-
-            // Log file.
-            ClearLogFile = _toolConfig.DefaultClearLogFile;
-            OpenLogFile = _toolConfig.DefaultOpenLogFile;
-
-            // Update the fields and buttons in the form.
-            OnPropertyChanged(nameof(SearchRefText));
-            OnPropertyChanged(nameof(SiteNameText));
-            OnPropertyChanged(nameof(LayersList));
-            OnPropertyChanged(nameof(LayersListEnabled));
-            //PreSelectLayers();    ???
-            OnPropertyChanged(nameof(BufferSizeText));
-            OnPropertyChanged(nameof(BufferUnitsList));
-            OnPropertyChanged(nameof(SelectedBufferUnits));
-            OnPropertyChanged(nameof(AddToMapList));
-            OnPropertyChanged(nameof(SelectedAddToMap));
-            OnPropertyChanged(nameof(AddToMapListVisibility));
-            OnPropertyChanged(nameof(OverwriteLabelsList));
-            OnPropertyChanged(nameof(SelectedOverwriteLabels));
-            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
-            OnPropertyChanged(nameof(CombinedSitesList));
-            OnPropertyChanged(nameof(SelectedCombinedSites));
-            OnPropertyChanged(nameof(CombinedSitesListVisibility));
-            OnPropertyChanged(nameof(RunButtonEnabled));
+            // Load the form (don't wait for the response).
+            Task.Run(() => ResetForm(true));
         }
 
         #endregion Reset Command
@@ -582,16 +471,16 @@ namespace DataSearches.UI
             }
         }
 
-        private ObservableCollection<string> _layersList;
+        private ObservableCollection<Layers> _openLayersList;
 
         /// <summary>
         /// Get the list of loaded GIS layers.
         /// </summary>
-        public ObservableCollection<string> LayersList
+        public ObservableCollection<Layers> OpenLayersList
         {
             get
             {
-                return _layersList;
+                return _openLayersList;
             }
         }
 
@@ -871,39 +760,161 @@ namespace DataSearches.UI
         #region Methods
 
         /// <summary>
+        /// Set all of the form fields to their default values.
+        /// </summary>
+        public void ResetForm(bool reset)
+        {
+            //// Get the list of selected layers (as a test).
+            //if (_openLayersList != null)
+            //{
+            //    foreach (Layers layer in _openLayersList)
+            //    {
+            //        bool selected = layer.IsSelected;
+            //    }
+            //}
+
+            // Reload the form layers (don't wait for the response).
+            LoadLayersAsync(reset);
+
+            // Search ref and site name.
+            SearchRefText = null;
+            SiteNameText = null;
+
+            // Buffer size and units.
+            BufferSizeText = _toolConfig.DefaultBufferSize.ToString();
+            BufferUnitsList = _toolConfig.BufferUnitOptionsDisplay;
+            if (_toolConfig.DefaultBufferUnit > 0)
+                SelectedBufferUnits = _toolConfig.BufferUnitOptionsDisplay[_toolConfig.DefaultBufferUnit - 1];
+
+            // Add layers to map.
+            AddToMapList = _toolConfig.AddSelectedLayersOptions;
+            if (_toolConfig.DefaultAddSelectedLayers > 0)
+                SelectedAddToMap = _toolConfig.AddSelectedLayersOptions[_toolConfig.DefaultAddSelectedLayers - 1];
+
+            // Overwrite map layers.
+            OverwriteLabelsList = _toolConfig.OverwriteLabelOptions;
+            if (_toolConfig.DefaultOverwriteLabels > 0)
+                SelectedOverwriteLabels = _toolConfig.OverwriteLabelOptions[_toolConfig.DefaultOverwriteLabels - 1];
+
+            // Combined sites table.
+            CombinedSitesList = _toolConfig.CombinedSitesTableOptions;
+            if (_toolConfig.DefaultCombinedSitesTable > 0)
+                SelectedCombinedSites = _toolConfig.CombinedSitesTableOptions[_toolConfig.DefaultCombinedSitesTable - 1];
+
+            // Log file.
+            ClearLogFile = _toolConfig.DefaultClearLogFile;
+            OpenLogFile = _toolConfig.DefaultOpenLogFile;
+        }
+
+        /// <summary>
         /// Load the list of open GIS layers.
         /// </summary>
         /// <param name="selectedTable"></param>
         /// <returns></returns>
-        public async Task LoadLayersAsync(List<string> preSelectLayers)
+        public async Task LoadLayersAsync(bool reset)
         {
-            //if (!string.IsNullOrEmpty(_columnsText))
-            //{
-            //    MessageBoxResult dlResult = MessageBox.Show("There is already text in the Columns field. Do you want to overwrite it?", "Data Searches", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            //    if (dlResult == MessageBoxResult.No)
-            //        return; //User clicked by accident; leave routine.
-            //}
+            _dockPane.LayersListLoading = true;
 
-            //// Get the field names and wait for the task to finish.
-            //List<string> columnsList = await _sqlFunctions.GetFieldNamesListAsync(SelectedTable);
+            if (reset)
+                _processingLabel = "Resetting form ...";
+            else
+                _processingLabel = "Loading form ...";
+            OnPropertyChanged(nameof(ProcessingLabel));
+            OnPropertyChanged(nameof(ProcessingAnimation));
 
-            //// Convert the field names to a single string.
-            //string columnNamesText = "";
-            //foreach (string columnName in columnsList)
-            //{
-            //    columnNamesText = columnNamesText + columnName + ",\r\n";
-            //}
-            //columnNamesText = columnNamesText.Substring(0, columnNamesText.Length - 3);
+            // Update the fields and buttons in the form.
+            OnPropertyChanged(nameof(SearchRefText));
+            OnPropertyChanged(nameof(SiteNameText));
+            OnPropertyChanged(nameof(OpenLayersList));
+            OnPropertyChanged(nameof(LayersListEnabled));
+            //PreSelectLayers();    ???
+            OnPropertyChanged(nameof(BufferSizeText));
+            OnPropertyChanged(nameof(BufferUnitsList));
+            OnPropertyChanged(nameof(SelectedBufferUnits));
+            OnPropertyChanged(nameof(AddToMapList));
+            OnPropertyChanged(nameof(SelectedAddToMap));
+            OnPropertyChanged(nameof(AddToMapListVisibility));
+            OnPropertyChanged(nameof(OverwriteLabelsList));
+            OnPropertyChanged(nameof(SelectedOverwriteLabels));
+            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
+            OnPropertyChanged(nameof(CombinedSitesList));
+            OnPropertyChanged(nameof(SelectedCombinedSites));
+            OnPropertyChanged(nameof(CombinedSitesListVisibility));
+            OnPropertyChanged(nameof(ResetButtonEnabled));
+            OnPropertyChanged(nameof(RunButtonEnabled));
 
-            //// Replace the text box value with the field names.
-            //_columnsText = columnNamesText;
+            await Task.Run(() =>
+            {
+                // Create a new map functions object.
+                MapFunctions mapFunctions = new();
 
-            //// Update the fields and buttons in the form.
-            //OnPropertyChanged(nameof(ColumnsText));
-            //OnPropertyChanged(nameof(SaveButtonEnabled));
-            //OnPropertyChanged(nameof(ClearButtonEnabled));
-            //OnPropertyChanged(nameof(VerifyButtonEnabled));
-            //OnPropertyChanged(nameof(RunButtonEnabled));
+                // Check if there is an active map.
+                bool mapOpen = (mapFunctions.MapName != null);
+
+                // Reset the list of open layers.
+                ObservableCollection<Layers> openLayersList = [];
+
+                if (mapOpen)
+                {
+                    List<Layers> allLayers = _toolConfig.MapLayers;
+                    //List<string> AllDisplayLayers = _toolConfig.MapNames; // All possible layers by display name
+                    //List<bool> blLoadWarnings = _toolConfig.MapLoadWarnings; // A list telling us whether to warn users if layer not present
+                    //List<bool> blPreselectLayers = _toolConfig.MapPreselectLayers; // A list telling us which layers to preselect in the form
+                    //ObservableCollection<string> OpenLayers = []; // The open layers by name
+                    //List<bool> PreselectLayers = []; // The preselect options of the open layers
+                    List<string> ClosedLayers = []; // The closed layers by name
+
+                    // Loop through all of the layers to check if they are open
+                    // in the active map.
+                    foreach (Layers layer in allLayers)
+                    {
+                        if (mapFunctions.FindLayer(layer.LayerName) != null)
+                        {
+                            // Preselect layer if required.
+                            layer.IsSelected = layer.PreselectLayer;
+
+                            // Add the open layers to the list.
+                            openLayersList.Add(layer);
+                        }
+                        else
+                        {
+                            // Only add if the user wants to be warned of this one.
+                            if (layer.LoadWarning)
+                                ClosedLayers.Add(layer.LayerName);
+                        }
+                    }
+                }
+
+                // Reset the list of open layers.
+                _openLayersList = openLayersList;
+            });
+
+            _processingLabel = null;
+            OnPropertyChanged(nameof(ProcessingLabel));
+            OnPropertyChanged(nameof(ProcessingAnimation));
+
+            _dockPane.LayersListLoading = false;
+
+            // Update the fields and buttons in the form.
+            OnPropertyChanged(nameof(SearchRefText));
+            OnPropertyChanged(nameof(SiteNameText));
+            OnPropertyChanged(nameof(OpenLayersList));
+            OnPropertyChanged(nameof(LayersListEnabled));
+            //PreSelectLayers();    ???
+            OnPropertyChanged(nameof(BufferSizeText));
+            OnPropertyChanged(nameof(BufferUnitsList));
+            OnPropertyChanged(nameof(SelectedBufferUnits));
+            OnPropertyChanged(nameof(AddToMapList));
+            OnPropertyChanged(nameof(SelectedAddToMap));
+            OnPropertyChanged(nameof(AddToMapListVisibility));
+            OnPropertyChanged(nameof(OverwriteLabelsList));
+            OnPropertyChanged(nameof(SelectedOverwriteLabels));
+            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
+            OnPropertyChanged(nameof(CombinedSitesList));
+            OnPropertyChanged(nameof(SelectedCombinedSites));
+            OnPropertyChanged(nameof(CombinedSitesListVisibility));
+            OnPropertyChanged(nameof(ResetButtonEnabled));
+            OnPropertyChanged(nameof(RunButtonEnabled));
         }
 
         #endregion Methods
@@ -966,5 +977,114 @@ namespace DataSearches.UI
         }
 
         #endregion INotifyPropertyChanged Members
+
+    }
+
+    /// <summary>
+    /// GIS layers to search.
+    /// </summary>
+    public class Layers : INotifyPropertyChanged
+    {
+        public string NodeName { get; set; }
+
+        public string LayerGroup { get; set; }
+
+        public string LayerName { get; set; }
+
+        public string GISOutputName { get; set; }
+
+        public string TableOutputName { get; set; }
+
+        public string Columns { get; set; }
+
+        public string GroupColumns { get; set; }
+
+        public string StatisticsColumns { get; set; }
+
+        public string OrderColumns { get; set; }
+
+        public string Criteria { get; set; }
+
+        public bool IncludeArea { get; set; }
+
+        public bool IncludeDistance { get; set; }
+
+        public bool IncludeRadius { get; set; }
+
+        public string KeyColumn { get; set; }
+
+        public string Format { get; set; }
+
+        public bool KeepLayer { get; set; }
+
+        public string OutputType { get; set; }
+
+        public bool LoadWarning { get; set; }
+
+        public bool PreselectLayer { get; set; }
+
+        public bool DisplayLabels { get; set; }
+
+        public string LayerFileName { get; set; }
+
+        public bool OverwriteLabels { get; set; }
+
+        public string LabelColumn { get; set; }
+
+        public string LabelClause { get; set; }
+
+        public string MacroName { get; set; }
+
+        public string CombinedSitesColumns { get; set; }
+
+        public string CombinedSitesGroupColumns { get; set; }
+
+        public string CombinedSitesStatisticsColumns { get; set; }
+
+        public string CombinedSitesOrderByColumns { get; set; }
+
+        public bool IsOpen { get; set; }
+
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get { return _isSelected; }
+            set
+            {
+                _isSelected = value;
+                OnPropertyChanged(nameof(IsSelected));
+            }
+        }
+
+        public Layers(string nodeName)
+        {
+            NodeName = nodeName;
+        }
+
+        #region INotifyPropertyChanged Members
+
+        /// <summary>
+        /// Raised when a property on this object has a new value.
+        /// </summary>
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        /// <summary>
+        /// Raises this object's PropertyChanged event.
+        /// </summary>
+        /// <param name="propertyName">The property that has a new value.</param>
+        internal virtual void OnPropertyChanged(string propertyName)
+        {
+            //VerifyPropertyName(propertyName);
+
+            PropertyChangedEventHandler handler = PropertyChanged;
+            if (handler != null)
+            {
+                PropertyChangedEventArgs e = new(propertyName);
+                handler(this, e);
+            }
+        }
+
+        #endregion INotifyPropertyChanged Members
+
     }
 }

@@ -26,7 +26,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding DockpaneVisibility}">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
