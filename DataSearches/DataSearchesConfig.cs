@@ -669,7 +669,7 @@ namespace DataSearches
                         nodeName = nodeName.Replace("_", " "); // Replace any underscores with spaces for better display.
 
                         // Create a new layer for this node.
-                        Layers layer = new Layers(nodeName);
+                        Layers layer = new(nodeName);
 
                         try
                         {

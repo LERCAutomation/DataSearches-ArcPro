@@ -28,99 +28,9 @@ namespace DataSearches
 {
     public partial class frmDataSearches : Form
     {
-        ArcMapFunctions myArcMapFuncs;
-
-        string strUserID;
-        string strTempFile;
-        string strConfigFile = "";
-
-        public frmDataSearches()
-        {
-
-
-
-
-
-
-            // Fill in the rest of the form.
-            txtBufferSize.Text = myConfig.GetDefaultBufferSize().ToString();
-            cmbUnits.Items.AddRange(myConfig.GetBufferUnitOptionsDisplay().ToArray());
-            cmbUnits.SelectedIndex = myConfig.GetDefaultBufferUnit() - 1;
-            cmbAddLayers.Items.AddRange(myConfig.GetAddSelectedLayerOptions().ToArray());
-            if (myConfig.GetDefaultAddSelectedLayerOption() != -1)
-                cmbAddLayers.SelectedIndex = myConfig.GetDefaultAddSelectedLayerOption() - 1;
-            cmbLabels.Items.AddRange(myConfig.GetOverwriteLabelOptions().ToArray());
-            if (myConfig.GetDefaultOverwriteLabelsOption() != -1)
-                cmbLabels.SelectedIndex = myConfig.GetDefaultOverwriteLabelsOption() - 1;
-
-            cmbCombinedSites.Items.AddRange(myConfig.GetCombinedSitesTableOptions().ToArray());
-            if (myConfig.GetDefaultCombinedSitesTable() != -1)
-                cmbCombinedSites.SelectedIndex = myConfig.GetDefaultCombinedSitesTable() - 1;
-
-            chkClearLog.Checked = myConfig.GetDefaultClearLogFile();
-
-            // Hide controls that were not requested
-            if (myConfig.GetDefaultAddSelectedLayerOption() == -1)
-            {
-                cmbAddLayers.Hide();
-                label5.Hide();
-            }
-            else
-            {
-                cmbAddLayers.Show();
-                label5.Show();
-            }
-            if (myConfig.GetDefaultOverwriteLabelsOption() == -1 || myConfig.GetDefaultAddSelectedLayerOption() == -1)
-            {
-                cmbLabels.Hide();
-                label7.Hide();
-            }
-            else
-            {
-                cmbLabels.Show();
-                label7.Show();
-            }
-            if (myConfig.GetDefaultCombinedSitesTable() == -1)
-            {
-                cmbCombinedSites.Hide();
-                label8.Hide();
-            }
-            else
-            {
-                cmbCombinedSites.Show();
-                label8.Show();
-            }
-
-            // Warn the user of closed layers.
-            if (ClosedLayers.Count > 0)
-            {
-                string strWarning = "";
-                if (ClosedLayers.Count == 1)
-                    strWarning = "Warning. The layer '" + ClosedLayers[0] + "' is not loaded.";
-                else
-                {
-                    strWarning = "Warning: " + ClosedLayers.Count.ToString() + " layers are not loaded, including ";
-                    foreach (string strLayer in ClosedLayers)
-                        strWarning = strWarning + strLayer + "; ";
-                }
-                MessageBox.Show(strWarning);
-            }
-            blFormHasOpened = true;
-
-        }
-
-        private void btnCancel_Click(object sender, EventArgs e)
-        {
-            this.Close();
-        }
-
         private void btnOK_Click(object sender, EventArgs e)
         {
-            this.Cursor = Cursors.WaitCursor;
-            // Obtain all the relevant information.
-            string strReference = txtSearch.Text; // Search reference
-            string strSiteName = txtLocation.Text; // Associated location
-            string strOrganisation = txtOrganisation.Text; // Associated organisation
+
 
             // The selected layers
             List<string> SelectedLayers = new List<string>();
@@ -180,65 +90,9 @@ namespace DataSearches
                 blCombinedTableOverwrite = false;
             }
 
-            // Check that the user has entered all information correctly.
-            if (strReference == "")
-            {
-                MessageBox.Show("Please enter a search reference");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                return;
-            }
 
-            bool blRequireSiteName = myConfig.GetRequireSiteName();
-            // site name is not always required.
-            if (strSiteName == "" && blRequireSiteName)
-            {
-                MessageBox.Show("Please enter a location");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                return;
-            }
 
-            bool blUpdateTable = myConfig.GetUpdateTable();
 
-            if (SelectedLayers.Count == 0)
-            {
-                MessageBox.Show("Please select at least one layer to search");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                return;
-            }
-
-            if (strBufferSize == "")
-            {
-                MessageBox.Show("Please enter a buffer size");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                return;
-            }
-
-            double i;
-            bool blTest = Double.TryParse(strBufferSize, out i);
-            if (!blTest || i < 0) // User either entered text or a negative number
-            {
-                MessageBox.Show("Please enter a positive number for the buffer size");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                return;
-            }
-
-            // All entered information is correct. Now set up the process.
-            string strReplaceChar = myConfig.GetReplaceChar();
-
-            // Is the replacement character valid?
-            bool blValid = myStringFuncs.isValid(strReplaceChar);
-            if (!blValid)
-            {
-                MessageBox.Show("The replacement character '" + strReplaceChar + "' is not valid. Process aborted");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                return;
-            }
 
             // fix any illegal characters in the site name string
             strSiteName = myStringFuncs.StripIllegals(strSiteName, strReplaceChar);
@@ -289,7 +143,7 @@ namespace DataSearches
             strSaveFolder = strSaveFolder.Trim();
 
             // Create directories as required.
-            if (!myFileFuncs.DirExists(strSaveRootDir))
+            if (!FileFunctions.DirExists(strSaveRootDir))
             {
                 try
                 {
@@ -313,7 +167,7 @@ namespace DataSearches
             else
                 strGISFolder = strSaveFolder;
 
-            if (!myFileFuncs.DirExists(strSaveFolder))
+            if (!FileFunctions.DirExists(strSaveFolder))
             {
                 try
                 {
@@ -327,7 +181,7 @@ namespace DataSearches
                     return;
                 }
             }
-            if (!myFileFuncs.DirExists(strGISFolder))
+            if (!FileFunctions.DirExists(strGISFolder))
             {
                 try
                 {
@@ -346,7 +200,7 @@ namespace DataSearches
 
             // Create logfile if necessary
             string strLogFile = strGISFolder + @"\" + strLogFileName;
-            if (myFileFuncs.FileExists(strLogFile) && chkClearLog.Checked == true)
+            if (FileFunctions.FileExists(strLogFile) && chkClearLog.Checked == true)
             {
                 try
                 {
@@ -364,18 +218,18 @@ namespace DataSearches
             }
 
             // Write the first line to the log file.
-            myFileFuncs.WriteLine(strLogFile, "-----------------------------------------------------------------------");
-            myFileFuncs.WriteLine(strLogFile, "Processing search " + strReference);
-            myFileFuncs.WriteLine(strLogFile, "-----------------------------------------------------------------------");
+            FileFunctions.WriteLine(strLogFile, "-----------------------------------------------------------------------");
+            FileFunctions.WriteLine(strLogFile, "Processing search " + strReference);
+            FileFunctions.WriteLine(strLogFile, "-----------------------------------------------------------------------");
 
-            myFileFuncs.WriteLine(strLogFile, "Parameters are as follows:");
-            myFileFuncs.WriteLine(strLogFile, "Buffer distance: " + strRadius);
-            myFileFuncs.WriteLine(strLogFile, "Output location: " + strSaveFolder);
+            FileFunctions.WriteLine(strLogFile, "Parameters are as follows:");
+            FileFunctions.WriteLine(strLogFile, "Buffer distance: " + strRadius);
+            FileFunctions.WriteLine(strLogFile, "Output location: " + strSaveFolder);
             string strLayerString = "";
             foreach (string aLayer in SelectedLayers)
                 strLayerString = strLayerString + aLayer + ", ";
-            myFileFuncs.WriteLine(strLogFile, "Layers to process: " + SelectedLayers.Count.ToString());
-            myFileFuncs.WriteLine(strLogFile, "Area measurement unit: " + strAreaMeasureUnit);
+            FileFunctions.WriteLine(strLogFile, "Layers to process: " + SelectedLayers.Count.ToString());
+            FileFunctions.WriteLine(strLogFile, "Area measurement unit: " + strAreaMeasureUnit);
 
             string strSearchLayerBase = myConfig.GetSearchLayer();
             List<string> strSearchLayerExtensions = myConfig.GetSearchLayerExtensions();
@@ -412,15 +266,15 @@ namespace DataSearches
                 {
 
                     //SearchLayerList.Add(strSearchLayer);
-                    //myFileFuncs.WriteLine(strLogFile, "Searching layer " + strSearchLayer + " for reference " + strReference);
+                    //FileFunctions.WriteLine(strLogFile, "Searching layer " + strSearchLayer + " for reference " + strReference);
                     int iFeatureCount = myArcMapFuncs.CountFeaturesInLayer(strSearchLayer, strQuery, strLogFile);
 
                     if (iFeatureCount == 0)
-                        myFileFuncs.WriteLine(strLogFile, "No features found in " + strSearchLayer);
+                        FileFunctions.WriteLine(strLogFile, "No features found in " + strSearchLayer);
 
                     if (iFeatureCount > 0)
                     {
-                        myFileFuncs.WriteLine(strLogFile, iFeatureCount.ToString() + " feature(s) found in " + strSearchLayer);
+                        FileFunctions.WriteLine(strLogFile, iFeatureCount.ToString() + " feature(s) found in " + strSearchLayer);
                         if (aCount == 0)
                         {
                             strTargetLayer = strSearchLayer;
@@ -436,8 +290,8 @@ namespace DataSearches
             if (aCount == 0)
             {
                 MessageBox.Show("No features found in any of the search layers");
-                myFileFuncs.WriteLine(strLogFile, "No features found in any of the search layers");
-                myFileFuncs.WriteLine(strLogFile, "Process aborted");
+                FileFunctions.WriteLine(strLogFile, "No features found in any of the search layers");
+                FileFunctions.WriteLine(strLogFile, "Process aborted");
                 this.BringToFront();
                 this.Cursor = Cursors.Default;
                 return;
@@ -447,8 +301,8 @@ namespace DataSearches
             if (aCount > 1)
             {
                 MessageBox.Show(iTotalFeatureCount.ToString() + " features found in different search layers; Process aborted");
-                myFileFuncs.WriteLine(strLogFile, iTotalFeatureCount.ToString() + " features found in different search layers");
-                myFileFuncs.WriteLine(strLogFile, "Process aborted");
+                FileFunctions.WriteLine(strLogFile, iTotalFeatureCount.ToString() + " features found in different search layers");
+                FileFunctions.WriteLine(strLogFile, "Process aborted");
                 this.BringToFront();
                 this.Cursor = Cursors.Default;
                 return;
@@ -461,8 +315,8 @@ namespace DataSearches
                 DialogResult dlCheck = MessageBox.Show(iTotalFeatureCount.ToString() + " features found in " + strTargetLayer + " matching those criteria. Do you wish to continue?", "Data Searches", MessageBoxButtons.YesNo);
                 if (dlCheck == System.Windows.Forms.DialogResult.No)
                 {
-                    myFileFuncs.WriteLine(strLogFile, iTotalFeatureCount.ToString() + " features found in the search layers");
-                    myFileFuncs.WriteLine(strLogFile, "Process aborted");
+                    FileFunctions.WriteLine(strLogFile, iTotalFeatureCount.ToString() + " features found in the search layers");
+                    FileFunctions.WriteLine(strLogFile, "Process aborted");
                     this.BringToFront();
                     this.Cursor = Cursors.Default;
                     return;
@@ -480,20 +334,20 @@ namespace DataSearches
             // Create a temporary file geodatabase
             string strTempGDB = strTempFolder + @"\Temp.gdb";
             bool blResult = false;
-            if (!myFileFuncs.DirExists(strTempGDB))
+            if (!FileFunctions.DirExists(strTempGDB))
             {
                 blResult = myArcMapFuncs.CreateWorkspace(strTempGDB);
                 if (!blResult)
                 {
                     MessageBox.Show("Error creating temporary geodatabase" + strTempGDB);
-                    myFileFuncs.WriteLine(strLogFile, "Error creating temporary geodatabase " + strTempGDB);
+                    FileFunctions.WriteLine(strLogFile, "Error creating temporary geodatabase " + strTempGDB);
                     this.BringToFront();
                     this.Cursor = Cursors.Default;
                     myArcMapFuncs.ToggleDrawing(true);
                     myArcMapFuncs.ToggleTOC();
                     return;
                 }
-                myFileFuncs.WriteLine(strLogFile, "Temporary geodatabase created");
+                FileFunctions.WriteLine(strLogFile, "Temporary geodatabase created");
             }
 
             // Delete any temporary feature classes that still exist
@@ -503,7 +357,7 @@ namespace DataSearches
             if (myArcMapFuncs.FeatureclassExists(strTempMasterLayerName))
             {
                 myArcMapFuncs.DeleteFeatureclass(strTempMasterOutput, strLogFile);
-                myFileFuncs.WriteLine(strLogFile, "Temporary master featureclass deleted");
+                FileFunctions.WriteLine(strLogFile, "Temporary master featureclass deleted");
             }
 
             string strTempOutputLayerName = "TempOutput_" + strUserID;
@@ -512,7 +366,7 @@ namespace DataSearches
             if (myArcMapFuncs.FeatureclassExists(strTempOutputLayerName))
             {
                 myArcMapFuncs.DeleteFeatureclass(strTempFCOutput, strLogFile);
-                myFileFuncs.WriteLine(strLogFile, "Temporary output featureclass deleted");
+                FileFunctions.WriteLine(strLogFile, "Temporary output featureclass deleted");
             }
 
             string strTempOutputTableName = "TempOutput_" + strUserID + "DBF";
@@ -521,7 +375,7 @@ namespace DataSearches
             if (myArcMapFuncs.TableExists(strTempOutputTableName))
             {
                 myArcMapFuncs.DeleteTable(strTempTableOutput, strLogFile);
-                myFileFuncs.WriteLine(strLogFile, "Temporary output table deleted");
+                FileFunctions.WriteLine(strLogFile, "Temporary output table deleted");
             }
 
             // Select the feature in the map.
@@ -530,11 +384,11 @@ namespace DataSearches
             // Update the table if required.
             if (blUpdateTable && (!string.IsNullOrEmpty(strSiteColumn) || !string.IsNullOrEmpty(strOrgColumn) || !string.IsNullOrEmpty(strRadiusColumn)))
             {
-                myFileFuncs.WriteLine(strLogFile, "Updating attributes in search layer ...");
+                FileFunctions.WriteLine(strLogFile, "Updating attributes in search layer ...");
 
                 if (!string.IsNullOrEmpty(strSiteColumn) && !string.IsNullOrEmpty(strSiteName))
                 {
-                    //myFileFuncs.WriteLine(strLogFile, "Updating " + strSiteColumn + " with '" + strSiteName + "'");
+                    //FileFunctions.WriteLine(strLogFile, "Updating " + strSiteColumn + " with '" + strSiteName + "'");
                     myArcMapFuncs.CalculateField(strTargetLayer, strSiteColumn, '"' + strSiteName + '"', strLogFile);
                 }
 
@@ -555,17 +409,17 @@ namespace DataSearches
             if (strBufferSize == "0") strBufferString = "0.01 Meters";  // Safeguard for zero buffer size; Select a tiny buffer to allow
                                                                         // correct legending (expects a polygon).
 
-            myFileFuncs.WriteLine(strLogFile, "Buffering feature(s) with a distance of " + strRadius);
+            FileFunctions.WriteLine(strLogFile, "Buffering feature(s) with a distance of " + strRadius);
             blResult = myArcMapFuncs.BufferFeature(strTargetLayer, strOutputFile, strBufferString, strBufferFields, strLogFile);
 
             if (blResult == true)
             {
-                //myFileFuncs.WriteLine(strLogFile, "Buffering complete");
+                //FileFunctions.WriteLine(strLogFile, "Buffering complete");
             }
             else
             {
                 MessageBox.Show("Error during feature buffering. Process aborted");
-                myFileFuncs.WriteLine(strLogFile, "Error during feature buffering. Process aborted");
+                FileFunctions.WriteLine(strLogFile, "Error during feature buffering. Process aborted");
                 this.BringToFront();
                 this.Cursor = Cursors.Default;
                 myArcMapFuncs.ToggleDrawing(true);
@@ -606,7 +460,7 @@ namespace DataSearches
                 // Change the symbology of the buffer.
                 string strLayerFile = strLayerDir + @"\" + myConfig.GetBufferLayer();
                 myArcMapFuncs.ChangeLegend(strLayerName, strLayerFile, aLogFile: strLogFile);
-                myFileFuncs.WriteLine(strLogFile, "Buffer added to display");
+                FileFunctions.WriteLine(strLogFile, "Buffer added to display");
             }
 
 
@@ -648,20 +502,20 @@ namespace DataSearches
             {
                 string strCombinedSitesHeader = myConfig.GetCombinedSitesTableColumns();
                 // Start the table if overwrite has been selected, or if the table doesn't exist and Append has been selected.
-                if (blCombinedTableOverwrite || (!myFileFuncs.FileExists(strCombinedTable) && !blCombinedTableOverwrite))
+                if (blCombinedTableOverwrite || (!FileFunctions.FileExists(strCombinedTable) && !blCombinedTableOverwrite))
                 {
                     blResult = myArcMapFuncs.WriteEmptyCSV(strCombinedTable, strCombinedSitesHeader, strLogFile);
                     if (!blResult)
                     {
                         MessageBox.Show("Error writing to combined sites table. Process aborted");
-                        myFileFuncs.WriteLine(strLogFile, "Error writing to combined sites table. Process aborted");
+                        FileFunctions.WriteLine(strLogFile, "Error writing to combined sites table. Process aborted");
                         this.BringToFront();
                         this.Cursor = Cursors.Default;
                         myArcMapFuncs.ToggleDrawing(true);
                         myArcMapFuncs.ToggleTOC();
                         return;
                     }
-                    myFileFuncs.WriteLine(strLogFile, "Combined sites table started");
+                    FileFunctions.WriteLine(strLogFile, "Combined sites table started");
                 }
             }
 
@@ -683,7 +537,7 @@ namespace DataSearches
             int intMaxLabel = 1;
             foreach (string aLayer in SelectedLayers)
             {
-                myFileFuncs.WriteLine(strLogFile, "");
+                FileFunctions.WriteLine(strLogFile, "");
                 // Get all the settings relevant to this layer.
                 int intIndex = strLayerNames.IndexOf(aLayer); // Finds the first occurrence. 
                 string strDisplayName = strDisplayNames[intIndex];
@@ -736,29 +590,29 @@ namespace DataSearches
                 string strShapeOutputName = strGISFolder + @"\" + strGISOutName; // output shapefile / feature class name. Note no extension to allow write to GDB
                 string strTableOutputName = strGISFolder + @"\" + strTableOutName + "." + strFormat.ToLower(); // output table name
 
-                myFileFuncs.WriteLine(strLogFile, "Starting analysis for " + aLayer);
+                FileFunctions.WriteLine(strLogFile, "Starting analysis for " + aLayer);
 
                 // Do the selection. 
-                myFileFuncs.WriteLine(strLogFile, "Selecting features using selected feature(s) from layer " + strLayerName + " ...");
+                FileFunctions.WriteLine(strLogFile, "Selecting features using selected feature(s) from layer " + strLayerName + " ...");
                 myArcMapFuncs.SelectLayerByLocation(strDisplayName, strLayerName, aLogFile: strLogFile);
 
                 // Refine the selection if required.
                 int iFeatureCount = myArcMapFuncs.CountSelectedLayerFeatures(strDisplayName, strLogFile);
                 if (iFeatureCount > 0 && strCriteria != "")
                 {
-                    myFileFuncs.WriteLine(strLogFile, "Refining selection with criteria " + strCriteria + " ...");
+                    FileFunctions.WriteLine(strLogFile, "Refining selection with criteria " + strCriteria + " ...");
                     blResult = myArcMapFuncs.SelectLayerByAttributes(strDisplayName, strCriteria, "SUBSET_SELECTION", strLogFile);
                     if (!blResult)
                     {
                         MessageBox.Show("Error selecting layer " + strDisplayName + " with criteria " + strCriteria + ". Please check syntax and column names (case sensitive)");
-                        myFileFuncs.WriteLine(strLogFile, "Error refining selection on layer " + strDisplayName + " with criteria " + strCriteria + ". Please check syntax and column names (case sensitive)");
+                        FileFunctions.WriteLine(strLogFile, "Error refining selection on layer " + strDisplayName + " with criteria " + strCriteria + ". Please check syntax and column names (case sensitive)");
                         this.BringToFront();
                         this.Cursor = Cursors.Default;
                         myArcMapFuncs.ToggleDrawing(true);
                         myArcMapFuncs.ToggleTOC();
                         return;
                     }
-                    //myFileFuncs.WriteLine(strLogFile, "Selection on " + strDisplayName + " refined");
+                    //FileFunctions.WriteLine(strLogFile, "Selection on " + strDisplayName + " refined");
                 }
 
                 // Write out the results - to shapefile first. Include distance if required.
@@ -767,7 +621,7 @@ namespace DataSearches
                 iFeatureCount = myArcMapFuncs.CountSelectedLayerFeatures(strDisplayName, strLogFile);
                 if (iFeatureCount > 0)
                 {
-                    myFileFuncs.WriteLine(strLogFile, string.Format("{0:n0}", iFeatureCount) + " feature(s) found");
+                    FileFunctions.WriteLine(strLogFile, string.Format("{0:n0}", iFeatureCount) + " feature(s) found");
                     // Firstly take a copy of the full selection in a temporary file; This will be used to do the summaries on.
 
                     // Get the input FC type.
@@ -786,13 +640,13 @@ namespace DataSearches
                             (strInFCType == "line" & (strBufferFCType == "line" || strBufferFCType == "polygon")))
                         {
                             // Clip
-                            myFileFuncs.WriteLine(strLogFile, "Clipping selected features ...");
+                            FileFunctions.WriteLine(strLogFile, "Clipping selected features ...");
                             blResult = myArcMapFuncs.ClipFeatures(strDisplayName, strOutputFile, strTempMasterOutput, aLogFile: strLogFile); // Selected features in input, buffer FC, output.
                         }
                         else
                         {
                             // Copy
-                            myFileFuncs.WriteLine(strLogFile, "Copying selected features ...");
+                            FileFunctions.WriteLine(strLogFile, "Copying selected features ...");
                             blResult = myArcMapFuncs.CopyFeatures(strDisplayName, strTempMasterOutput, aLogFile: strLogFile);
                         }
                     }
@@ -804,27 +658,27 @@ namespace DataSearches
                             (strBufferFCType == "line" & (strInFCType == "line" || strInFCType == "polygon")))
                         {
                             // Clip
-                            myFileFuncs.WriteLine(strLogFile, "Overlaying selected features ...");
+                            FileFunctions.WriteLine(strLogFile, "Overlaying selected features ...");
                             blResult = myArcMapFuncs.ClipFeatures(strOutputFile, strDisplayName, strTempMasterOutput, aLogFile: strLogFile); // Selected features in input, buffer FC, output.
                         }
                         else
                         {
                             // Select from the buffer layer.
-                            myFileFuncs.WriteLine(strLogFile, "Selecting features  ...");
+                            FileFunctions.WriteLine(strLogFile, "Selecting features  ...");
                             myArcMapFuncs.SelectLayerByLocation(strLayerName, strDisplayName, aLogFile: strLogFile);
 
                             iFeatureCount = myArcMapFuncs.CountSelectedLayerFeatures(strLayerName, strLogFile);
                             if (iFeatureCount > 0)
                             {
-                                myFileFuncs.WriteLine(strLogFile, string.Format("{0:n0}", iFeatureCount) + " feature(s) found");
+                                FileFunctions.WriteLine(strLogFile, string.Format("{0:n0}", iFeatureCount) + " feature(s) found");
 
                                 // Copy the selection from the buffer layer.
-                                myFileFuncs.WriteLine(strLogFile, "Copying selected features ... ");
+                                FileFunctions.WriteLine(strLogFile, "Copying selected features ... ");
                                 blResult = myArcMapFuncs.CopyFeatures(strLayerName, strTempMasterOutput, aLogFile: strLogFile);
                             }
                             else
                             {
-                                myFileFuncs.WriteLine(strLogFile, "No features selected");
+                                FileFunctions.WriteLine(strLogFile, "No features selected");
                             }
 
                             // Clear the buffer layer selection.
@@ -839,13 +693,13 @@ namespace DataSearches
                             (strInFCType == "line" & strBufferFCType == "line"))
                         {
                             // Intersect
-                            myFileFuncs.WriteLine(strLogFile, "Intersecting selected features ...");
+                            FileFunctions.WriteLine(strLogFile, "Intersecting selected features ...");
                             blResult = myArcMapFuncs.IntersectFeatures(strDisplayName, strOutputFile, strTempMasterOutput, aLogFile: strLogFile); // Selected features in input, buffer FC, output.
                         }
                         else
                         {
                             // Copy
-                            myFileFuncs.WriteLine(strLogFile, "Copying selected features ...");
+                            FileFunctions.WriteLine(strLogFile, "Copying selected features ...");
                             blResult = myArcMapFuncs.CopyFeatures(strDisplayName, strTempMasterOutput, aLogFile: strLogFile);
                         }
                     }
@@ -853,14 +707,14 @@ namespace DataSearches
                     else
                     {
                         // Copy
-                        myFileFuncs.WriteLine(strLogFile, "Copying selected features ...");
+                        FileFunctions.WriteLine(strLogFile, "Copying selected features ...");
                         blResult = myArcMapFuncs.CopyFeatures(strDisplayName, strTempMasterOutput, aLogFile: strLogFile);
                     }
 
                     if (!blResult)
                     {
                         MessageBox.Show("Cannot copy selection from " + strDisplayName + " to " + strTempMasterOutput + ". Please ensure this file is not open elsewhere");
-                        myFileFuncs.WriteLine(strLogFile, "Cannot copy selection from " + strDisplayName + " to " + strTempMasterOutput + ". Please ensure this file is not open elsewhere");
+                        FileFunctions.WriteLine(strLogFile, "Cannot copy selection from " + strDisplayName + " to " + strTempMasterOutput + ". Please ensure this file is not open elsewhere");
                         this.BringToFront();
                         this.Cursor = Cursors.Default;
                         myArcMapFuncs.ToggleDrawing(true);
@@ -890,9 +744,9 @@ namespace DataSearches
                             // Add relevant labels. 
                             if (strOverwriteLabels.ToLower().Contains("layer")) // Reset each layer to 1.
                             {
-                                myFileFuncs.WriteLine(strLogFile, "Resetting label counter ...");
+                                FileFunctions.WriteLine(strLogFile, "Resetting label counter ...");
                                 intStartLabel = 1;
-                                myFileFuncs.WriteLine(strLogFile, "Adding map labels ...");
+                                FileFunctions.WriteLine(strLogFile, "Adding map labels ...");
                                 myArcMapFuncs.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, intStartLabel, strLogFile);
                             }
 
@@ -903,7 +757,7 @@ namespace DataSearches
 
                                 int intGroupIndex = liGroupNames.IndexOf(strGroupName);
                                 int intGroupLabel = liGroupLabels[intGroupIndex];
-                                myFileFuncs.WriteLine(strLogFile, "Adding map labels ...");
+                                FileFunctions.WriteLine(strLogFile, "Adding map labels ...");
                                 intGroupLabel = myArcMapFuncs.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, intGroupLabel, strLogFile);
                                 intGroupLabel++;
                                 liGroupLabels[intGroupIndex] = intGroupLabel; // Store the new max label.
@@ -913,7 +767,7 @@ namespace DataSearches
                                 // There is no group or groups are ignored, or we are not resetting. Use the existing max label number.
                                 intStartLabel = intMaxLabel;
 
-                                myFileFuncs.WriteLine(strLogFile, "Adding map labels ...");
+                                FileFunctions.WriteLine(strLogFile, "Adding map labels ...");
                                 intMaxLabel = myArcMapFuncs.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, intStartLabel, strLogFile);
                                 intMaxLabel++; // the new start label for incremental labeling
                             }
@@ -934,19 +788,19 @@ namespace DataSearches
                         bool blIncHeaders = false;
                         if (strFormat.ToLower() == "csv") blIncHeaders = true;
 
-                        myFileFuncs.WriteLine(strLogFile, "Extracting summary information ...");
+                        FileFunctions.WriteLine(strLogFile, "Extracting summary information ...");
 
                         intLineCount = myArcMapFuncs.ExportSelectionToCSV(strTempMasterLayerName, strTableOutputName, strColumns, blIncHeaders, strTempFCOutput, strTempTableOutput,
                             strGroupColumns, strStatsColumns, strOrderColumns, blIncludeArea, strAreaMeasureUnit, blIncludeDistance, strRadiusText, strTargetLayer, strLogFile, RenameColumns: true);
 
-                        myFileFuncs.WriteLine(strLogFile, string.Format("{0:n0}", intLineCount) + " record(s) exported");
+                        FileFunctions.WriteLine(strLogFile, string.Format("{0:n0}", intLineCount) + " record(s) exported");
                     }
 
                     // Copy to permanent layer as appropriate
                     if (blKeepLayer)
                     {
                         // Keep the layer - write to permanent file (note this is not the summarised layer).
-                        myFileFuncs.WriteLine(strLogFile, "Copying selected GIS features to " + strShapeLayerName + ".shp ...");
+                        FileFunctions.WriteLine(strLogFile, "Copying selected GIS features to " + strShapeLayerName + ".shp ...");
                         myArcMapFuncs.CopyFeatures(strTempMasterLayerName, strShapeOutputName, aLogFile: strLogFile);
 
                         // If the layer is to be added to the map
@@ -962,7 +816,7 @@ namespace DataSearches
                                 myArcMapFuncs.ChangeLegend(strShapeLayerName, strDisplayLayerFile, blDisplayLabel, strLogFile);
                             }
 
-                            myFileFuncs.WriteLine(strLogFile, "Output " + strShapeLayerName + " added to display");
+                            FileFunctions.WriteLine(strLogFile, "Output " + strShapeLayerName + " added to display");
 
                             // If labels are to be displayed
                             if (strAddSelected.ToLower().Contains("with ") && blDisplayLabel)
@@ -979,12 +833,12 @@ namespace DataSearches
                                     string strOverlap = strLabelOptions[5].Split(':')[1];
                                     myArcMapFuncs.AnnotateLayer(strShapeLayerName, "[" + strLabelColumn + "]", strFont, dblSize,
                                         intRed, intGreen, intBlue, strOverlap, aLogFile: strLogFile);
-                                    myFileFuncs.WriteLine(strLogFile, "Labels added to output " + strShapeLayerName);
+                                    FileFunctions.WriteLine(strLogFile, "Labels added to output " + strShapeLayerName);
                                 }
                                 else if (strLabelColumn != "" && strDisplayLayer == "")
                                 {
                                     myArcMapFuncs.AnnotateLayer(strShapeLayerName, "[" + strLabelColumn + "]", aLogFile: strLogFile);
-                                    myFileFuncs.WriteLine(strLogFile, "Labels added to output " + strShapeLayerName);
+                                    FileFunctions.WriteLine(strLogFile, "Labels added to output " + strShapeLayerName);
                                 }
                             }
                             else
@@ -1009,12 +863,12 @@ namespace DataSearches
                     // Function to take account of group by, order by and statistics fields.
                     if (strCombinedSitesColumns != "" && blCombinedTable)
                     {
-                        myFileFuncs.WriteLine(strLogFile, "Extracting summary output for combined sites table ...");
+                        FileFunctions.WriteLine(strLogFile, "Extracting summary output for combined sites table ...");
 
                         intLineCount = myArcMapFuncs.ExportSelectionToCSV(strTempMasterLayerName, strCombinedTable, strCombinedSitesColumns, false, strTempFCOutput, strTempTableOutput, strCombinedSitesGroupColumns,
                             strCombinedSitesStatsColumns, strCombinedSitesOrderColumns, blIncludeArea, strAreaMeasureUnit, blIncludeDistance, strRadiusText, strTargetLayer, strLogFile, false, RenameColumns: true);
 
-                        myFileFuncs.WriteLine(strLogFile, string.Format("{0:n0}", intLineCount) + " row(s) added to summary output");
+                        FileFunctions.WriteLine(strLogFile, string.Format("{0:n0}", intLineCount) + " row(s) added to summary output");
 
                         // Shouldn't need this as it's removed in the function ExportSelectionToCSV
                         //myArcMapFuncs.RemoveLayer(strTempOutputLayerName, strLogFile);
@@ -1023,29 +877,29 @@ namespace DataSearches
                     }
 
                     // Cleanup the temporary master layer.
-//                    myFileFuncs.WriteLine(strLogFile, "Cleaning up temporary master layer");
+//                    FileFunctions.WriteLine(strLogFile, "Cleaning up temporary master layer");
                     myArcMapFuncs.RemoveLayer(strTempMasterLayerName, strLogFile);
                     myArcMapFuncs.DeleteFeatureclass(strTempMasterOutput, strLogFile);
 
                     // Clear the selection in the input layer.
- //                   myFileFuncs.WriteLine(strLogFile, "Clearing map selection");
+ //                   FileFunctions.WriteLine(strLogFile, "Clearing map selection");
                     myArcMapFuncs.ClearSelectedMapFeatures(strDisplayName, strLogFile);
-                    myFileFuncs.WriteLine(strLogFile, "Analysis complete");
+                    FileFunctions.WriteLine(strLogFile, "Analysis complete");
                 }
                 else
                 {
-                    myFileFuncs.WriteLine(strLogFile, "No features found");
+                    FileFunctions.WriteLine(strLogFile, "No features found");
                 }
 
                 // Trigger the macro if one exists
                 if (strMacroName != "") // Only if we have a macro to trigger.
                 {
-                    myFileFuncs.WriteLine(strLogFile, "Executing vbscript macro ...");
+                    FileFunctions.WriteLine(strLogFile, "Executing vbscript macro ...");
 
                     Process scriptProc = new Process();
                     //scriptProc.StartInfo.FileName = @"C:\Windows\SysWOW64\cscript.exe";
                     scriptProc.StartInfo.FileName = @"cscript.exe";
-                    scriptProc.StartInfo.WorkingDirectory = myFileFuncs.GetDirectoryName(strMacroName); //<---very important
+                    scriptProc.StartInfo.WorkingDirectory = FileFunctions.GetDirectoryName(strMacroName); //<---very important
                     scriptProc.StartInfo.UseShellExecute = true;
                     scriptProc.StartInfo.Arguments = string.Format(@"//B //Nologo {0} {1} {2} {3}", "\"" + strMacroName + "\"", "\"" + strGISFolder + "\"", "\"" + strTableOutName + "." + strFormat.ToLower() + "\"", "\"" + strTableOutName + ".xlsx" + "\"");
                     scriptProc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden; //prevent console window from popping up
@@ -1057,7 +911,7 @@ namespace DataSearches
 
                         int exitcode = scriptProc.ExitCode;
                         if (exitcode != 0)
-                            myFileFuncs.WriteLine(strLogFile, "Error executing vbscript macro. Exit code : " + exitcode);
+                            FileFunctions.WriteLine(strLogFile, "Error executing vbscript macro. Exit code : " + exitcode);
 
                         scriptProc.Close();
                     }
@@ -1080,7 +934,7 @@ namespace DataSearches
                 {
                     myArcMapFuncs.RemoveLayer(strLayerName, strLogFile);
                     myArcMapFuncs.DeleteFeatureclass(strOutputFile, strLogFile);
-                    myFileFuncs.WriteLine(strLogFile, "Buffer layer deleted.");
+                    FileFunctions.WriteLine(strLogFile, "Buffer layer deleted.");
 
                 }
                 catch
@@ -1101,17 +955,7 @@ namespace DataSearches
             if (strBufferSize != "0" && blKeepBuffer)
                 myArcMapFuncs.ZoomToLayer(strLayerName, strLogFile);
 
-            myFileFuncs.WriteLine(strLogFile, "---------------------------------------------------------------------------");
-            myFileFuncs.WriteLine(strLogFile, "Process complete");
-            myFileFuncs.WriteLine(strLogFile, "---------------------------------------------------------------------------");
 
-            this.Cursor = Cursors.Default;
-            DialogResult dlResult = MessageBox.Show("Process complete. Do you wish to close the form?", "Data Searches", MessageBoxButtons.YesNo);
-            if (dlResult == System.Windows.Forms.DialogResult.Yes)
-                this.Close();
-            else this.BringToFront();
-
-            Process.Start("notepad.exe", strLogFile);
 
         }
 
@@ -1130,7 +974,7 @@ namespace DataSearches
                     // Use connection string for .accdb or .mdb as appropriate
                     //-------------------------------------------------------------
                     string strAccessConn;
-                    if (myFileFuncs.GetExtension(myConfig.GetDatabase()).ToLower() == "accdb")
+                    if (FileFunctions.GetExtension(myConfig.GetDatabase()).ToLower() == "accdb")
                     {
                         strAccessConn = "Provider='Microsoft.ACE.OLEDB.12.0';data source='" + myConfig.GetDatabase() + "'";
                     }
@@ -1229,25 +1073,5 @@ namespace DataSearches
                 txtOrganisation.Text = "";
             }
         }
-
-        private void cmbAddLayers_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            if (cmbAddLayers.Text == "Yes - With labels")
-            {
-                cmbLabels.Enabled = true;
-                if (blFormHasOpened)
-                {
-                    cmbLabels.Text = (string)cmbLabels.Items[myConfig.GetDefaultOverwriteLabelsOption() - 1];
-                }
-            }
-            else
-            {
-                cmbLabels.Enabled = false;
-                cmbLabels.Text = "";
-            }
-        }
-
-
-
     }
 }

@@ -24,6 +24,7 @@ using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Controls;
 using ArcGIS.Desktop.Mapping.Events;
 using ArcGIS.Desktop.Mapping;
+using ArcGIS.Desktop.Core.Events;
 using DataSearches;
 using System;
 using System.Collections.Generic;
@@ -48,7 +49,8 @@ namespace DataSearches.UI
         private PaneHeader1ViewModel _paneH1VM;
         private PaneHeader2ViewModel _paneH2VM;
 
-        private bool _subscribed;
+        private bool _mapEventsSubscribed;
+        private bool _projectEventsSubscribed;
 
         #endregion Fields
 
@@ -141,24 +143,28 @@ namespace DataSearches.UI
             // Is the dockpane visible (or is the window not showing the map).
             if (isVisible)
             {
-                if (!_subscribed)
+                if (!_mapEventsSubscribed)
                 {
-                    _subscribed = true;
+                    _mapEventsSubscribed = true;
 
                     // Connect to map events.
-                    ArcGIS.Desktop.Mapping.Events.ActiveMapViewChangedEvent.Subscribe(OnActiveMapViewChanged);
-                    ArcGIS.Desktop.Mapping.Events.DrawCompleteEvent.Subscribe(OnDrawComplete);
+                    ActiveMapViewChangedEvent.Subscribe(OnActiveMapViewChanged);
+                }
+                if (!_projectEventsSubscribed)
+                {
+                    _projectEventsSubscribed = true;
+
+                    ProjectClosedEvent.Subscribe(OnProjectClosed);
                 }
             }
             else
             {
-                if (_subscribed)
+                if (_mapEventsSubscribed)
                 {
-                    _subscribed = false;
+                    _mapEventsSubscribed = false;
 
                     // Unsubscribe from map events.
-                    ArcGIS.Desktop.Mapping.Events.ActiveMapViewChangedEvent.Unsubscribe(OnActiveMapViewChanged);
-                    ArcGIS.Desktop.Mapping.Events.DrawCompleteEvent.Unsubscribe(OnDrawComplete);
+                    ActiveMapViewChangedEvent.Unsubscribe(OnActiveMapViewChanged);
                 }
             }
             base.OnShow(isVisible);
@@ -307,7 +313,10 @@ namespace DataSearches.UI
         private void OnActiveMapViewChanged(ActiveMapViewChangedEventArgs obj)
         {
             if (MapView.Active == null)
+            {
                 DockpaneVisibility = Visibility.Hidden;
+                _paneH2VM.ClearLayers();
+            }
             else
             {
                 DockpaneVisibility = Visibility.Visible;
@@ -315,20 +324,19 @@ namespace DataSearches.UI
                 // Reload the form layers (don't wait for the response).
                 _paneH2VM.LoadLayersAsync(false);
             }
-
         }
 
-        private void OnDrawComplete(MapViewEventArgs obj)
+        private void OnProjectClosed(ProjectEventArgs obj)
         {
             if (MapView.Active == null)
-                DockpaneVisibility = Visibility.Hidden;
-            else
             {
-                DockpaneVisibility = Visibility.Visible;
-
-                // Reload the form layers (don't wait for the response).
-                _paneH2VM.LoadLayersAsync(false);
+                DockpaneVisibility = Visibility.Hidden;
+                _paneH2VM.ClearLayers();
             }
+
+            _projectEventsSubscribed = false;
+
+            ProjectClosedEvent.Unsubscribe(OnProjectClosed);
         }
 
         private Visibility _dockpaneVisibility = Visibility.Hidden;

@@ -24,7 +24,6 @@
 using ArcGIS.Core.Data;
 using ArcGIS.Desktop.Framework;
 using DataSearches;
-using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -208,10 +207,10 @@ namespace DataSearches.UI
                 //return true;
                 return ((_processingLabel == null)
                     && (_openLayersList != null)
-                    && (_openLayersList.Where(p => p.IsSelected).Count() > 0)
+                    && (_openLayersList.Where(p => p.IsSelected).Any())
                     && (_searchRefText != null)
-                    //&& (!_requireSiteName || _siteNameText != null)   ???
-                    && (_bufferSizeText != null)
+                    && (!_toolConfig.RequireSiteName || _siteNameText != null)
+                    && (!String.IsNullOrEmpty(_bufferSizeText))
                     && (_selectedBufferUnits != null)
                     && (_toolConfig.DefaultAddSelectedLayers <= 0 || _selectedAddToMap != null)
                     && (_toolConfig.DefaultOverwriteLabels <= 0 || _selectedOverwriteLabels != null)
@@ -244,10 +243,23 @@ namespace DataSearches.UI
         {
             get
             {
-                if (_toolConfig.DefaultOverwriteLabels == -1)
+                if (_toolConfig.DefaultAddSelectedLayers == -1)
                     return Visibility.Collapsed;
                 else
-                    return Visibility.Visible;
+                {
+                    try
+                    {
+                        int index = AddToMapList.FindIndex(a => a == SelectedAddToMap);
+                        if (index > 0)
+                            return Visibility.Visible;
+                        else
+                            return Visibility.Collapsed;
+                    }
+                    catch
+                    {
+                        return Visibility.Collapsed;
+                    }
+                }
             }
         }
 
@@ -334,82 +346,55 @@ namespace DataSearches.UI
         /// <remarks></remarks>
         private async void RunCommandClick(object param)
         {
-            // Replace any illegal characters in the user name string.
-            string userID = StringFunctions.StripIllegals(Environment.UserName, "_", false);
-
-            // User ID should be something at least.
-            if (string.IsNullOrEmpty(userID))
+            // Site ref is mandatory.
+            if (string.IsNullOrEmpty(SearchRefText))
             {
-                userID = "Temp";
-                FileFunctions.WriteLine(_logFile, "User ID not found. User ID used will be 'Temp'");
+                MessageBox.Show("Please enter a search reference.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
             }
 
-            string strSaveRootDir = _toolConfig.SaveRootDir;    //??? remove str prefix
+            // Site name is not always required.
+            if (_toolConfig.RequireSiteName && string.IsNullOrEmpty(SiteNameText))
+            {
+                MessageBox.Show("Please enter a location.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            if (!OpenLayersList.Where(p => p.IsSelected).Any())
+            {
+                MessageBox.Show("Please select at least one layer to search.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            if (string.IsNullOrEmpty(BufferSizeText))
+            {
+                MessageBox.Show("Please enter a buffer size.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            bool bufferNumeric = Double.TryParse(BufferSizeText, out double bufferNumber);
+            if (!bufferNumeric || bufferNumber < 0) // User either entered text or a negative number
+            {
+                MessageBox.Show("Please enter a positive number for the buffer size.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
+            if (string.IsNullOrEmpty(SelectedBufferUnits))
+            {
+                MessageBox.Show("Please enter a buffer size.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
-            //// Set the destination log file path.
-            //_logFile = _toolConfig.GetLogFilePath + @"\DataSearches_" + userID + ".log";
+            // Update the fields and buttons in the form.
+            UpdateFormControls();
+            _dockPane.RefreshPanel1Buttons();
 
-            //// Clear the log file if required.
-            //if (ClearLogFile)
-            //{
-            //    bool blDeleted = FileFunctions.DeleteFile(_logFile);
-            //    if (!blDeleted)
-            //    {
-            //        MessageBox.Show("Cannot delete log file. Please make sure it is not open in another window.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
-            //        return;
-            //    }
-            //}
+            // Run the search.
+            await RunSearchAsync(); // Success not currently checked.
 
-            //// Check the user entered parameters.
-            //if (string.IsNullOrEmpty(ColumnsText))
-            //{
-            //    MessageBox.Show("Please specify which columns you wish to select.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
-            //    return;
-            //}
-
-            //// Table name should always be selected.
-            //if (string.IsNullOrEmpty(SelectedTable)
-            //        && (WhereText.Length <= 5 || !WhereText.Substring(0, 5).Equals("from ", StringComparison.CurrentCultureIgnoreCase)))
-            //{
-            //    MessageBox.Show("Please select a table to query from.", "Data Searches.", MessageBoxButton.OK, MessageBoxImage.Information);
-            //    return;
-            //}
-
-            //// Output format should always be selected.
-            //if (string.IsNullOrEmpty(SelectedOutputFormat))
-            //{
-            //    MessageBox.Show("Please select an output format.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
-            //    return;
-            //}
-
-            //// Update the fields and buttons in the form.
-            //OnPropertyChanged(nameof(TablesList));
-            //OnPropertyChanged(nameof(TablesListEnabled));
-            //OnPropertyChanged(nameof(LoadColumnsEnabled));
-            //OnPropertyChanged(nameof(ClearButtonEnabled));
-            //OnPropertyChanged(nameof(SaveButtonEnabled));
-            //OnPropertyChanged(nameof(LoadButtonEnabled));
-            //OnPropertyChanged(nameof(VerifyButtonEnabled));
-            //OnPropertyChanged(nameof(RunButtonEnabled));
-            //_dockPane.RefreshPanel1Buttons();
-
-            //// Perform the selection.
-            //await ExecuteSelectionAsync(userID); // Success not currently checked.
-
-            //// Update the fields and buttons in the form.
-            //OnPropertyChanged(nameof(TablesList));
-            //OnPropertyChanged(nameof(TablesListEnabled));
-            //OnPropertyChanged(nameof(LoadColumnsEnabled));
-            //OnPropertyChanged(nameof(ClearButtonEnabled));
-            //OnPropertyChanged(nameof(SaveButtonEnabled));
-            //OnPropertyChanged(nameof(LoadButtonEnabled));
-            //OnPropertyChanged(nameof(VerifyButtonEnabled));
-            //OnPropertyChanged(nameof(RunButtonEnabled));
-            //_dockPane.RefreshPanel1Buttons();
+            // Update the fields and buttons in the form.
+            UpdateFormControls();
+            _dockPane.RefreshPanel1Buttons();
         }
 
         #endregion Run Command
@@ -432,7 +417,7 @@ namespace DataSearches.UI
                 _searchRefText = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -452,7 +437,7 @@ namespace DataSearches.UI
                 _siteNameText = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -500,7 +485,7 @@ namespace DataSearches.UI
                 _selectedLayers = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(RunButtonEnabled));  ???
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -520,7 +505,7 @@ namespace DataSearches.UI
                 _bufferSizeText = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -560,7 +545,7 @@ namespace DataSearches.UI
                 _selectedBufferUnits = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(BufferUnitsListEnabled));
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -601,7 +586,8 @@ namespace DataSearches.UI
                 _selectedAddToMap = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -641,7 +627,7 @@ namespace DataSearches.UI
                 _selectedOverwriteLabels = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -681,7 +667,7 @@ namespace DataSearches.UI
                 _selectedCombinedSites = value;
 
                 // Update the fields and buttons in the form.
-                //OnPropertyChanged(nameof(SaveButtonEnabled)); ???
+                OnPropertyChanged(nameof(RunButtonEnabled));
             }
         }
 
@@ -760,21 +746,63 @@ namespace DataSearches.UI
         #region Methods
 
         /// <summary>
+        /// Update the fields and buttons in the form.
+        /// </summary>
+        private void UpdateFormControls()
+        {
+            UpdateFormFields();
+            UpdateFormButtons();
+        }
+
+        /// <summary>
+        /// Update the fields in the form.
+        /// </summary>
+        private void UpdateFormFields()
+        {
+            OnPropertyChanged(nameof(SearchRefText));
+            OnPropertyChanged(nameof(SiteNameText));
+            OnPropertyChanged(nameof(SiteNameTextEnabled));
+            OnPropertyChanged(nameof(OpenLayersList));
+            OnPropertyChanged(nameof(LayersListEnabled));
+            OnPropertyChanged(nameof(BufferSizeText));
+            OnPropertyChanged(nameof(BufferUnitsList));
+            OnPropertyChanged(nameof(BufferUnitsListEnabled));
+            OnPropertyChanged(nameof(SelectedBufferUnits));
+            OnPropertyChanged(nameof(AddToMapList));
+            OnPropertyChanged(nameof(AddToMapListEnabled));
+            OnPropertyChanged(nameof(SelectedAddToMap));
+            OnPropertyChanged(nameof(AddToMapListVisibility));
+            OnPropertyChanged(nameof(OverwriteLabelsList));
+            OnPropertyChanged(nameof(OverwriteLabelsListEnabled));
+            OnPropertyChanged(nameof(SelectedOverwriteLabels));
+            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
+            OnPropertyChanged(nameof(CombinedSitesList));
+            OnPropertyChanged(nameof(SelectedCombinedSites));
+            OnPropertyChanged(nameof(CombinedSitesListVisibility));
+        }
+
+        /// <summary>
+        /// Update the buttons in the form.
+        /// </summary>
+        private void UpdateFormButtons()
+        {
+            OnPropertyChanged(nameof(ResetButtonEnabled));
+            OnPropertyChanged(nameof(RunButtonEnabled));
+        }
+
+        /// <summary>
         /// Set all of the form fields to their default values.
         /// </summary>
-        public void ResetForm(bool reset)
+        public async Task ResetForm(bool reset)
         {
-            //// Get the list of selected layers (as a test).
-            //if (_openLayersList != null)
-            //{
-            //    foreach (Layers layer in _openLayersList)
-            //    {
-            //        bool selected = layer.IsSelected;
-            //    }
-            //}
-
-            // Reload the form layers (don't wait for the response).
-            LoadLayersAsync(reset);
+            // Clear the selections first (to avoid selections being retained).
+            if (_openLayersList != null)
+            {
+                foreach (Layers layer in _openLayersList)
+                {
+                    layer.IsSelected = false;
+                }
+            }
 
             // Search ref and site name.
             SearchRefText = null;
@@ -804,6 +832,9 @@ namespace DataSearches.UI
             // Log file.
             ClearLogFile = _toolConfig.DefaultClearLogFile;
             OpenLogFile = _toolConfig.DefaultOpenLogFile;
+
+            // Reload the form layers (don't wait for the response).
+            await LoadLayersAsync(reset);
         }
 
         /// <summary>
@@ -823,25 +854,12 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(ProcessingAnimation));
 
             // Update the fields and buttons in the form.
-            OnPropertyChanged(nameof(SearchRefText));
-            OnPropertyChanged(nameof(SiteNameText));
-            OnPropertyChanged(nameof(OpenLayersList));
-            OnPropertyChanged(nameof(LayersListEnabled));
-            //PreSelectLayers();    ???
-            OnPropertyChanged(nameof(BufferSizeText));
-            OnPropertyChanged(nameof(BufferUnitsList));
-            OnPropertyChanged(nameof(SelectedBufferUnits));
-            OnPropertyChanged(nameof(AddToMapList));
-            OnPropertyChanged(nameof(SelectedAddToMap));
-            OnPropertyChanged(nameof(AddToMapListVisibility));
-            OnPropertyChanged(nameof(OverwriteLabelsList));
-            OnPropertyChanged(nameof(SelectedOverwriteLabels));
-            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
-            OnPropertyChanged(nameof(CombinedSitesList));
-            OnPropertyChanged(nameof(SelectedCombinedSites));
-            OnPropertyChanged(nameof(CombinedSitesListVisibility));
-            OnPropertyChanged(nameof(ResetButtonEnabled));
-            OnPropertyChanged(nameof(RunButtonEnabled));
+            UpdateFormControls();
+
+            // Temporary sleep to check processing label and animation are working. ???
+            System.Threading.Thread.Sleep(100);
+
+            List<string> closedLayers = []; // The closed layers by name.
 
             await Task.Run(() =>
             {
@@ -862,7 +880,6 @@ namespace DataSearches.UI
                     //List<bool> blPreselectLayers = _toolConfig.MapPreselectLayers; // A list telling us which layers to preselect in the form
                     //ObservableCollection<string> OpenLayers = []; // The open layers by name
                     //List<bool> PreselectLayers = []; // The preselect options of the open layers
-                    List<string> ClosedLayers = []; // The closed layers by name
 
                     // Loop through all of the layers to check if they are open
                     // in the active map.
@@ -880,7 +897,7 @@ namespace DataSearches.UI
                         {
                             // Only add if the user wants to be warned of this one.
                             if (layer.LoadWarning)
-                                ClosedLayers.Add(layer.LayerName);
+                                closedLayers.Add(layer.LayerName);
                         }
                     }
                 }
@@ -896,25 +913,102 @@ namespace DataSearches.UI
             _dockPane.LayersListLoading = false;
 
             // Update the fields and buttons in the form.
-            OnPropertyChanged(nameof(SearchRefText));
-            OnPropertyChanged(nameof(SiteNameText));
-            OnPropertyChanged(nameof(OpenLayersList));
-            OnPropertyChanged(nameof(LayersListEnabled));
-            //PreSelectLayers();    ???
-            OnPropertyChanged(nameof(BufferSizeText));
-            OnPropertyChanged(nameof(BufferUnitsList));
-            OnPropertyChanged(nameof(SelectedBufferUnits));
-            OnPropertyChanged(nameof(AddToMapList));
-            OnPropertyChanged(nameof(SelectedAddToMap));
-            OnPropertyChanged(nameof(AddToMapListVisibility));
-            OnPropertyChanged(nameof(OverwriteLabelsList));
-            OnPropertyChanged(nameof(SelectedOverwriteLabels));
-            OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
-            OnPropertyChanged(nameof(CombinedSitesList));
-            OnPropertyChanged(nameof(SelectedCombinedSites));
-            OnPropertyChanged(nameof(CombinedSitesListVisibility));
-            OnPropertyChanged(nameof(ResetButtonEnabled));
-            OnPropertyChanged(nameof(RunButtonEnabled));
+            UpdateFormControls ();
+
+            // Warn the user of closed layers.
+            int closedLayerCount = closedLayers.Count;
+            if (closedLayerCount > 0)
+            {
+                string closedLayerWarning = "";
+                if (closedLayerCount == 1)
+                {
+                    closedLayerWarning = "Warning. The layer '" + closedLayers[0] + "' is not loaded.";
+                }
+                else if (closedLayerCount > 10)
+                {
+                    closedLayerWarning = String.Format("Warning: {0} layers are not loaded, including:{1}{1}", closedLayerCount.ToString(), Environment.NewLine);
+                    closedLayerWarning += String.Join(Environment.NewLine, closedLayers.Take(10));
+                }
+                else
+                {
+                    closedLayerWarning = String.Format("Warning: {0} layers are not loaded:{1}{1}", closedLayerCount.ToString(), Environment.NewLine);
+                    closedLayerWarning += String.Join(Environment.NewLine, closedLayers);
+                }
+                MessageBox.Show(closedLayerWarning, "Data Searches", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Clear the list of open GIS layers.
+        /// </summary>
+        /// <param name="selectedTable"></param>
+        /// <returns></returns>
+        public void ClearLayers()
+        {
+            // Clear the list of open layers.
+            _openLayersList = [];
+
+            // Update the fields and buttons in the form.
+            UpdateFormControls();
+        }
+
+        /// <summary>
+        /// Validate and run the search.
+        /// </summary>
+        private async Task RunSearchAsync()
+        {
+            // Save the parameters.
+            string searchRef = SearchRefText;
+            string siteName = SiteNameText;
+            //string strOrganisation = txtOrganisation.Text; // Associated organisation
+
+
+
+
+            bool blUpdateTable = _toolConfig.UpdateTable;
+
+            // Replace any illegal characters in the user name string.
+            string userID = StringFunctions.StripIllegals(Environment.UserName, "_", false);
+
+            // User ID should be something at least.
+            if (string.IsNullOrEmpty(userID))
+            {
+                userID = "Temp";
+                FileFunctions.WriteLine(_logFile, "User ID not found. User ID used will be 'Temp'");
+            }
+
+            string strSaveRootDir = _toolConfig.SaveRootDir;    //??? remove str prefix
+
+
+            // Indicate the search has started.
+            _dockPane.SearchRunning = true;
+            _processingLabel = "Performing search ...";
+            OnPropertyChanged(nameof(ProcessingLabel));
+            OnPropertyChanged(nameof(ProcessingAnimation));
+
+            // Temporary delay to check processing label and animation are working. ???
+            await Task.Delay(1000);
+
+
+
+
+            FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
+            FileFunctions.WriteLine(_logFile, "Process complete");
+            FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
+
+            // Indicate search has finished.
+            _dockPane.SearchRunning = false;
+            _processingLabel = null;
+            OnPropertyChanged(nameof(ProcessingLabel));
+            OnPropertyChanged(nameof(ProcessingAnimation));
+
+            MessageBox.Show(String.Format("Search '{0}' complete!", searchRef), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            // Open the log file (if required).
+            if (OpenLogFile)
+                Process.Start("notepad.exe", _logFile);
+
+            return;
         }
 
         #endregion Methods
@@ -985,6 +1079,8 @@ namespace DataSearches.UI
     /// </summary>
     public class Layers : INotifyPropertyChanged
     {
+        #region Fields
+
         public string NodeName { get; set; }
 
         public string LayerGroup { get; set; }
@@ -1056,10 +1152,20 @@ namespace DataSearches.UI
             }
         }
 
+        #endregion Fields
+
+        #region Creator
+
+        public Layers()
+        {
+        }
+
         public Layers(string nodeName)
         {
             NodeName = nodeName;
         }
+
+        #endregion Creator
 
         #region INotifyPropertyChanged Members
 
