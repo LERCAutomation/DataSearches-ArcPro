@@ -322,7 +322,7 @@ namespace DataSearches.UI
                 DockpaneVisibility = Visibility.Visible;
 
                 // Reload the form layers (don't wait for the response).
-                _paneH2VM.LoadLayersAsync(false);
+                _paneH2VM.LoadLayersAsync(false, false);
             }
         }
 
@@ -354,7 +354,7 @@ namespace DataSearches.UI
         /// Initialise the search pane.
         /// </summary>
         /// <returns></returns>
-        public async Task<bool> InitialiseSearchPaneAsync(bool messages)
+        public async Task<bool> InitialiseSearchPaneAsync()
         {
             _paneH2VM = new PaneHeader2ViewModel(_dockPane, _paneH1VM.ToolConfig);
 

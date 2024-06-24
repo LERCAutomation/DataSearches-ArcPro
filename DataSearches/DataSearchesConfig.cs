@@ -1147,7 +1147,7 @@ namespace DataSearches
 
         private string _gisFolder;
 
-        public string GisFolder
+        public string GISFolder
         {
             get { return _gisFolder; }
         }

@@ -21,16 +21,24 @@
 
 using ArcGIS.Core.CIM;
 using ArcGIS.Core.Data;
+using ArcGIS.Core.Data.DDL;
 using ArcGIS.Core.Data.Exceptions;
+using ArcGIS.Core.Geometry;
+using ArcGIS.Core.Internal.CIM;
 using ArcGIS.Desktop.Catalog;
 using ArcGIS.Desktop.Core;
 using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Mapping;
+using DataSearches.UI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using System.IO.Compression;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using QueryFilter = ArcGIS.Core.Data.QueryFilter;
 
 namespace DataSearches
 {
@@ -141,7 +149,7 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Add a layer to the active map.
+        /// Add a table to the active map.
         /// </summary>
         /// <param name="url"></param>
         /// <returns></returns>
@@ -153,10 +161,10 @@ namespace DataSearches
                 {
                     Uri uri = new(url);
 
-                    // Check if the layer is already loaded (unlikely as the map is new)
+                    // Check if the table is already loaded (unlikely as the map is new)
                     Layer findLayer = _activeMap.Layers.FirstOrDefault(t => t.Name == uri.Segments.Last());
 
-                    // If the layer is not loaded, add it.
+                    // If the table is not loaded, add it.
                     if (findLayer == null)
                     {
                         Layer layer = LayerFactory.Instance.CreateLayer(uri, _activeMap);
@@ -165,6 +173,7 @@ namespace DataSearches
             }
             catch
             {
+                // Handle Exception.
             }
         }
 
@@ -193,6 +202,7 @@ namespace DataSearches
             }
             catch
             {
+                // Handle Exception.
             }
         }
 
@@ -201,48 +211,234 @@ namespace DataSearches
         #region Layers
 
         /// <summary>
-        /// Find a layer by name in the active map.
+        /// Find a table by name in the active map.
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns></returns>
-        internal Layer FindLayer(string layerName)
+        internal FeatureLayer FindLayer(string layerName)
         {
-            //Finds layers by name and returns a read only list of Layers
-            IReadOnlyList<Layer> layers = _activeMap.FindLayers(layerName, true);
+            // Check there is an input table name.
+            if (String.IsNullOrEmpty(layerName))
+                return null;
 
-            while (layers.Count > 0)
+            // Finds layers by name and returns a read only list of feature ayers.
+            IEnumerable<FeatureLayer> layers = _activeMap.FindLayers(layerName, true).OfType<FeatureLayer>();
+
+            while (layers.Any())
             {
-                Layer layer = layers[0];
+                FeatureLayer layer = layers.First();
 
-                if (layer.Map.Name == _activeMap.Name)
+                if (layer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
                     return layer;
             }
 
             return null;
         }
 
+        /// <summary>
+        /// Remove a table by name from the active map.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <returns></returns>
+        public bool RemoveLayer(string layerName)
+        {
+            try
+            {
+                // Find the table in the active map.
+                FeatureLayer layer = FindLayer(layerName);
+
+                if (layer != null)
+                    _activeMap.RemoveLayer(layer);
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+
+        /// <summary>
+        /// Count the features in a table using a search where clause.
+        /// </summary>
+        /// <param name="layer"></param>
+        /// <param name="searchClause"></param>
+        /// <returns></returns>
+        internal async Task<long> CountFeaturesAsync(FeatureLayer layer, string searchClause)
+        {
+            long featureCount = 0;
+
+            if (layer == null)
+                return featureCount;
+
+            try
+            {
+                // Create a query filter using the where clause.
+                QueryFilter queryFilter = new()
+                {
+                    WhereClause = searchClause
+                };
+
+                featureCount = await QueuedTask.Run(() =>
+                {
+                    /// Count the number of features matching the search clause.
+                    FeatureClass featureClass = layer.GetFeatureClass();
+                    return featureClass.GetCount(queryFilter);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return 0;
+            }
+
+            return featureCount;
+        }
+
+        /// <summary>
+        /// Select features in layer by attributes.
+        /// </summary>
+        /// <param name="searchLayer"></param>
+        /// <param name="searchClause"></param>
+        /// <returns></returns>
+        public async Task SelectLayerByAttributesAsync(string searchLayer, string searchClause)
+        {
+            if (String.IsNullOrEmpty(searchLayer))
+                return;
+
+            try
+            {
+                // Find the feature layer by name if it exists. Only search existing layers.
+                FeatureLayer featurelayer = FindLayer(searchLayer);
+
+                if (featurelayer == null)
+                    return;
+
+                // Create a query filter using the where clause.
+                QueryFilter queryFilter = new()
+                {
+                    WhereClause = searchClause
+                };
+
+                await QueuedTask.Run(() =>
+                {
+                    // Select the features matching the search clause.
+                    featurelayer.Select(queryFilter, SelectionCombinationMethod.New);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+            }
+        }
+
+        /// <summary>
+        /// Clear selected features in layer.
+        /// </summary>
+        /// <param name="searchLayer"></param>
+        /// <param name="searchClause"></param>
+        /// <returns></returns>
+        public async Task ClearLayerSelectionAsync(string searchLayer)
+        {
+            if (String.IsNullOrEmpty(searchLayer))
+                return;
+
+            try
+            {
+                // Find the feature layer by name if it exists. Only search existing layers.
+                FeatureLayer featurelayer = FindLayer(searchLayer);
+
+                if (featurelayer == null)
+                    return;
+
+                await QueuedTask.Run(() =>
+                {
+                    // Clear the feature selection.
+                    featurelayer.ClearSelection();
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+            }
+        }
+
         #endregion Layers
+
+        #region Tables
+
+        /// <summary>
+        /// Find a table by name in the active map.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <returns></returns>
+        internal StandaloneTable FindTable(string layerName)
+        {
+            // Check there is an input table name.
+            if (String.IsNullOrEmpty(layerName))
+                return null;
+
+            // Finds tables by name and returns a read only list of standalone tables.
+            IEnumerable<StandaloneTable> tables = _activeMap.FindStandaloneTables(layerName).OfType<StandaloneTable>();
+
+            while (tables.Any())
+            {
+                StandaloneTable table = tables.First();
+
+                if (table.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                    return table;
+            }
+
+            return null;
+        }
+
+        public bool RemoveTable(string tableName)
+        {
+            try
+            {
+                // Find the table in the active map.
+                StandaloneTable table = FindTable(tableName);
+
+                if (table != null)
+                {
+                    _activeMap.RemoveStandaloneTable(table);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        #endregion Tables
 
         #region Symbology
 
         /// <summary>
-        /// Apply symbology to a layer by name using a layer file.
+        /// Apply symbology to a table by name using a table file.
         /// </summary>
         /// <param name="layerName"></param>
         /// <param name="layerFile"></param>
         /// <returns></returns>
         public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile)
         {
-            // Check the layer file exists.
+            // Check there is an input table name.
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            // Check the table file exists.
             if (!FileFunctions.FileExists(layerFile))
                 return false;
 
-            // Find the layer in the active map.
-            Layer layer = FindLayer(layerName);
+            // Find the table in the active map.
+            FeatureLayer featureLayer = FindLayer(layerName);
 
-            if (layer is FeatureLayer featureLayer)
+            if (featureLayer != null)
             {
-                // Apply the layer file symbology to the feature layer.
+                // Apply the table file symbology to the feature table.
                 try
                 {
                     await QueuedTask.Run(() =>
@@ -251,14 +447,14 @@ namespace DataSearches
                         var lyrDocFromLyrxFile = new LayerDocument(layerFile);
                         var cimLyrDoc = lyrDocFromLyrxFile.GetCIMLayerDocument();
 
-                        // Get the renderer from the layer file.
+                        // Get the renderer from the table file.
                         var rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer as CIMUniqueValueRenderer;
 
-                        // Apply the renderer to the feature layer.
+                        // Apply the renderer to the feature table.
                         featureLayer?.SetRenderer(rendererFromLayerFile);
                     });
                 }
-                catch (GeodatabaseNotFoundOrOpenedException)
+                catch
                 {
                     // Handle Exception.
                     return false;
@@ -364,9 +560,64 @@ namespace DataSearches
             }
         }
 
+        /// <summary>
+        /// Delete a feature class from a geodatabase.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
+        public static void DeleteFeatureClass(string filePath, string fileName)
+        {
+            try
+            {
+                // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
+                using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
+
+                DeleteFeatureClass(geodatabase, fileName);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Delete a feature class from a geodatabase.
+        /// </summary>
+        /// <param name="geodatabase"></param>
+        /// <param name="fileName"></param>
+        public static void DeleteFeatureClass(Geodatabase geodatabase, string fileName)
+        {
+            try
+            {
+                // Create a SchemaBuilder object
+                SchemaBuilder schemaBuilder = new(geodatabase);
+
+                // Create a FeatureClassDescription object.
+                using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
+
+                // Create a FeatureClassDescription object
+                FeatureClassDescription featureClassDescription = new(featureClassDefinition);
+
+                // Add the deletion for the feature class to the list of DDL tasks
+                schemaBuilder.Delete(featureClassDescription);
+
+                // Execute the DDL
+                bool success = schemaBuilder.Build();
+            }
+            catch { }
+        }
+
         #endregion Feature Class
 
         #region Geodatabase
+
+        public static Geodatabase CreateFileGeodatabase(string fullPath)
+        {
+            // Create a FileGeodatabaseConnectionPath with the name of the file geodatabase you wish to create
+            FileGeodatabaseConnectionPath fileGeodatabaseConnectionPath = new(new Uri(fullPath));
+
+            // Create and use the file geodatabase
+            Geodatabase geodatabase = SchemaBuilder.CreateGeodatabase(fileGeodatabaseConnectionPath);
+
+            return geodatabase;
+        }
 
         /// <summary>
         /// Check if the feature class exists in a geodatabase.
@@ -385,9 +636,9 @@ namespace DataSearches
                     // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
                     using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
 
+                    // Create a FeatureClassDefinition object.
                     using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
 
-                    //exists = true;
                     if (featureClassDefinition != null)
                         exists = true;
                 });
@@ -401,9 +652,89 @@ namespace DataSearches
             return exists;
         }
 
+        /// <summary>
+        /// Check if the table exists in a geodatabase.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        public static async Task<bool> TableExistsGDBAsync(string filePath, string fileName)
+        {
+            bool exists = false;
+
+            try
+            {
+                await QueuedTask.Run(() =>
+                {
+                    // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
+                    using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
+
+                    // Create a TableDefinition object.
+                    using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(fileName);
+
+                    if (tableDefinition != null)
+                        exists = true;
+                });
+            }
+            catch (GeodatabaseNotFoundOrOpenedException)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return exists;
+        }
         #endregion Geodatabase
 
-        #region TableExists
+        #region Table
+
+        /// <summary>
+        /// Check if the feature class exists in the file path.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        public static async Task<bool> TableExistsAsync(string filePath, string fileName)
+        {
+            if (fileName.Substring(fileName.Length - 4, 1) == ".")
+            {
+                // It's a file.
+                if (FileFunctions.FileExists(filePath + @"\" + fileName))
+                    return true;
+                else
+                    return false;
+            }
+            else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
+            {
+                // It's an SDE class
+                // Not handled. We know the table exists.
+                return true;
+            }
+            else // it is a geodatabase class.
+            {
+                try
+                {
+                    bool exists = await TableExistsGDBAsync(filePath, fileName);
+
+                    return exists;
+                }
+                catch
+                {
+                    // GetDefinition throws an exception if the definition doesn't exist
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check if the feature class exists.
+        /// </summary>
+        /// <param name="fullPath"></param>
+        /// <returns></returns>
+        public static async Task<bool> TableExistsAsync(string fullPath)
+        {
+            return await TableExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
+        }
 
         /// <summary>
         /// Check the table exists in the file path.
@@ -442,14 +773,58 @@ namespace DataSearches
         /// <summary>
         /// Check if the table exists.
         /// </summary>
-        /// <param name="aFullPath"></param>
+        /// <param name="fullPath"></param>
         /// <returns></returns>
-        public static bool TableExists(string aFullPath)
+        public static bool TableExists(string fullPath)
         {
-            return TableExists(FileFunctions.GetDirectoryName(aFullPath), FileFunctions.GetFileName(aFullPath));
+            return TableExists(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
         }
 
-        #endregion TableExists
+        /// <summary>
+        /// Delete a table from a geodatabase.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
+        public static void DeleteTable(string filePath, string fileName)
+        {
+            try
+            {
+                // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
+                using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
+
+                DeleteTable(geodatabase, fileName);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Delete a table from a geodatabase.
+        /// </summary>
+        /// <param name="geodatabase"></param>
+        /// <param name="fileName"></param>
+        public static void DeleteTable(Geodatabase geodatabase, string fileName)
+        {
+            try
+            {
+                // Create a SchemaBuilder object
+                SchemaBuilder schemaBuilder = new(geodatabase);
+
+                // Create a FeatureClassDescription object.
+                using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(fileName);
+
+                // Create a FeatureClassDescription object
+                TableDescription tableDescription = new(tableDefinition);
+
+                // Add the deletion for the feature class to the list of DDL tasks
+                schemaBuilder.Delete(tableDescription);
+
+                // Execute the DDL
+                bool success = schemaBuilder.Build();
+            }
+            catch { }
+        }
+
+        #endregion Table
 
         #region Outputs
 

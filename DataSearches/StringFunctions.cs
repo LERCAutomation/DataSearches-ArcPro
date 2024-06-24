@@ -122,44 +122,44 @@ namespace DataSearches
         /// <summary>
         /// Remove all potentially special characters from a string and return the result.
         /// </summary>
-        /// <param name="anInputString"></param>
-        /// <param name="aReplaceString"></param>
+        /// <param name="inputString"></param>
+        /// <param name="repChar"></param>
         /// <param name="isFileName"></param>
         /// <returns></returns>
-        public static string StripIllegals(string anInputString, string aReplaceString, bool isFileName = false)
+        public static string StripIllegals(string inputString, string repChar, bool isFileName = false)
         {
             // If it is a file name, check if there is a '.' at fourth place before last.
-            bool blAddFileDot = false;
+            bool addFileDot = false;
             if (isFileName)
             {
-                char chTest = anInputString[^4];
-                if (chTest == '.') blAddFileDot = true;
+                char chTest = inputString[^4];
+                if (chTest == '.') addFileDot = true;
             }
 
-            string strOutputString = anInputString;
+            string outputString = inputString;
             List<string> theIllegals = [@"\", "%", "$", ":", "*", "/", "?", "<", ">", "|", "~", "£", "."];
-            foreach (string aSearchString in theIllegals)
+            foreach (string searchString in theIllegals)
             {
-                strOutputString = strOutputString.Replace(aSearchString, aReplaceString);
+                outputString = outputString.Replace(searchString, repChar);
             }
-            if (blAddFileDot)
+            if (addFileDot)
             {
-                strOutputString = strOutputString.Remove(strOutputString.Length - 4, 1);
-                strOutputString = strOutputString.Insert(strOutputString.Length - 3, ".");
+                outputString = outputString.Remove(outputString.Length - 4, 1);
+                outputString = outputString.Insert(outputString.Length - 3, ".");
             }
-            return strOutputString;
+            return outputString;
         }
 
         /// <summary>
         /// Check if the supplied replacement character is a valid character.
         /// </summary>
-        /// <param name="aReplacementCharacter"></param>
+        /// <param name="repChar"></param>
         /// <returns></returns>
-        public static bool IsValid(string aReplacementCharacter)
+        public static bool IsValid(string repChar)
         {
             List<string> theIllegals = [@"\", "%", "$", ":", "*", "/", "?", "<", ">", "|", "~", "£", "."];
 
-            if (theIllegals.IndexOf(aReplacementCharacter) == -1)
+            if (theIllegals.IndexOf(repChar) == -1)
                 return true;
             return false;
         }
@@ -167,14 +167,14 @@ namespace DataSearches
         /// <summary>
         /// Keeps numbers and spaces from an input string and returns the results.
         /// </summary>
-        /// <param name="anInputString"></param>
-        /// <param name="aReplaceCharacter"></param>
+        /// <param name="inputString"></param>
+        /// <param name="repChar"></param>
         /// <returns></returns>
-        public static string KeepNumbersAndSpaces(string anInputString, string aReplaceCharacter)
+        public static string KeepNumbersAndSpaces(string inputString, string repChar)
         {
             string strOutputString = "";
             int aCount = 0;
-            foreach (char strTest in anInputString)
+            foreach (char strTest in inputString)
             {
                 if (int.TryParse(strTest.ToString(), out int a) == true)
                 {
@@ -182,7 +182,7 @@ namespace DataSearches
                     aCount++;
                 }
                 // Replace characters and spaces are not included at the start of the reference.
-                else if ((strTest == ' ' || strTest.ToString() == aReplaceCharacter) && aCount > 0)
+                else if ((strTest == ' ' || strTest.ToString() == repChar) && aCount > 0)
                     strOutputString += strTest.ToString();
             }
             return strOutputString;
@@ -195,37 +195,39 @@ namespace DataSearches
         /// <summary>
         /// Gets the sub-reference out of a short reference string.
         /// </summary>
-        /// <param name="anInputString"></param>
-        /// <param name="aReplaceString"></param>
+        /// <param name="inputString"></param>
+        /// <param name="repChar"></param>
         /// <returns></returns>
-        public static string GetSubref(string anInputString, string aReplaceString)
+        public static string GetSubref(string inputString, string repChar)
         {
             // Input should look like xx.xxxx or xxxx where x is an integer.
-            int a = anInputString.IndexOf(aReplaceString) + 1; // The index of the first numeric character after the replace character.
-            return anInputString.Substring(a, anInputString.Length - a);
+            int a = inputString.IndexOf(repChar) + 1; // The index of the first numeric character after the replace character.
+            return inputString.Substring(a, inputString.Length - a);
         }
 
         /// <summary>
         /// Replace standard search strings in a supplied text string.
         /// </summary>
-        /// <param name="RawName"></param>
-        /// <param name="Reference"></param>
-        /// <param name="SiteName"></param>
-        /// <param name="ShortRef"></param>
-        /// <param name="Subref"></param>
+        /// <param name="rawName"></param>
+        /// <param name="reference"></param>
+        /// <param name="siteName"></param>
+        /// <param name="shortRef"></param>
+        /// <param name="subRef"></param>
         /// <returns></returns>
-        public static string ReplaceSearchStrings(string RawName, string Reference, string SiteName, string ShortRef, string Subref)
+        public static string ReplaceSearchStrings(string rawName, string reference, string siteName, string shortRef, string subRef, string radius)
         {
-            string CleanName = RawName;
-            CleanName = CleanName.Replace("%ref%", Reference);
-            CleanName = CleanName.Replace("%shortref%", ShortRef);
-            CleanName = CleanName.Replace("%subref%", Subref);
-            CleanName = CleanName.Replace("%sitename%", SiteName);
+            string cleanName = rawName;
+            cleanName = cleanName.Replace("%ref%", reference);
+            cleanName = cleanName.Replace("%shortref%", shortRef);
+            cleanName = cleanName.Replace("%subref%", subRef);
+            cleanName = cleanName.Replace("%sitename%", siteName);
+            cleanName = cleanName.Replace("%radius%", radius);
 
             // Take account of the occurrence of dangling underscores (if no site name was given).
-            if (CleanName.Substring(CleanName.Length - 1, 1) == "_")
-                CleanName = CleanName.Substring(0, CleanName.Length - 1);
-            return CleanName;
+            if (cleanName.Substring(cleanName.Length - 1, 1) == "_")
+                cleanName = cleanName.Substring(0, cleanName.Length - 1);
+
+            return cleanName;
         }
 
         #endregion References
