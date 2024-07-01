@@ -315,6 +315,8 @@ namespace DataSearches.UI
             if (MapView.Active == null)
             {
                 DockpaneVisibility = Visibility.Hidden;
+
+                // Clear the form layers.
                 _paneH2VM.ClearLayers();
             }
             else
@@ -331,6 +333,8 @@ namespace DataSearches.UI
             if (MapView.Active == null)
             {
                 DockpaneVisibility = Visibility.Hidden;
+
+                // Clear the form layers.
                 _paneH2VM.ClearLayers();
             }
 
