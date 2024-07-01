@@ -39,6 +39,12 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using QueryFilter = ArcGIS.Core.Data.QueryFilter;
+using System.Threading;
+using System.Windows.Forms;
+using ArcGIS.Desktop.Layouts;
+using System.Diagnostics;
+using ArcGIS.Core.Data.UtilityNetwork.Trace;
+using ActiproSoftware.Windows.Extensions;
 
 namespace DataSearches
 {
@@ -149,7 +155,7 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Add a table to the active map.
+        /// Add a layer to the active map.
         /// </summary>
         /// <param name="url"></param>
         /// <returns></returns>
@@ -161,10 +167,10 @@ namespace DataSearches
                 {
                     Uri uri = new(url);
 
-                    // Check if the table is already loaded (unlikely as the map is new)
+                    // Check if the layer is already loaded (unlikely as the map is new)
                     Layer findLayer = _activeMap.Layers.FirstOrDefault(t => t.Name == uri.Segments.Last());
 
-                    // If the table is not loaded, add it.
+                    // If the layer is not loaded, add it.
                     if (findLayer == null)
                     {
                         Layer layer = LayerFactory.Instance.CreateLayer(uri, _activeMap);
@@ -178,7 +184,7 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Add a standalone table to the active map.
+        /// Add a standalone layer to the active map.
         /// </summary>
         /// <param name="url"></param>
         /// <returns></returns>
@@ -190,10 +196,10 @@ namespace DataSearches
                 {
                     Uri uri = new(url);
 
-                    // Check if the table is already loaded.
+                    // Check if the layer is already loaded.
                     StandaloneTable findTable = _activeMap.StandaloneTables.FirstOrDefault(t => t.Name == uri.Segments.Last());
 
-                    // If the table is not loaded, add it.
+                    // If the layer is not loaded, add it.
                     if (findTable == null)
                     {
                         StandaloneTable table = StandaloneTableFactory.Instance.CreateStandaloneTable(uri, _activeMap);
@@ -211,23 +217,27 @@ namespace DataSearches
         #region Layers
 
         /// <summary>
-        /// Find a table by name in the active map.
+        /// Find a feature layer by name in the active map.
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns></returns>
         internal FeatureLayer FindLayer(string layerName)
         {
-            // Check there is an input table name.
+            // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
-            // Finds layers by name and returns a read only list of feature ayers.
+            //IEnumerable<Layer> layers = _activeMap.Layers.Where(layer => layer is FeatureLayer);
+
+            // Finds layers by name and returns a read only list of feature layers.
             IEnumerable<FeatureLayer> layers = _activeMap.FindLayers(layerName, true).OfType<FeatureLayer>();
 
             while (layers.Any())
             {
+                // Get the first feature layer found by name.
                 FeatureLayer layer = layers.First();
 
+                // Check the feature layer is in the active map.
                 if (layer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
                     return layer;
             }
@@ -236,17 +246,39 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Remove a table by name from the active map.
+        /// Remove a layer by name from the active map.
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns></returns>
         public bool RemoveLayer(string layerName)
         {
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
             try
             {
-                // Find the table in the active map.
+                // Find the layer in the active map.
                 FeatureLayer layer = FindLayer(layerName);
 
+                // Remove the layer.
+                return RemoveLayer(layer);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Remove a layer from the active map.
+        /// </summary>
+        /// <param name="layer"></param>
+        /// <returns></returns>
+        public bool RemoveLayer(Layer layer)
+        {
+            try
+            {
+                // Remove the layer.
                 if (layer != null)
                     _activeMap.RemoveLayer(layer);
 
@@ -258,14 +290,13 @@ namespace DataSearches
             }
         }
 
-
         /// <summary>
-        /// Count the features in a table using a search where clause.
+        /// Count the features in a layer using a search where clause.
         /// </summary>
         /// <param name="layer"></param>
-        /// <param name="searchClause"></param>
+        /// <param name="whereClause"></param>
         /// <returns></returns>
-        internal async Task<long> CountFeaturesAsync(FeatureLayer layer, string searchClause)
+        internal async Task<long> CountFeaturesAsync(FeatureLayer layer, string whereClause)
         {
             long featureCount = 0;
 
@@ -277,7 +308,7 @@ namespace DataSearches
                 // Create a query filter using the where clause.
                 QueryFilter queryFilter = new()
                 {
-                    WhereClause = searchClause
+                    WhereClause = whereClause
                 };
 
                 featureCount = await QueuedTask.Run(() =>
@@ -297,28 +328,28 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Select features in layer by attributes.
+        /// Select features in layerName by attributes.
         /// </summary>
-        /// <param name="searchLayer"></param>
-        /// <param name="searchClause"></param>
+        /// <param name="layerName"></param>
+        /// <param name="whereClause"></param>
         /// <returns></returns>
-        public async Task SelectLayerByAttributesAsync(string searchLayer, string searchClause)
+        public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause)
         {
-            if (String.IsNullOrEmpty(searchLayer))
-                return;
+            if (String.IsNullOrEmpty(layerName))
+                return false;
 
             try
             {
-                // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(searchLayer);
+                // Find the feature layerName by name if it exists. Only search existing layers.
+                FeatureLayer featurelayer = FindLayer(layerName);
 
                 if (featurelayer == null)
-                    return;
+                    return false;
 
                 // Create a query filter using the where clause.
                 QueryFilter queryFilter = new()
                 {
-                    WhereClause = searchClause
+                    WhereClause = whereClause
                 };
 
                 await QueuedTask.Run(() =>
@@ -330,27 +361,30 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
+                return false;
             }
+
+            return true;
         }
 
         /// <summary>
-        /// Clear selected features in layer.
+        /// Clear selected features in layerName.
         /// </summary>
-        /// <param name="searchLayer"></param>
+        /// <param name="layerName"></param>
         /// <param name="searchClause"></param>
         /// <returns></returns>
-        public async Task ClearLayerSelectionAsync(string searchLayer)
+        public async Task<bool> ClearLayerSelectionAsync(string layerName)
         {
-            if (String.IsNullOrEmpty(searchLayer))
-                return;
+            if (String.IsNullOrEmpty(layerName))
+                return false;
 
             try
             {
-                // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(searchLayer);
+                // Find the feature layerName by name if it exists. Only search existing layers.
+                FeatureLayer featurelayer = FindLayer(layerName);
 
                 if (featurelayer == null)
-                    return;
+                    return false;
 
                 await QueuedTask.Run(() =>
                 {
@@ -361,31 +395,269 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        public async Task<bool> FieldExistsAsync(string layerName, string fieldName)
+        {
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            try
+            {
+                // Find the feature layerName by name if it exists. Only search existing layers.
+                FeatureLayer featurelayer = FindLayer(layerName);
+
+                if (featurelayer == null)
+                    return false;
+
+                IReadOnlyList<ArcGIS.Core.Data.Field> fields = null;
+                List<string> fieldList = [];
+
+                bool fldFound = false;
+
+                await QueuedTask.Run(() =>
+                {
+                    Table table = featurelayer.GetTable();
+                    if (table != null)
+                    {
+                        TableDefinition def = table.GetDefinition();
+                        fields = def.GetFields();
+                        foreach (ArcGIS.Core.Data.Field fld in fields)
+                        {
+                            if (fld.Name == fieldName)
+                            {
+                                fldFound = true;
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                return fldFound;
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
             }
         }
 
+        public async Task<bool> BufferFeatureAsync(string inFeatureClass, string outFeatureClass, string bufferDistance, string aggregateFields)
+        {
+            if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            // Check if all fields in the aggregate fields exist. If not, ignore.
+            List<string> aggColumns = [.. aggregateFields.Split(';')];
+            aggregateFields = "";
+            foreach (string fieldName in aggColumns)
+            {
+                if (await FieldExistsAsync(inFeatureClass, fieldName) == true)
+                {
+                    aggregateFields = aggregateFields + fieldName + ";";
+                }
+            }
+            string dissolveOption = "ALL";
+            if (aggregateFields != "")
+            {
+                aggregateFields = aggregateFields.Substring(0, aggregateFields.Length - 1);
+                dissolveOption = "LIST";
+            }
+
+            // Make a value array of strings to be passed to the tool.
+            List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatureClass, outFeatureClass, bufferDistance, "FULL", "ROUND", dissolveOption)];
+            if (aggregateFields != "")
+                parameters.Add(aggregateFields);
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.AddOutputsToMap | GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+
+            //Geoprocessing.OpenToolDialog("analysis.Buffer", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("analysis.Buffer", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Get the full layer path name for a layer in the map (i.e.
+        /// to include any parent group names.
+        /// </summary>
+        /// <param name="layer"></param>
+        /// <returns></returns>
+        public string GetLayerPath(Layer layer)
+        {
+            string layerPath = "";
+
+            // Get the parent for the layer.
+            ILayerContainer layerParent = layer.Parent;
+
+            // Loop while the parent is a group layer.
+            while (layerParent is GroupLayer)
+            {
+                Layer grouplayer = (Layer)layerParent;
+                layerPath = grouplayer.Name + "/" + layerPath;
+
+                layerParent = grouplayer.Parent;
+            }
+
+            return layerPath + layer.Name;
+        }
+
+        /// <summary>
+        /// Get the full layer path name for a layer in the map (i.e.
+        /// to include any parent group names.
+        /// </summary>
+        /// <param name="layer"></param>
+        /// <returns></returns>
+        public string GetLayerPath(string layerName)
+        {
+            if (String.IsNullOrEmpty(layerName))
+                return null;
+
+            try
+            {
+                // Find the layer in the active map.
+                FeatureLayer layer = FindLayer(layerName);
+
+                // Get the full layer path.
+                return GetLayerPath(layer);
+            }
+            catch
+            {
+                return null;
+            }
+        }
         #endregion Layers
+
+        #region Group Layers
+
+        /// <summary>
+        /// Find a group layer by name in the active map.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <returns></returns>
+        internal GroupLayer FindGroupLayer(string groupLayerName)
+        {
+            // Check there is an input groupLayer name.
+            if (String.IsNullOrEmpty(groupLayerName))
+                return null;
+
+            // Finds group layers by name and returns a read only list of group layers.
+            IEnumerable<GroupLayer> groupLayers = _activeMap.FindLayers(groupLayerName).OfType<GroupLayer>();
+
+            while (groupLayers.Any())
+            {
+                // Get the first group layer found by name.
+                GroupLayer groupLayer = groupLayers.First();
+
+                // Check the group layer is in the active map.
+                if (groupLayer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                    return groupLayer;
+            }
+
+            return null;
+        }
+
+        public async Task<bool> MoveToGroupLayerAsync(string groupLayerName, Layer layer, int position)
+        {
+            // Check there is an input groupLayer name.
+            if (String.IsNullOrEmpty(groupLayerName))
+                return false;
+
+            // Check if there is an input layer.
+            if (layer == null)
+                return false;
+
+            // Does the group layer exist?
+            GroupLayer groupLayer = FindGroupLayer(groupLayerName);
+            if (groupLayer == null)
+            {
+                // Add the group layer to the map.
+                try
+                {
+                    await QueuedTask.Run(() =>
+                    {
+                        groupLayer = LayerFactory.Instance.CreateGroupLayer(_activeMap, 0, groupLayerName);
+                    });
+                }
+                catch
+                {
+                    // Handle Exception.
+                    return false;
+                }
+            }
+
+            // Move the layer into the group.
+            try
+            {
+                await QueuedTask.Run(() =>
+                {
+                    // Move the layer into the group.
+                    _activeMap.MoveLayer(layer, groupLayer, position);
+
+                    // Expand the group.
+                    groupLayer.SetExpanded(true);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        #endregion Group Layers
 
         #region Tables
 
         /// <summary>
         /// Find a table by name in the active map.
         /// </summary>
-        /// <param name="layerName"></param>
+        /// <param name="tableName"></param>
         /// <returns></returns>
-        internal StandaloneTable FindTable(string layerName)
+        internal StandaloneTable FindTable(string tableName)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(layerName))
+            if (String.IsNullOrEmpty(tableName))
                 return null;
 
             // Finds tables by name and returns a read only list of standalone tables.
-            IEnumerable<StandaloneTable> tables = _activeMap.FindStandaloneTables(layerName).OfType<StandaloneTable>();
+            IEnumerable<StandaloneTable> tables = _activeMap.FindStandaloneTables(tableName).OfType<StandaloneTable>();
 
             while (tables.Any())
             {
+                // Get the first table found by name.
                 StandaloneTable table = tables.First();
 
+                // Check the table is in the active map.
                 if (table.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
                     return table;
             }
@@ -402,6 +674,7 @@ namespace DataSearches
 
                 if (table != null)
                 {
+                    // Remove the table.
                     _activeMap.RemoveStandaloneTable(table);
                 }
 
@@ -418,40 +691,43 @@ namespace DataSearches
         #region Symbology
 
         /// <summary>
-        /// Apply symbology to a table by name using a table file.
+        /// Apply symbology to a layer by name using a lyrx file.
         /// </summary>
         /// <param name="layerName"></param>
         /// <param name="layerFile"></param>
         /// <returns></returns>
         public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile)
         {
-            // Check there is an input table name.
+            // Check there is an input layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
-            // Check the table file exists.
+            // Check the lyrx file exists.
             if (!FileFunctions.FileExists(layerFile))
                 return false;
 
-            // Find the table in the active map.
+            // Find the layer in the active map.
             FeatureLayer featureLayer = FindLayer(layerName);
 
             if (featureLayer != null)
             {
-                // Apply the table file symbology to the feature table.
+                // Apply the layer file symbology to the feature layer.
                 try
                 {
                     await QueuedTask.Run(() =>
                     {
                         // Get the Layer Document from the lyrx file.
-                        var lyrDocFromLyrxFile = new LayerDocument(layerFile);
-                        var cimLyrDoc = lyrDocFromLyrxFile.GetCIMLayerDocument();
+                        LayerDocument lyrDocFromLyrxFile = new(layerFile);
 
-                        // Get the renderer from the table file.
-                        var rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer as CIMUniqueValueRenderer;
+                        CIMLayerDocument cimLyrDoc = lyrDocFromLyrxFile.GetCIMLayerDocument();
 
-                        // Apply the renderer to the feature table.
-                        featureLayer?.SetRenderer(rendererFromLayerFile);
+                        // Get the renderer from the layer file.
+                        //CIMSimpleRenderer rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer as CIMSimpleRenderer;
+                        var rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer;
+
+                        // Apply the renderer to the feature layer.
+                        if (featureLayer.CanSetRenderer(rendererFromLayerFile))
+                            featureLayer.SetRenderer(rendererFromLayerFile);
                     });
                 }
                 catch
@@ -468,7 +744,7 @@ namespace DataSearches
     }
 
     /// <summary>
-    /// This helper class provides ArcGIS Pro feature class and table functions.
+    /// This helper class provides ArcGIS Pro feature class and layer functions.
     /// </summary>
     internal static class ArcGISFunctions
     {
@@ -493,7 +769,7 @@ namespace DataSearches
             else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
             {
                 // It's an SDE class
-                // Not handled. We know the table exists.
+                // Not handled. We know the layer exists.
                 return true;
             }
             else // it is a geodatabase class.
@@ -541,7 +817,7 @@ namespace DataSearches
             else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
             {
                 // It's an SDE class
-                // Not handled. We know the table exists.
+                // Not handled. We know the layer exists.
                 return true;
             }
             else // it is a geodatabase class.
@@ -604,6 +880,7 @@ namespace DataSearches
             catch { }
         }
 
+
         #endregion Feature Class
 
         #region Geodatabase
@@ -653,7 +930,7 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check if the table exists in a geodatabase.
+        /// Check if the layer exists in a geodatabase.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
@@ -707,7 +984,7 @@ namespace DataSearches
             else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
             {
                 // It's an SDE class
-                // Not handled. We know the table exists.
+                // Not handled. We know the layer exists.
                 return true;
             }
             else // it is a geodatabase class.
@@ -737,7 +1014,7 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check the table exists in the file path.
+        /// Check the layer exists in the file path.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
@@ -755,14 +1032,14 @@ namespace DataSearches
             else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
             {
                 // It's an SDE class
-                // Not handled. We know the table exists.
+                // Not handled. We know the layer exists.
                 return true;
             }
             else // it is a geodatabase class.
             {
                 //IWorkspaceFactory pWSF = GetWorkspaceFactory(filePath);
                 //IWorkspace2 pWS = (IWorkspace2)pWSF.OpenFromFile(filePath, 0);
-                //if (pWS.get_NameExists(ESRI.ArcGIS.Geodatabase.esriDatasetType.esriDTTable, fileName))
+                //if (pWS.get_NameExists(ESRI.ArcGIS.Geodatabase.esriDatasetType.esriDTTable, tableName))
                 //    return true;
                 //else
                 //    return false;
@@ -771,7 +1048,7 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check if the table exists.
+        /// Check if the layer exists.
         /// </summary>
         /// <param name="fullPath"></param>
         /// <returns></returns>
@@ -801,8 +1078,8 @@ namespace DataSearches
         /// Delete a table from a geodatabase.
         /// </summary>
         /// <param name="geodatabase"></param>
-        /// <param name="fileName"></param>
-        public static void DeleteTable(Geodatabase geodatabase, string fileName)
+        /// <param name="tableName"></param>
+        public static void DeleteTable(Geodatabase geodatabase, string tableName)
         {
             try
             {
@@ -810,7 +1087,7 @@ namespace DataSearches
                 SchemaBuilder schemaBuilder = new(geodatabase);
 
                 // Create a FeatureClassDescription object.
-                using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(fileName);
+                using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(tableName);
 
                 // Create a FeatureClassDescription object
                 TableDescription tableDescription = new(tableDefinition);
@@ -897,7 +1174,7 @@ namespace DataSearches
         /// <param name="outFeatureClass"></param>
         /// <param name="Messages"></param>
         /// <returns></returns>
-        public static async Task<bool> CopyFeaturesAsync(string inFeatureClass, string outFeatureClass)
+        public static async Task<bool> CopyFeaturesAsync(string inFeatureClass, string outFeatureClass,bool addToMap = false)
         {
             // Make a value array of strings to be passed to the tool.
             var parameters = Geoprocessing.MakeValueArray(inFeatureClass, outFeatureClass);
@@ -905,20 +1182,31 @@ namespace DataSearches
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Execute the tool.
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+            if (addToMap)
+                executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
+
+            //Geoprocessing.OpenToolDialog("management.CopyFeatures", parameters);  // Useful for debugging.
+
+                // Execute the tool.
             try
             {
-                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.CopyFeatures", parameters, environments);
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.CopyFeatures", parameters, environments, null, null, executeFlags);
 
                 if (gp_result.IsFailed)
                 {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
                     var messages = gp_result.Messages;
                     var errMessages = gp_result.ErrorMessages;
+                    return false;
                 }
             }
             catch (Exception)
             {
-                throw;
+                // Handle Exception.
+                return false;
             }
 
             return true;
@@ -973,20 +1261,29 @@ namespace DataSearches
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+
+            //Geoprocessing.OpenToolDialog("conversion.ExportTable", parameters);  // Useful for debugging.
+
             // Execute the tool.
             try
             {
-                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("conversion.ExportTable", parameters, environments);
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("conversion.ExportTable", parameters, environments, null, null, executeFlags);
 
                 if (gp_result.IsFailed)
                 {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
                     var messages = gp_result.Messages;
                     var errMessages = gp_result.ErrorMessages;
+                    return false;
                 }
             }
             catch (Exception)
             {
-                throw;
+                // Handle Exception.
+                return false;
             }
 
             return true;
@@ -1011,20 +1308,29 @@ namespace DataSearches
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+
+            //Geoprocessing.OpenToolDialog("management.Copy", parameters);  // Useful for debugging.
+
             // Execute the tool.
             try
             {
-                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.Copy", parameters, environments);
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.Copy", parameters, environments, null, null, executeFlags);
 
                 if (gp_result.IsFailed)
                 {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
                     var messages = gp_result.Messages;
                     var errMessages = gp_result.ErrorMessages;
+                    return false;
                 }
             }
             catch (Exception)
             {
-                throw;
+                // Handle Exception.
+                return false;
             }
 
             return true;

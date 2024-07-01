@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -72,77 +73,14 @@ namespace DataSearches
                 }
             }
 
-            // The output file for the buffer is a shapefile in the root save directory.
-            string strSaveBuffer = bufferSize;
-            if (strSaveBuffer.Contains('.'))
-                strSaveBuffer = strSaveBuffer.Replace('.', '_');
-            string strLayerName = bufferLayerName + "_" + strSaveBuffer + bufferUnitShort;
-            string strOutputFile = gisFolder + "\\" + strLayerName + ".shp";
-            //string strSubGroupLayerName = groupLayerName + "_" + radius;
-            string strBufferFields = _toolConfig.AggregateColumns;
-            bool blKeepBuffer = _toolConfig.KeepBufferArea;
-
-            // Create a buffer around the feature and save into a new file.
-            // convert to the correct unit.
-            string strBufferString = bufferSize + " " + bufferUnitProcess;
-            if (bufferSize == "0") strBufferString = "0.01 Meters";  // Safeguard for zero buffer size; Select a tiny buffer to allow
-                                                                        // correct legending (expects a polygon).
-
-            FileFunctions.WriteLine(_logFile, "Buffering feature(s) with a distance of " + radius);
-            blResult = MapFunctions.BufferFeature(targetLayer, strOutputFile, strBufferString, strBufferFields, _logFile);
-
-            if (blResult == true)
-            {
-                //FileFunctions.WriteLine(_logFile, "Buffering complete");
-            }
-            else
-            {
-                MessageBox.Show("Error during feature buffering. Process aborted");
-                FileFunctions.WriteLine(_logFile, "Error during feature buffering. Process aborted");
-                this.BringToFront();
-                this.Cursor = Cursors.Default;
-                MapFunctions.ToggleDrawing(true);
-                MapFunctions.ToggleTOC();
-                return;
-            }
 
 
-            bool keepSearchFeature = _toolConfig.KeepSearchFeature;
 
-            // Save the selected feature if required.
-            string strLayerDir = _toolConfig.LayerDir;
-            if (keepSearchFeature)
-            {
-                string strOutputFeature = featureOutputName;
-                MapFunctions.CopyFeatures(targetLayer, gisFolder + "\\" + featureOutputName, aLogFile: _logFile);
-                if (addSelectedLayers.ToLower() != "no")
-                {
-                    // apply layer symbology
-                    MapFunctions.ChangeLegend(featureOutputName, strLayerDir + "\\" + searchSymbology, aLogFile: _logFile);
-                    // Move it to the group layer
-                    MapFunctions.MoveToSubGroupLayer(groupLayerName, MapFunctions.GetLayer(featureOutputName), _logFile);
-                }
-                else
-                {
-                    MapFunctions.RemoveLayer(strOutputFeature, _logFile);
-                }
-            }
 
-            // Is the buffer in the map? If not, add it.
-            if (!MapFunctions.LayerLoaded(strLayerName, _logFile) && addSelectedLayers.ToLower() != "no")
-            {
-                MapFunctions.AddFeatureLayerFromString(strOutputFile, _logFile);
-            }
 
-            // Add the buffer to the group layer. Zoom to the buffer.
-            if (addSelectedLayers.ToLower() != "no")
-            {
-                MapFunctions.MoveToSubGroupLayer(groupLayerName, MapFunctions.GetLayer(strLayerName), _logFile);
-                // Change the symbology of the buffer.
-                string strLayerFile = strLayerDir + @"\" + _toolConfig.BufferLayer;
-                MapFunctions.ChangeLegend(strLayerName, strLayerFile, aLogFile: _logFile);
-                FileFunctions.WriteLine(_logFile, "Buffer added to display");
-            }
+
+
+
 
 
             // Go through each of the requested layers and carry out the relevant analysis. 
@@ -174,32 +112,6 @@ namespace DataSearches
             List<string> strCombinedSitesOrderColumnList = _toolConfig.MapCombinedSitesOrderByColumns;
             //List<string> strCombinedSitesCriteriaList = _toolConfig.MapCombinedSitesCriteria;
 
-            // Start the combined sites table before we do any analysis.
-            string strCombinedFormat = _toolConfig.CombinedSitesTableFormat;
-            //string strCombinedSuffix = _toolConfig.CombinedSitesTableSuffix;
-
-            string strCombinedTable = gisFolder + @"\" + combinedSitesTableName + "." + strCombinedFormat;
-            if (combinedTableCreate)
-            {
-                string strCombinedSitesHeader = _toolConfig.CombinedSitesTableColumns;
-                // Start the table if overwrite has been selected, or if the table doesn't exist and Append has been selected.
-                if (combinedTableOverwrite || (!FileFunctions.FileExists(strCombinedTable) && !combinedTableOverwrite))
-                {
-                    blResult = MapFunctions.WriteEmptyCSV(strCombinedTable, strCombinedSitesHeader, _logFile);
-                    if (!blResult)
-                    {
-                        MessageBox.Show("Error writing to combined sites table. Process aborted");
-                        FileFunctions.WriteLine(_logFile, "Error writing to combined sites table. Process aborted");
-                        this.BringToFront();
-                        this.Cursor = Cursors.Default;
-                        MapFunctions.ToggleDrawing(true);
-                        MapFunctions.ToggleTOC();
-                        return;
-                    }
-                    FileFunctions.WriteLine(_logFile, "Combined sites table started");
-                }
-            }
-
             // Now go through the layers.
 
             // Get any groups and initialise required layers.
@@ -214,11 +126,11 @@ namespace DataSearches
                 }
             }
 
-            int intStartLabel = 1; // Keep track of the label numbers if there are no groups.
-            int intMaxLabel = 1;
+
+
+
             foreach (string aLayer in SelectedLayers)
             {
-                FileFunctions.WriteLine(_logFile, "");
                 // Get all the settings relevant to this layer.
                 int intIndex = strLayerNames.IndexOf(aLayer); // Finds the first occurrence. 
                 string strDisplayName = strDisplayNames[intIndex];
@@ -249,7 +161,7 @@ namespace DataSearches
                 string strCombinedSitesStatsColumns = strCombinedSitesStatsColumnList[intIndex];
                 string strCombinedSitesOrderColumns = strCombinedSitesOrderColumnList[intIndex];
 
-                //string strCombinedSitesCriteria = strCombinedSitesCriteriaList[intIndex];
+
 
                 // Deal with wildcards in the output names.
                 strGISOutName = StringFunctions.ReplaceSearchStrings(strGISOutName, reference, siteName, shortRef, subref, radius);
@@ -426,9 +338,9 @@ namespace DataSearches
                             if (overwriteLabels.ToLower().Contains("layer")) // Reset each layer to 1.
                             {
                                 FileFunctions.WriteLine(_logFile, "Resetting label counter ...");
-                                intStartLabel = 1;
+                                startLabel = 1;
                                 FileFunctions.WriteLine(_logFile, "Adding map labels ...");
-                                MapFunctions.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, intStartLabel, _logFile);
+                                MapFunctions.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, startLabel, _logFile);
                             }
 
                             else if (resetGroups && strGroupName != "")
@@ -446,11 +358,11 @@ namespace DataSearches
                             else
                             {
                                 // There is no group or groups are ignored, or we are not resetting. Use the existing max label number.
-                                intStartLabel = intMaxLabel;
+                                startLabel = maxLabel;
 
                                 FileFunctions.WriteLine(_logFile, "Adding map labels ...");
-                                intMaxLabel = MapFunctions.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, intStartLabel, _logFile);
-                                intMaxLabel++; // the new start label for incremental labeling
+                                maxLabel = MapFunctions.AddIncrementalNumbers(strTempMasterOutput, strLabelColumn, strKeyColumn, startLabel, _logFile);
+                                maxLabel++; // the new start label for incremental labeling
                             }
                         }
                     }
@@ -488,12 +400,12 @@ namespace DataSearches
                         if (addSelectedLayers.ToLower() != "no")
                         {
                             // Add the permanent layer to the map (by moving it to the group layer)
-                            MapFunctions.MoveToSubGroupLayer(groupLayerName, MapFunctions.GetLayer(strShapeLayerName, _logFile), _logFile);
+                            MapFunctions.MoveToGroupLayer(groupLayerName, MapFunctions.GetLayer(strShapeLayerName, _logFile), _logFile);
 
                             // If there is a layer file
                             if (strDisplayLayer != "")
                             {
-                                string strDisplayLayerFile = strLayerDir + @"\" + strDisplayLayer;
+                                string strDisplayLayerFile = _layerFolder + @"\" + strDisplayLayer;
                                 MapFunctions.ChangeLegend(strShapeLayerName, strDisplayLayerFile, blDisplayLabel, _logFile);
                             }
 
@@ -605,28 +517,9 @@ namespace DataSearches
 
             }
 
-            // Clear the selected features.
-            MapFunctions.ClearSelectedMapFeatures(targetLayer, _logFile);
 
-            // Do we want to keep the buffer layer? If not, remove it.
-            if (!blKeepBuffer)
-            {
-                try
-                {
-                    MapFunctions.RemoveLayer(strLayerName, _logFile);
-                    MapFunctions.DeleteFeatureclass(strOutputFile, _logFile);
-                    FileFunctions.WriteLine(_logFile, "Buffer layer deleted.");
 
-                }
-                catch
-                {
-                    MessageBox.Show("Error deleting the buffer layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            }
-            else if (addSelectedLayers.ToLower() == "no")
-            {
-                MapFunctions.RemoveLayer(strLayerName, _logFile);
-            }
+
 
             // All done, bring to front etc. 
             MapFunctions.UpdateTOC();

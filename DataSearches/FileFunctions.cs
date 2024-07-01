@@ -22,6 +22,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace DataSearches
 {
@@ -221,6 +222,29 @@ namespace DataSearches
             }
             else
                 return true;
+        }
+
+        public static bool WriteEmptyTextFile(string OutTable, string outHeader)
+        {
+            try
+            {
+                // Open output file.
+                StreamWriter txtFile = new(OutTable, false);
+
+                // Write the headers to the file.
+                txtFile.WriteLine(outHeader);
+
+                // Close the file.
+                txtFile.Close();
+
+                txtFile.Dispose();
+
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         #endregion Files

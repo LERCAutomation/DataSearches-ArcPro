@@ -93,7 +93,7 @@ namespace DataSearches.UI
             if (_paneH1VM.XMLLoaded)
             {
                 // Initialise the search pane.
-                bool initialised = await InitialiseSearchPaneAsync(false);
+                bool initialised = await InitialiseSearchPaneAsync();
                 if (!initialised)
                     return;
 

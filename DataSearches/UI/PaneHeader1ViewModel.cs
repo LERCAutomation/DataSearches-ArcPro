@@ -334,7 +334,7 @@ namespace DataSearches.UI
             }
 
             // Initialise the search pane.
-            bool initialised = await _dockPane.InitialiseSearchPaneAsync(true);
+            bool initialised = await _dockPane.InitialiseSearchPaneAsync();
             if (initialised)
             {
                 // Select the search pane.

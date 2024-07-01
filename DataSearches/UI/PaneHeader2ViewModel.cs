@@ -43,11 +43,53 @@ using System.Windows.Media;
 using DataSearches.UI;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 using ArcGIS.Desktop.Mapping;
+using ArcGIS.Core.Data.UtilityNetwork.Trace;
+using ArcGIS.Desktop.Internal.Framework.Controls;
+using ArcGIS.Desktop.Editing.Attributes;
+using System.Runtime.InteropServices;
 
 namespace DataSearches.UI
 {
     internal class PaneHeader2ViewModel : PanelViewModelBase, INotifyPropertyChanged
     {
+        #region Enums
+
+        /// <summary>
+        /// An enumeration of the different options for whether to
+        /// add output layers to the map.
+        /// </summary>
+        public enum AddSelectedLayersOptions
+        {
+            No,
+            WithoutLabels,
+            WithLabels
+        };
+
+        /// <summary>
+        /// An enumeration of the different options for whether to
+        /// overwrite the label for each output layer.
+        /// </summary>
+        public enum OverwriteLabelOptions
+        {
+            No,
+            ResetByLayer,
+            ResetByGroup,
+            DoNotReset
+        };
+
+        /// <summary>
+        /// An enumeration of the different options for whether to
+        /// overwrite the label for each output layer.
+        /// </summary>
+        public enum CombinedSitesTableOptions
+        {
+            None,
+            Append,
+            Overwrite
+        };
+
+        #endregion
+
         #region Fields
 
         private readonly DockpaneMainViewModel _dockPane;
@@ -64,21 +106,28 @@ namespace DataSearches.UI
         private List<string> _bufferUnitOptionsProcess;
         private List<string> _bufferUnitOptionsShort;
 
-        private List<Layers> _mapLayers;
+        private List<MapLayer> _mapLayers;
 
         private bool _updateTable;
 
         private string _saveRootDir;
         private string _saveFolder;
         private string _gisFolder;
+        private string _outputFolder;
+        private string _layerFolder;
+
         private string _logFileName;
         private string _combinedSitesTableName;
+        private string _combinedSitesColumnList;
+        private string _combinedSitesTableFormat;
+
+        private string _bufferOutputName;
         private string _bufferLayerName;
-        private string _featureOutputName;
+        private string _searchOutputName;
         private string _groupLayerName;
 
         private bool _keepSearchFeature;
-        private string _searchSymbology;
+        private string _searchSymbologyBase;
 
         private string _searchLayerBase;
         private List<string> _searchLayerExtensions;
@@ -86,6 +135,9 @@ namespace DataSearches.UI
         private string _siteColumn;
         private string _orgColumn;
         private string _radiusColumn;
+
+        string _bufferFields;
+        bool _keepBuffer;
 
         private string _logFile;
 
@@ -151,21 +203,24 @@ namespace DataSearches.UI
             _bufferUnitOptionsProcess = _toolConfig.BufferUnitOptionsProcess;
             _bufferUnitOptionsShort = _toolConfig.BufferUnitOptionsShort;
 
-            _mapLayers = _toolConfig.MapLayers;
-
             _updateTable = _toolConfig.UpdateTable;
 
             _saveRootDir = _toolConfig.SaveRootDir;
             _saveFolder = _toolConfig.SaveFolder;
             _gisFolder = _toolConfig.GISFolder;
             _logFileName = _toolConfig.LogFileName;
+            _layerFolder = _toolConfig.LayerFolder;
             _combinedSitesTableName = _toolConfig.CombinedSitesTableName;
+            _combinedSitesColumnList = _toolConfig.CombinedSitesTableColumns;
+            _combinedSitesTableFormat = _toolConfig.CombinedSitesTableFormat;
+
+            _bufferOutputName = _toolConfig.BufferSaveName;
             _bufferLayerName = _toolConfig.BufferLayerName;
-            _featureOutputName = _toolConfig.SearchFeatureName;
+            _searchOutputName = _toolConfig.SearchFeatureName;
             _groupLayerName = _toolConfig.GroupLayerName;
 
             _keepSearchFeature = _toolConfig.KeepSearchFeature;
-            _searchSymbology = _toolConfig.SearchSymbologyBase;
+            _searchSymbologyBase = _toolConfig.SearchSymbologyBase;
 
             _searchLayerBase = _toolConfig.SearchLayer;
             _searchLayerExtensions = _toolConfig.SearchLayerExtensions;
@@ -173,6 +228,12 @@ namespace DataSearches.UI
             _siteColumn = _toolConfig.SiteColumn;
             _orgColumn = _toolConfig.OrgColumn;
             _radiusColumn = _toolConfig.RadiusColumn;
+
+            _bufferFields = _toolConfig.AggregateColumns;
+            _keepBuffer = _toolConfig.KeepBufferArea;
+
+            // Get all of the map layer details.
+            _mapLayers = _toolConfig.MapLayers;
         }
 
         #endregion Creator
@@ -187,7 +248,7 @@ namespace DataSearches.UI
             get
             {
                 return (_processingLabel == null);
-                    //&& (_requireSiteName) ???
+                //&& (_requireSiteName) ???
             }
         }
 
@@ -345,6 +406,108 @@ namespace DataSearches.UI
         }
 
         #endregion Controls Visibility
+
+        #region Message
+
+        private string _message;
+
+        public string Message
+        {
+            get
+            {
+                return _message;
+            }
+            set
+            {
+                _message = value;
+                OnPropertyChanged(nameof(HasMessage));
+                OnPropertyChanged(nameof(Message));
+            }
+        }
+
+        MessageType _messageLevel;
+
+        public MessageType MessageLevel
+        {
+            get
+            {
+                return _messageLevel;
+            }
+            set
+            {
+                _messageLevel = value;
+                OnPropertyChanged(nameof(MessageLevel));
+            }
+        }
+
+        public Visibility HasMessage
+        {
+            get
+            {
+                if ((_processingLabel != null)
+                || (string.IsNullOrEmpty(_message)))
+                    return Visibility.Collapsed;
+                else
+                    return Visibility.Visible;
+                }
+        }
+
+        public void ShowMessage(string msg, MessageType messageLevel)
+        {
+            MessageLevel = messageLevel;
+            Message = msg;
+        }
+
+        public void ClearMessage()
+        {
+            Message = "";
+        }
+
+        #endregion
+
+        #region Processing
+
+        public Visibility IsProcessing
+        {
+            get
+            {
+                if (_processingLabel != null)
+                    return Visibility.Visible;
+                else
+                    return Visibility.Hidden;
+            }
+        }
+
+        private string _processingLabel;
+
+        /// <summary>
+        /// Get the processing label.
+        /// </summary>
+        public string ProcessingLabel
+        {
+            get
+            {
+                return _processingLabel;
+            }
+            set
+            {
+                _processingLabel = value;
+                OnPropertyChanged(nameof(ProcessingLabel));
+                OnPropertyChanged(nameof(IsProcessing));
+            }
+        }
+
+        public void StartProcessing(string msg)
+        {
+            ProcessingLabel = msg;
+        }
+
+        public void StopProcessing()
+        {
+            ProcessingLabel = null;
+        }
+
+        #endregion
 
         #region Reset Command
 
@@ -557,12 +720,12 @@ namespace DataSearches.UI
             }
         }
 
-        private ObservableCollection<Layers> _openLayersList;
+        private ObservableCollection<MapLayer> _openLayersList;
 
         /// <summary>
         /// Get the list of loaded GIS layers.
         /// </summary>
-        public ObservableCollection<Layers> OpenLayersList
+        public ObservableCollection<MapLayer> OpenLayersList
         {
             get
             {
@@ -570,12 +733,12 @@ namespace DataSearches.UI
             }
         }
 
-        private List<Layers> _selectedLayers;
+        private List<MapLayer> _selectedLayers;
 
         /// <summary>
         /// Get/Set the selected loaded layers.
         /// </summary>
-        public List<Layers> SelectedLayers
+        public List<MapLayer> SelectedLayers
         {
             get
             {
@@ -806,30 +969,6 @@ namespace DataSearches.UI
             }
         }
 
-        public Visibility ProcessingAnimation
-        {
-            get
-            {
-                if (_processingLabel != null)
-                    return Visibility.Visible;
-                else
-                    return Visibility.Hidden;
-            }
-        }
-
-        private string _processingLabel;
-
-        /// <summary>
-        /// Get the processing label.
-        /// </summary>
-        public string ProcessingLabel
-        {
-            get
-            {
-                return _processingLabel;
-            }
-        }
-
         /// <summary>
         /// Get the image for the Run button.
         /// </summary>
@@ -899,7 +1038,7 @@ namespace DataSearches.UI
             // Clear the selections first (to avoid selections being retained).
             if (_openLayersList != null)
             {
-                foreach (Layers layer in _openLayersList)
+                foreach (MapLayer layer in _openLayersList)
                 {
                     layer.IsSelected = false;
                 }
@@ -946,19 +1085,19 @@ namespace DataSearches.UI
         public async Task LoadLayersAsync(bool reset, bool message)
         {
             _dockPane.LayersListLoading = true;
-
             if (reset)
-                _processingLabel = "Resetting form ...";
+                StartProcessing("Resetting form ...");
             else
-                _processingLabel = "Loading form ...";
-            OnPropertyChanged(nameof(ProcessingLabel));
-            OnPropertyChanged(nameof(ProcessingAnimation));
+                StartProcessing("Loading form ...");
+
+            // Clear any messages.
+            ClearMessage();
 
             // Update the fields and buttons in the form.
             UpdateFormControls();
 
             // Temporary sleep to check processing label and animation are working. ???
-            System.Threading.Thread.Sleep(100);
+            await Task.Delay(1000);
 
             List<string> closedLayers = []; // The closed layers by name.
 
@@ -974,15 +1113,15 @@ namespace DataSearches.UI
                 bool mapOpen = (_mapFunctions.MapName != null);
 
                 // Reset the list of open layers.
-                ObservableCollection<Layers> openLayersList = [];
+                ObservableCollection<MapLayer> openLayersList = [];
 
                 if (mapOpen)
                 {
-                    List<Layers> allLayers = _mapLayers;
+                    List<MapLayer> allLayers = _mapLayers;
 
                     // Loop through all of the layers to check if they are open
                     // in the active map.
-                    foreach (Layers layer in allLayers)
+                    foreach (MapLayer layer in allLayers)
                     {
                         if (_mapFunctions.FindLayer(layer.LayerName) != null)
                         {
@@ -1005,9 +1144,11 @@ namespace DataSearches.UI
                 _openLayersList = openLayersList;
             });
 
-            _processingLabel = null;
-            OnPropertyChanged(nameof(ProcessingLabel));
-            OnPropertyChanged(nameof(ProcessingAnimation));
+            StopProcessing();
+
+            // Show a message if there are no open layers.
+            if (!_openLayersList.Any())
+                ShowMessage("Active map does not contain any search layers", MessageType.Warning);
 
             _dockPane.LayersListLoading = false;
 
@@ -1082,49 +1223,42 @@ namespace DataSearches.UI
             // What is the area measurement unit?
             string areaMeasureUnit = _toolConfig.AreaMeasurementUnit;
 
-            // Will selected layers be added to the map?
-            string addSelectedLayers;
+            // Will selected layers be added to the map with labels?
+            AddSelectedLayersOptions addSelectedLayersOption = AddSelectedLayersOptions.No;
             if (_defaultAddSelectedLayers > 0)
-                addSelectedLayers = SelectedAddToMap;
-            else
-                addSelectedLayers = "No";
+            {
+                if (!SelectedAddToMap.Equals("no", StringComparison.CurrentCultureIgnoreCase))
+                    addSelectedLayersOption = AddSelectedLayersOptions.No;
+                else if (!SelectedAddToMap.Contains("with labels", StringComparison.CurrentCultureIgnoreCase))
+                    addSelectedLayersOption = AddSelectedLayersOptions.WithLabels;
+                else if (!SelectedAddToMap.Contains("without labels", StringComparison.CurrentCultureIgnoreCase))
+                    addSelectedLayersOption = AddSelectedLayersOptions.WithoutLabels;
+            }
 
-            // Will the labels on map layers be updated?
-            string overwriteLabels;
+            // Will the labels on map layers be overwritten?
+            OverwriteLabelOptions overwriteLabelsOption = OverwriteLabelOptions.No;
             if (_defaultOverwriteLabels > 0)
-                overwriteLabels = SelectedOverwriteLabels;
-            else
-                overwriteLabels = "No";
-
-            // Will labels be reset at the start of each group?
-            bool resetGroups = false;
-            if (_defaultOverwriteLabels > 0)
-                if (SelectedOverwriteLabels.Contains("group", StringComparison.CurrentCultureIgnoreCase))
-                    resetGroups = true;
+            {
+                if (SelectedOverwriteLabels.Equals("no", StringComparison.CurrentCultureIgnoreCase))
+                    overwriteLabelsOption = OverwriteLabelOptions.ResetByLayer;
+                else if (SelectedOverwriteLabels.Contains("reset each layer", StringComparison.CurrentCultureIgnoreCase))
+                    overwriteLabelsOption = OverwriteLabelOptions.ResetByLayer;
+                else if (SelectedOverwriteLabels.Contains("reset each group", StringComparison.CurrentCultureIgnoreCase))
+                    overwriteLabelsOption = OverwriteLabelOptions.ResetByGroup;
+                else if (SelectedOverwriteLabels.Contains("do not reset", StringComparison.CurrentCultureIgnoreCase))
+                    overwriteLabelsOption = OverwriteLabelOptions.DoNotReset;
+            }
 
             // Will the combined sites table be created and overwritten?
-            bool combinedTableCreate;
-            bool combinedTableOverwrite;
+            CombinedSitesTableOptions combinedSitesTableOption = CombinedSitesTableOptions.None;
             if (_defaultCombinedSitesTable > 0)
-                if (SelectedCombinedSites.Contains("none", StringComparison.CurrentCultureIgnoreCase))
-                {
-                    combinedTableCreate = false;
-                    combinedTableOverwrite = false;
-                }
-                else if (SelectedCombinedSites.Contains("append", StringComparison.CurrentCultureIgnoreCase))
-                {
-                    combinedTableCreate = true;
-                    combinedTableOverwrite = false;
-                }
-                else
-                {
-                    combinedTableCreate = true;
-                    combinedTableOverwrite = true;
-                }
-            else
             {
-                combinedTableCreate = false;
-                combinedTableOverwrite = false;
+                if (SelectedCombinedSites.Equals("none", StringComparison.CurrentCultureIgnoreCase))
+                    combinedSitesTableOption = CombinedSitesTableOptions.Append;
+                else if (SelectedCombinedSites.Contains("append", StringComparison.CurrentCultureIgnoreCase))
+                    combinedSitesTableOption = CombinedSitesTableOptions.Append;
+                else if (SelectedCombinedSites.Contains("overwrite", StringComparison.CurrentCultureIgnoreCase))
+                    combinedSitesTableOption = CombinedSitesTableOptions.Append;
             }
 
             // Fix any illegal characters in the site name string.
@@ -1151,8 +1285,8 @@ namespace DataSearches.UI
             _gisFolder = StringFunctions.ReplaceSearchStrings(_gisFolder, reference, siteName, shortRef, subref, radius);
             _logFileName = StringFunctions.ReplaceSearchStrings(_logFileName, reference, siteName, shortRef, subref, radius);
             _combinedSitesTableName = StringFunctions.ReplaceSearchStrings(_combinedSitesTableName, reference, siteName, shortRef, subref, radius);
-            _bufferLayerName = StringFunctions.ReplaceSearchStrings(_bufferLayerName, reference, siteName, shortRef, subref, radius);
-            _featureOutputName = StringFunctions.ReplaceSearchStrings(_featureOutputName, reference, siteName, shortRef, subref, radius);
+            _bufferOutputName = StringFunctions.ReplaceSearchStrings(_bufferOutputName, reference, siteName, shortRef, subref, radius);
+            _searchOutputName = StringFunctions.ReplaceSearchStrings(_searchOutputName, reference, siteName, shortRef, subref, radius);
             _groupLayerName = StringFunctions.ReplaceSearchStrings(_groupLayerName, reference, siteName, shortRef, subref, radius);
 
             // Remove any illegal characters from the names.
@@ -1160,23 +1294,23 @@ namespace DataSearches.UI
             _gisFolder = StringFunctions.StripIllegals(_gisFolder, _repChar);
             _logFileName = StringFunctions.StripIllegals(_logFileName, _repChar, true);
             _combinedSitesTableName = StringFunctions.StripIllegals(_combinedSitesTableName, _repChar);
-            _bufferLayerName = StringFunctions.StripIllegals(_bufferLayerName, _repChar);
-            _featureOutputName = StringFunctions.StripIllegals(_featureOutputName, _repChar);
+            _bufferOutputName = StringFunctions.StripIllegals(_bufferOutputName, _repChar);
+            _searchOutputName = StringFunctions.StripIllegals(_searchOutputName, _repChar);
             _groupLayerName = StringFunctions.StripIllegals(_groupLayerName, _repChar);
 
             // Trim any trailing spaces (directory functions don't deal with them well).
             _saveFolder = _saveFolder.Trim();
 
             // Create output folders if required.
-            string outputFolder = CreateOutputFolders(_saveRootDir, _saveFolder, _gisFolder);
-            if (outputFolder == null)
+            _outputFolder = CreateOutputFolders(_saveRootDir, _saveFolder, _gisFolder);
+            if (_outputFolder == null)
             {
                 // ???
                 return;
             }
 
             // Create log file (if necessary).
-            _logFile = outputFolder + @"\" + _logFileName;
+            _logFile = _outputFolder + @"\" + _logFileName;
             if (FileFunctions.FileExists(_logFile) && ClearLogFile)
             {
                 try
@@ -1204,9 +1338,7 @@ namespace DataSearches.UI
 
             // Indicate the search has started.
             _dockPane.SearchRunning = true;
-            _processingLabel = "Performing search ...";
-            OnPropertyChanged(nameof(ProcessingLabel));
-            OnPropertyChanged(nameof(ProcessingAnimation));
+            StartProcessing("Performing search ...");
 
             // Temporary delay to check processing label and animation are working. ???
             //await Task.Delay(1000); ???
@@ -1232,7 +1364,8 @@ namespace DataSearches.UI
             long featureCount = await CountSearchFeaturesAsync(searchClause);
             if (featureCount == 0)
             {
-                FileFunctions.WriteLine(_logFile, "Process aborted");
+                StopSearch(searchRef, false, false);
+                return;
                 // ???
             }
 
@@ -1240,39 +1373,171 @@ namespace DataSearches.UI
             if (await PrepareTemporaryGDBAsync(tempFolder) == false)
             {
                 // ???
+                StopSearch(searchRef, false, true);
                 return;
             }
 
             // Select the feature matching the search reference in the map.
-            await _mapFunctions.SelectLayerByAttributesAsync(_searchLayer, searchClause);
+            if (await _mapFunctions.SelectLayerByAttributesAsync(_searchLayer, searchClause) == false)
+            {
+                // ???
+                StopSearch(searchRef, false, true);
+                return;
+            }
+
+            // Update the table if required.
+            //UpdateSearchFeaturesAsync();  // ???
+
+            // Save the selected feature if required.
+            if (_keepSearchFeature)
+            {
+                // Save search feature(s).
+                if (await SaveSearchFeaturesAsync(addSelectedLayersOption) == false)
+                {
+                    // ???
+                    StopSearch(searchRef, false, true);
+                    return;
+                }
+            }
+
+            // Create a buffer around the feature and save into a new file.
+            string bufferString = bufferSize + " " + bufferUnitProcess;
+
+            // Safeguard for zero buffer size; Select a tiny buffer to allow
+            // correct legending (expects a polygon).
+            if (bufferSize == "0")
+                bufferString = "0.01 Meters";
+
+            // The output file for the buffer is a shapefile in the root save directory.
+            string outputBuffer = _bufferOutputName + "_" + bufferSize + bufferUnitShort;
+            if (outputBuffer.Contains('.'))
+                outputBuffer = outputBuffer.Replace('.', '_');
+
+            // Buffer search feature(s).
+            if (await BufferSearchFeaturesAsync(outputBuffer, bufferString, addSelectedLayersOption) == false)
+            {
+                // ???
+                StopSearch(searchRef, false, true);
+                return;
+            }
+
+            // Start the combined sites table before we do any analysis.
+            string combinedSitesTable = _outputFolder + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
+            if (combinedSitesTableOption != CombinedSitesTableOptions.None)
+            {
+                // Start the table if overwrite has been selected, or if the table doesn't exist (and append has been selected).
+                if (combinedSitesTableOption == CombinedSitesTableOptions.Overwrite || (!FileFunctions.FileExists(combinedSitesTable)))
+                {
+                    if (FileFunctions.WriteEmptyTextFile(combinedSitesTable, _toolConfig.CombinedSitesTableColumns) == false)
+                    {
+                        MessageBox.Show("Error writing to combined sites table.");
+                        FileFunctions.WriteLine(_logFile, "Error writing to combined sites table");
+
+                        StopSearch(searchRef, false, true);
+                        return;
+                    }
+                    FileFunctions.WriteLine(_logFile, "Combined sites table started");
+                }
+            }
+
+            await ProcessMapLayersAsync();
 
 
 
 
-            _searchSymbology = _searchSymbology + _searchLayerExtension + ".lyr";
 
 
 
 
+            // Clear the search features selection.
+            await _mapFunctions.ClearLayerSelectionAsync(_searchLayer);
 
+            // Do we want to keep the buffer layer? If not, remove it.
+            if (!_keepBuffer)
+            {
+                try
+                {
+                    // Remove the buffer layer from the map.
+                    _mapFunctions.RemoveLayer(outputBuffer);
 
-            FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
-            FileFunctions.WriteLine(_logFile, "Process complete");
-            FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
+                    // Delete the buffer feature class.
+                    string bufferOutputName = _outputFolder + "\\" + outputBuffer + ".shp";
+                    ArcGISFunctions.DeleteFeatureClass(_outputFolder, bufferOutputName);
 
-            // Indicate search has finished.
-            _dockPane.SearchRunning = false;
-            _processingLabel = null;
-            OnPropertyChanged(nameof(ProcessingLabel));
-            OnPropertyChanged(nameof(ProcessingAnimation));
+                    FileFunctions.WriteLine(_logFile, "Buffer layer deleted.");
+                }
+                catch
+                {
+                    //MessageBox.Show("Error deleting the buffer layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            // If we are keeping the buffer but not adding it to the map.
+            else if (addSelectedLayersOption == AddSelectedLayersOptions.No)
+            {
+                _mapFunctions.RemoveLayer(outputBuffer);
+            }
 
-            MessageBox.Show(String.Format("Search '{0}' complete!", searchRef), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
-
-            // Open the log file (if required).
-            if (OpenLogFile)
-                Process.Start("notepad.exe", _logFile);
+            // Indicate that the search process has completed successfully.
+            StopSearch(searchRef, true, true);
 
             return;
+        }
+
+        /// <summary>
+        /// Indicate that the search process has stopped (either
+        /// successfully or otherwise).
+        /// </summary>
+        /// <param name="searchRef"></param>
+        /// <param name="success"></param>
+        /// <param name="message"></param>
+        private void StopSearch(string searchRef, bool success, bool message)
+        {
+            // Indicate search has finished.
+            _dockPane.SearchRunning = false;
+            StopProcessing();
+
+            if (success)
+            {
+                FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
+                FileFunctions.WriteLine(_logFile, "Process complete");
+                FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
+
+                if (message)
+                {
+                    Notification notification = new()
+                    {
+                        Title = FrameworkApplication.Title,
+                        Severity = Notification.SeverityLevel.High,
+                        Message = String.Format("Search '{0}' complete!", searchRef),
+                        ImageSource = System.Windows.Application.Current.Resources["ToastLicensing32"] as ImageSource   // ???
+                    };
+                    FrameworkApplication.AddNotification(notification);
+
+                    //MessageBox.Show(String.Format("Search '{0}' complete!", searchRef), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            else
+            {
+                FileFunctions.WriteLine(_logFile, "Process aborted");
+
+                if (message)
+                {
+                    Notification notification = new()
+                    {
+                        Title = FrameworkApplication.Title,
+                        Severity = Notification.SeverityLevel.High,
+                        Message = String.Format("Search '{0}' aborted!", searchRef),
+                        ImageSource = System.Windows.Application.Current.Resources["ToastLicensing32"] as ImageSource   // ???
+                    };
+                    FrameworkApplication.AddNotification(notification);
+
+                    //MessageBox.Show(String.Format("Search '{0}' aborted!", searchRef), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+
+            // Open the log file (if required).
+            if (OpenLogFile && message)
+            Process.Start("notepad.exe", _logFile);
         }
 
         /// <summary>
@@ -1445,7 +1710,7 @@ namespace DataSearches.UI
             _mapFunctions.RemoveLayer(_tempOutputLayerName);
             if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutput))
             {
-                ArcGISFunctions.DeleteFeatureClass(_tempFCOutput, _logFile);
+                ArcGISFunctions.DeleteFeatureClass(tempGDBName, _tempOutputLayerName);
                 FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
             }
 
@@ -1454,8 +1719,159 @@ namespace DataSearches.UI
             _mapFunctions.RemoveTable(_tempOutputTableName);
             if (await ArcGISFunctions.TableExistsAsync(_tempTableOutput))
             {
-                ArcGISFunctions.DeleteTable(_tempTableOutput, _logFile);
+                ArcGISFunctions.DeleteTable(tempGDBName, _tempOutputTableName);
                 FileFunctions.WriteLine(_logFile, "Temporary output table deleted");
+            }
+
+            return true;
+        }
+
+        private async Task<bool> UpdateSearchFeaturesAsync()
+        {
+            return true;
+        }
+
+        private async Task<bool> SaveSearchFeaturesAsync(AddSelectedLayersOptions addToMap)
+        {
+            // Get the full layer path (in case it's nested in one or more groups).
+            string searchLayerPath = _mapFunctions.GetLayerPath(_searchLayer);
+
+            string outputFile = _outputFolder + "\\" + _searchOutputName + ".shp";
+
+            FileFunctions.WriteLine(_logFile, "Saving search feature(s)");
+
+            // Copy the selected feature(s) to an output file.
+            if (await ArcGISFunctions.CopyFeaturesAsync(searchLayerPath, outputFile, false) == false)
+            {
+                MessageBox.Show("Error saving search feature(s)");
+                FileFunctions.WriteLine(_logFile, "Error saving search feature(s)");
+                return false;
+            }
+
+            // Add the output feature layer to the map.
+            if (addToMap != AddSelectedLayersOptions.No)
+            {
+                // Add layer to the map.
+                await _mapFunctions.AddLayerToMap(outputFile);
+
+                // Set the search layer symbology to use.
+                string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
+                string symbologyFile = _layerFolder + "\\" + searchlayerFile;
+
+                // Apply layer symbology.
+                if (await _mapFunctions.ApplySymbologyFromLayerFileAsync(_searchOutputName, symbologyFile) == false)
+                {
+                    MessageBox.Show("Error applying symbology to output search layer");
+                    FileFunctions.WriteLine(_logFile, "Error applying symbology to output search layer");
+                }
+
+                // Move layer to the group layer.
+                if (await _mapFunctions.MoveToGroupLayerAsync(_groupLayerName, _mapFunctions.FindLayer(_searchOutputName), 0) == false)
+                {
+                    MessageBox.Show("Error moving output search layer");
+                    FileFunctions.WriteLine(_logFile, "Error moving output search layer");
+                }
+            }
+            else
+            {
+                // Remove the output search layer (if it is loaded).
+                _mapFunctions.RemoveLayer(_searchOutputName);
+            }
+
+            return true;
+        }
+
+        private async Task<bool> BufferSearchFeaturesAsync(string outputName, string bufferString, AddSelectedLayersOptions addToMap)
+        {
+            // Get the full layer path (in case it's nested in one or more groups).
+            string searchLayerPath = _mapFunctions.GetLayerPath(_searchLayer);
+
+            string outputFile = _outputFolder + "\\" + outputName + ".shp";
+
+            FileFunctions.WriteLine(_logFile, "Buffering feature(s) with a distance of " + bufferString);
+
+            if (await _mapFunctions.BufferFeatureAsync(searchLayerPath, outputFile, bufferString, _bufferFields) == false)
+            {
+                MessageBox.Show("Error during feature buffering. Process aborted");
+                FileFunctions.WriteLine(_logFile, "Error during feature buffering. Process aborted");
+                return false;
+            }
+
+            // Add the output buffer layer to the map.
+            if (addToMap != AddSelectedLayersOptions.No)
+            {
+                // Add layer to the map.
+                //await _mapFunctions.AddLayerToMap(outputFile);    // Buffer already added to map.
+
+                // Set the search layer symbology to use.
+                string symbologyFile = _layerFolder + "\\" + _bufferLayerName;
+
+                // Apply layer symbology.
+                if (await _mapFunctions.ApplySymbologyFromLayerFileAsync(outputName, symbologyFile) == false)
+                {
+                    MessageBox.Show("Error applying symbology to output buffer layer");
+                    FileFunctions.WriteLine(_logFile, "Error applying symbology to output buffer layer");
+                }
+
+                // Move layer to the group layer.
+                if (await _mapFunctions.MoveToGroupLayerAsync(_groupLayerName, _mapFunctions.FindLayer(outputName), -1) == false)
+                {
+                    MessageBox.Show("Error moving output buffer layer");
+                    FileFunctions.WriteLine(_logFile, "Error moving output buffer layer");
+                }
+
+                FileFunctions.WriteLine(_logFile, "Buffer added to display");
+            }
+            else
+            {
+                // Remove the output buffer layer (if it is loaded).
+                _mapFunctions.RemoveLayer(outputName);
+            }
+
+            return true;
+        }
+
+        private async Task<bool> ProcessMapLayersAsync()
+        {
+            // Keep track of the label numbers.
+            int startLabel = 1;
+            int maxLabel = 1;
+
+            foreach (MapLayer mapLayer in SelectedLayers)
+            {
+                FileFunctions.WriteLine(_logFile, "");
+
+                // Get all the settings relevant to this layer.
+                string mapLayerName = mapLayer.LayerName;
+                string mapOutputName = mapLayer.GISOutputName;
+                string mapTableOutputName = mapLayer.TableOutputName;
+                string mapColumns = mapLayer.Columns; // Note there could be multiple columns.
+                string mapGroupColumns = mapLayer.GroupColumns;
+                string mapStatsColumns = mapLayer.StatisticsColumns;
+                string mapOrderColumns = mapLayer.OrderColumns;
+                string mapCriteria = mapLayer.Criteria;
+                bool includeArea = mapLayer.IncludeArea;
+                bool includeDistance = mapLayer.IncludeDistance;
+                bool includeRadius = mapLayer.IncludeRadius;
+
+                string mapKeyColumn = mapLayer.KeyColumn;
+                string mapFormat = mapLayer.Format;
+                bool keepLayer = mapLayer.KeepLayer;
+                string mapOutputType = mapLayer.OutputType;
+                bool displayLabels = mapLayer.DisplayLabels;
+                string mapLayerFileName = mapLayer.LayerFileName;
+                bool overwriteLabels = mapLayer.OverwriteLabels;
+                string mapLabelColumn = mapLayer.LabelColumn;
+                string mapLabelClause = mapLayer.LabelClause;
+                string mapMacroName = mapLayer.MacroName;
+
+                string mapCombinedSitesColumns = mapLayer.CombinedSitesColumns;
+                string mapCombinedSitesGroupColumns = mapLayer.CombinedSitesGroupColumns;
+                string mapCombinedSitesStatsColumns = mapLayer.CombinedSitesStatisticsColumns;
+                string mapCombinedSitesOrderColumns = mapLayer.CombinedSitesOrderByColumns;
+
+
+
             }
 
             return true;
@@ -1525,9 +1941,9 @@ namespace DataSearches.UI
     }
 
     /// <summary>
-    /// GIS layers to search.
+    /// Map layers to search.
     /// </summary>
-    public class Layers : INotifyPropertyChanged
+    public class MapLayer : INotifyPropertyChanged
     {
         #region Fields
 
@@ -1606,11 +2022,11 @@ namespace DataSearches.UI
 
         #region Creator
 
-        public Layers()
+        public MapLayer()
         {
         }
 
-        public Layers(string nodeName)
+        public MapLayer(string nodeName)
         {
             NodeName = nodeName;
         }

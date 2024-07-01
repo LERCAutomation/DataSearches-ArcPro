@@ -669,7 +669,7 @@ namespace DataSearches
                         nodeName = nodeName.Replace("_", " "); // Replace any underscores with spaces for better display.
 
                         // Create a new layer for this node.
-                        Layers layer = new(nodeName);
+                        MapLayer layer = new(nodeName);
 
                         try
                         {
@@ -1366,9 +1366,9 @@ namespace DataSearches
 
         #region Map Variables
 
-        private List<Layers> _mapLayers = [];
+        private List<MapLayer> _mapLayers = [];
 
-        public List<Layers> MapLayers
+        public List<MapLayer> MapLayers
         {
             get { return _mapLayers; }
         }
