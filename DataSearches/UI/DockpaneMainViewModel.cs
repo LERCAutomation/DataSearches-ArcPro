@@ -93,8 +93,7 @@ namespace DataSearches.UI
             if (_paneH1VM.XMLLoaded)
             {
                 // Initialise the search pane.
-                bool initialised = await InitialiseSearchPaneAsync();
-                if (!initialised)
+                if (!await InitialiseSearchPaneAsync())
                     return;
 
                 // Select the profile tab.
@@ -343,7 +342,7 @@ namespace DataSearches.UI
             ProjectClosedEvent.Unsubscribe(OnProjectClosed);
         }
 
-        private Visibility _dockpaneVisibility = Visibility.Hidden;
+        private Visibility _dockpaneVisibility = Visibility.Visible;
         public Visibility DockpaneVisibility
         {
             get { return _dockpaneVisibility; }

@@ -368,24 +368,24 @@ namespace DataSearches
                 throw new("Could not locate item 'KeepBufferArea' in the XML profile.");
             }
 
-            // The output name for the buffer GIS file. The size of the buffer will be added automatically.
+            // The prefix output name for the buffer GIS file. The size of the buffer will be added automatically.
             try
             {
-                _bufferSaveName = _xmlDataSearches["BufferSaveName"].InnerText;
+                _bufferPrefix = _xmlDataSearches["BufferPrefix"].InnerText;
             }
             catch
             {
-                throw new("Could not locate item 'BufferSaveName' in the XML profile.");
+                throw new("Could not locate item 'BufferPrefix' in the XML profile.");
             }
 
             // The name of the buffer symbology layer file.
             try
             {
-                _bufferLayerName = _xmlDataSearches["BufferLayerName"].InnerText;
+                _bufferLayerFile = _xmlDataSearches["BufferLayerFile"].InnerText;
             }
             catch
             {
-                throw new("Could not locate item 'BufferLayerName' in the XML profile.");
+                throw new("Could not locate item 'BufferLayerFile' in the XML profile.");
             }
 
             // The base name of the layer to use as the search area.
@@ -447,11 +447,11 @@ namespace DataSearches
             // The name of the search feature output layer.
             try
             {
-                _searchFeatureName = _xmlDataSearches["SearchFeatureName"].InnerText;
+                _searchOutputName = _xmlDataSearches["SearchOutputName"].InnerText;
             }
             catch
             {
-                throw new("Could not locate item 'SearchFeatureName' in the XML profile.");
+                throw new("Could not locate item 'SearchOutputName' in the XML profile.");
             }
 
             // The base name of the search layer symbology file (without the .lyr).
@@ -673,6 +673,18 @@ namespace DataSearches
 
                         try
                         {
+                            string group;
+                            group = nodeName.Substring(0, nodeName.IndexOf('-')).Trim();
+                            layer.LayerGroup = group;
+                        }
+                        catch
+                        {
+                            // This is an optional node
+                            layer.LayerGroup = null;
+                        }
+
+                        try
+                        {
                             layer.LayerName = node["LayerName"].InnerText;
                         }
                         catch
@@ -765,7 +777,7 @@ namespace DataSearches
                         catch
                         {
                             // This is an optional node
-                            layer.IncludeArea =false;
+                            layer.IncludeArea = false;
                         }
 
 
@@ -1222,18 +1234,18 @@ namespace DataSearches
             get { return _keepBufferArea; }
         }
 
-        private string _bufferSaveName;
+        private string _bufferPrefix;
 
-        public string BufferSaveName
+        public string BufferPrefix
         {
-            get { return _bufferSaveName; }
+            get { return _bufferPrefix; }
         }
 
-        private string _bufferLayerName;
+        private string _bufferLayerFile;
 
-        public string BufferLayerName
+        public string BufferLayerFile
         {
-            get { return _bufferLayerName; }
+            get { return _bufferLayerFile; }
         }
 
         private string _searchLayer;
@@ -1264,11 +1276,11 @@ namespace DataSearches
             get { return _keepSearchFeature; }
         }
 
-        private string _searchFeatureName;
+        private string _searchOutputName;
 
-        public string SearchFeatureName
+        public string SearchOutputName
         {
-            get { return _searchFeatureName; }
+            get { return _searchOutputName; }
         }
 
         private string _searchSymbologyBase;

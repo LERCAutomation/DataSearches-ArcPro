@@ -45,6 +45,11 @@ using ArcGIS.Desktop.Layouts;
 using System.Diagnostics;
 using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ActiproSoftware.Windows.Extensions;
+using System.Security.Policy;
+using System.Windows.Media;
+using ArcGIS.Desktop.Internal.Catalog.Wizards;
+using System.Runtime.InteropServices;
+using ArcGIS.Desktop.Editing;
 
 namespace DataSearches
 {
@@ -250,10 +255,10 @@ namespace DataSearches
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns></returns>
-        public bool RemoveLayer(string layerName)
+        public async Task RemoveLayerAsync(string layerName)
         {
             if (String.IsNullOrEmpty(layerName))
-                return false;
+                return;
 
             try
             {
@@ -261,11 +266,11 @@ namespace DataSearches
                 FeatureLayer layer = FindLayer(layerName);
 
                 // Remove the layer.
-                return RemoveLayer(layer);
+                await RemoveLayerAsync(layer);
             }
             catch
             {
-                return false;
+                return;
             }
         }
 
@@ -274,48 +279,104 @@ namespace DataSearches
         /// </summary>
         /// <param name="layer"></param>
         /// <returns></returns>
-        public bool RemoveLayer(Layer layer)
+        public async Task RemoveLayerAsync(Layer layer)
         {
             try
             {
-                // Remove the layer.
-                if (layer != null)
-                    _activeMap.RemoveLayer(layer);
-
-                return true;
+                await QueuedTask.Run(() =>
+                {
+                    // Remove the layer.
+                    if (layer != null)
+                        _activeMap.RemoveLayer(layer);
+                });
             }
             catch
             {
-                return false;
+                // Handle Exception.
             }
         }
 
-        /// <summary>
-        /// Count the features in a layer using a search where clause.
-        /// </summary>
-        /// <param name="layer"></param>
-        /// <param name="whereClause"></param>
-        /// <returns></returns>
-        internal async Task<long> CountFeaturesAsync(FeatureLayer layer, string whereClause)
+        public async Task<int> AddIncrementalNumbersAsync(string outputFeatureClass, string outputLayerName, string labelFieldName, string keyFieldName, int startNumber = 1)
         {
-            long featureCount = 0;
+            // Check the obvious.
+            if (!await ArcGISFunctions.FeatureClassExistsAsync(outputFeatureClass))
+                return -1;
 
-            if (layer == null)
-                return featureCount;
+            if (!await FieldExistsAsync(outputLayerName, labelFieldName))
+                return -1;
+
+            if (!await FieldIsNumericAsync(outputLayerName, labelFieldName))
+                return -1;
+
+            if (!await FieldExistsAsync(outputLayerName, keyFieldName))
+                return -1;
+
+            // Get the feature layer.
+            FeatureLayer featurelayer = FindLayer(outputLayerName);
+
+            if (featurelayer == null)
+                return -1;
+
+            int intStart;
+            if (startNumber > 0)
+                intStart = startNumber;
+            else
+                intStart = 1;
+            int intMax = intStart - 1;
+            int intValue = intMax;
+
+            string keyValue;
+            string lastKeyValue = "";
+
+            // Create an edit operation.
+            EditOperation editOperation = new();
 
             try
             {
-                // Create a query filter using the where clause.
-                QueryFilter queryFilter = new()
-                {
-                    WhereClause = whereClause
-                };
-
-                featureCount = await QueuedTask.Run(() =>
+                await QueuedTask.Run(() =>
                 {
                     /// Count the number of features matching the search clause.
-                    FeatureClass featureClass = layer.GetFeatureClass();
-                    return featureClass.GetCount(queryFilter);
+                    FeatureClass featureClass = featurelayer.GetFeatureClass();
+
+                    // Get the feature class defintion.
+                    using (FeatureClassDefinition featureClassDefinition = featureClass.GetDefinition())
+                    {
+                        // Get the key field from the definition.
+                        ArcGIS.Core.Data.Field keyField = featureClassDefinition.GetFields()
+                          .First(x => x.Name.Equals(keyFieldName));
+
+                        // Create a SortDescription for the key field.
+                        SortDescription keySortDescription = new(keyField)
+                        {
+                            CaseSensitivity = CaseSensitivity.Insensitive,
+                            SortOrder = ArcGIS.Core.Data.SortOrder.Ascending
+                        };
+
+                        // Create a TableSortDescription.
+                        TableSortDescription tableSortDescription = new(new List<SortDescription>() { keySortDescription });
+
+                        // Create a cursor of the sorted features.
+                        using RowCursor rowCursor = featureClass.Sort(tableSortDescription);
+                        while (rowCursor.MoveNext())
+                        {
+                            // Using the current row.
+                            using Row record = rowCursor.Current;
+
+                            // Get the key field value.
+                            keyValue = (string)record[keyFieldName];
+
+                            // If the key value is different.
+                            if (keyValue != lastKeyValue)
+                            {
+                                intMax++;
+                                intValue = intMax;
+                            }
+
+                            editOperation.Modify(record, labelFieldName, intValue);
+
+                            lastKeyValue = keyValue;
+                        }
+                    }
                 });
             }
             catch
@@ -324,7 +385,24 @@ namespace DataSearches
                 return 0;
             }
 
-            return featureCount;
+            // Execute the edit operation.
+            if (!editOperation.IsEmpty)
+            {
+                if (!await editOperation.ExecuteAsync())
+                {
+                    MessageBox.Show(editOperation.ErrorMessage);
+                    return -1;
+                }
+            }
+
+            // Check for unsaved edits.
+            if (Project.Current.HasEdits)
+            {
+                // Save edits.
+                await Project.Current.SaveEditsAsync();
+            }
+
+            return intMax;
         }
 
         /// <summary>
@@ -333,7 +411,7 @@ namespace DataSearches
         /// <param name="layerName"></param>
         /// <param name="whereClause"></param>
         /// <returns></returns>
-        public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause)
+        public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause, SelectionCombinationMethod selectionMethod)
         {
             if (String.IsNullOrEmpty(layerName))
                 return false;
@@ -355,10 +433,55 @@ namespace DataSearches
                 await QueuedTask.Run(() =>
                 {
                     // Select the features matching the search clause.
-                    featurelayer.Select(queryFilter, SelectionCombinationMethod.New);
+                    featurelayer.Select(queryFilter, selectionMethod);
                 });
             }
             catch
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Select features in layerName by location.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="whereClause"></param>
+        /// <returns></returns>
+        public async Task<bool> SelectLayerByLocationAsync(string targetLayer, string searchLayer, string overlapType = "INTERSECT", string searchDistance = "", string selectionType = "NEW_SELECTION")
+        {
+            if (String.IsNullOrEmpty(targetLayer) || String.IsNullOrEmpty(searchLayer))
+                return false;
+
+            // Make a value array of strings to be passed to the tool.
+            IReadOnlyList<string> parameters = Geoprocessing.MakeValueArray(targetLayer, overlapType, searchLayer, searchDistance, selectionType);
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+
+            //Geoprocessing.OpenToolDialog("management.SelectLayerByLocation", parameters);  // Useful for debugging.
+
+            //Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.SelectLayerByLocation", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
             {
                 // Handle Exception.
                 return false;
@@ -409,7 +532,7 @@ namespace DataSearches
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerName);
+                FeatureLayer featurelayer = FindLayer(layerName);   // Need to pass layer name not file name. ???
 
                 if (featurelayer == null)
                     return false;
@@ -446,9 +569,68 @@ namespace DataSearches
             }
         }
 
-        public async Task<bool> BufferFeatureAsync(string inFeatureClass, string outFeatureClass, string bufferDistance, string aggregateFields)
+        public async Task<bool> FieldIsNumericAsync(string layerName, string fieldName)
+        {
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            try
+            {
+                // Find the feature layerName by name if it exists. Only search existing layers.
+                FeatureLayer featurelayer = FindLayer(layerName);
+
+                if (featurelayer == null)
+                    return false;
+
+                IReadOnlyList<ArcGIS.Core.Data.Field> fields = null;
+                List<string> fieldList = [];
+
+                bool fldIsNumeric = false;
+
+                await QueuedTask.Run(() =>
+                {
+                    Table table = featurelayer.GetTable();
+                    if (table != null)
+                    {
+                        TableDefinition def = table.GetDefinition();
+                        fields = def.GetFields();
+                        foreach (ArcGIS.Core.Data.Field fld in fields)
+                        {
+                            if (fld.Name == fieldName)
+                            {
+                                switch (fld.FieldType)
+                                {
+                                    case FieldType.SmallInteger:
+                                    case FieldType.BigInteger:
+                                    case FieldType.Integer:
+                                    case FieldType.Single:
+                                    case FieldType.Double:
+                                        fldIsNumeric = true;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                return fldIsNumeric;
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
+            }
+        }
+
+        public async Task<bool> BufferFeaturesAsync(string inFeatureClass, string outFeatureClass, string bufferDistance, string aggregateFields)
         {
             if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            if (String.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Check if all fields in the aggregate fields exist. If not, ignore.
@@ -456,7 +638,7 @@ namespace DataSearches
             aggregateFields = "";
             foreach (string fieldName in aggColumns)
             {
-                if (await FieldExistsAsync(inFeatureClass, fieldName) == true)
+                if (await FieldExistsAsync(inFeatureClass, fieldName))
                 {
                     aggregateFields = aggregateFields + fieldName + ";";
                 }
@@ -485,6 +667,103 @@ namespace DataSearches
             try
             {
                 IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("analysis.Buffer", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        public async Task<bool> ClipFeaturesAsync(string inFeatureClass, string clipFeatureClass, string outFeatureClass, bool addToMap = false)
+        {
+            if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            if (String.IsNullOrEmpty(clipFeatureClass))
+                return false;
+
+            if (String.IsNullOrEmpty(outFeatureClass))
+                return false;
+
+            // Make a value array of strings to be passed to the tool.
+            List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatureClass, clipFeatureClass, outFeatureClass)];
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+            if (addToMap)
+                executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
+
+            //Geoprocessing.OpenToolDialog("analysis.Clip", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("analysis.Clip", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        public async Task<bool> IntersectFeaturesAsync(string inFeatureClass, string intersectFeatureClass, string outFeatureClass, bool addToMap = false)
+        {
+            if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            if (String.IsNullOrEmpty(intersectFeatureClass))
+                return false;
+
+            if (String.IsNullOrEmpty(outFeatureClass))
+                return false;
+
+            string[] features = ["'" + inFeatureClass + "' #", "'" + intersectFeatureClass + "' #"];
+            var featureList = string.Join(";", features);
+
+            // Make a value array of strings to be passed to the tool.
+            List<string> parameters = [.. Geoprocessing.MakeValueArray(featureList, outFeatureClass)];
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+            if (addToMap)
+                executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
+
+            //Geoprocessing.OpenToolDialog("analysis.Intersect", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("analysis.Intersect", parameters, environments, null, null, executeFlags);
 
                 if (gp_result.IsFailed)
                 {
@@ -545,7 +824,6 @@ namespace DataSearches
                 // Find the layer in the active map.
                 FeatureLayer layer = FindLayer(layerName);
 
-                // Get the full layer path.
                 return GetLayerPath(layer);
             }
             catch
@@ -553,6 +831,59 @@ namespace DataSearches
                 return null;
             }
         }
+
+        /// <summary>
+        /// Returns a simplified feature class shape type: point, line, polygon.
+        /// </summary>
+        /// <param name="featureLayer"></param>
+        /// <returns></returns>
+        public string GetFeatureClassType(FeatureLayer featureLayer)
+        {
+            BasicFeatureLayer basicFeatureLayer = featureLayer as BasicFeatureLayer;
+            esriGeometryType shapeType = basicFeatureLayer.ShapeType;
+
+            string classType = "other";
+            if (shapeType == esriGeometryType.esriGeometryMultipoint || shapeType == esriGeometryType.esriGeometryPoint)
+            {
+                classType = "point";
+            }
+            else if (shapeType == esriGeometryType.esriGeometryRing || shapeType == esriGeometryType.esriGeometryPolygon)
+            {
+                classType = "polygon";
+            }
+            else if (shapeType == esriGeometryType.esriGeometryLine || shapeType == esriGeometryType.esriGeometryPolyline ||
+                shapeType == esriGeometryType.esriGeometryCircularArc || shapeType == esriGeometryType.esriGeometryEllipticArc ||
+                shapeType == esriGeometryType.esriGeometryBezier3Curve || shapeType == esriGeometryType.esriGeometryPath)
+            {
+                classType = "line";
+            }
+
+            return classType;
+        }
+
+        /// <summary>
+        /// Returns a simplified feature class shape type: point, line, polygon.
+        /// </summary>
+        /// <param name="featureLayer"></param>
+        /// <returns></returns>
+        public string GetFeatureClassType(string layerName)
+        {
+            if (String.IsNullOrEmpty(layerName))
+                return null;
+
+            try
+            {
+                // Find the layer in the active map.
+                FeatureLayer layer = FindLayer(layerName);
+
+                return GetFeatureClassType(layer);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         #endregion Layers
 
         #region Group Layers
@@ -584,7 +915,15 @@ namespace DataSearches
             return null;
         }
 
-        public async Task<bool> MoveToGroupLayerAsync(string groupLayerName, Layer layer, int position)
+        /// <summary>
+        /// Move a layer into a group layer (creating the group layer if
+        /// it doesn't already exist.
+        /// </summary>
+        /// <param name="groupLayerName"></param>
+        /// <param name="layer"></param>
+        /// <param name="position"></param>
+        /// <returns></returns>
+        public async Task<bool> MoveToGroupLayerAsync(Layer layer, string groupLayerName, int position)
         {
             // Check there is an input groupLayer name.
             if (String.IsNullOrEmpty(groupLayerName))
@@ -634,6 +973,42 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Remove a group layer if it is empty.
+        /// </summary>
+        /// <param name="groupLayerName"></param>
+        /// <returns></returns>
+        public async Task<bool> RemoveGroupLayerAsync(string groupLayerName)
+        {
+            // Check there is an input groupLayer name.
+            if (String.IsNullOrEmpty(groupLayerName))
+                return false;
+
+            // Does the group layer exist?
+            GroupLayer groupLayer = FindGroupLayer(groupLayerName);
+            if (groupLayer == null)
+                return false;
+
+            // Count the layers in the group.
+            if (groupLayer.Layers.Count != 0)
+                return true;
+
+            try
+            {
+                await QueuedTask.Run(() =>
+                {
+                    // Remove the group layer.
+                    _activeMap.RemoveLayer(groupLayer);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
         #endregion Group Layers
 
         #region Tables
@@ -798,43 +1173,6 @@ namespace DataSearches
             return await FeatureClassExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
         }
 
-        /// <summary>
-        /// Check if the feature class exists in the file path.
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="fileName"></param>
-        /// <returns></returns>
-        public static async Task<bool> FeatureClassExistsAsyncOLD(string filePath, string fileName)
-        {
-            if (fileName.Substring(fileName.Length - 4, 1) == ".")
-            {
-                // It's a file.
-                if (FileFunctions.FileExists(filePath + @"\" + fileName))
-                    return true;
-                else
-                    return false;
-            }
-            else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
-            {
-                // It's an SDE class
-                // Not handled. We know the layer exists.
-                return true;
-            }
-            else // it is a geodatabase class.
-            {
-                try
-                {
-                    bool exists = await FeatureClassExistsGDBAsync(filePath, fileName);
-
-                    return exists;
-                }
-                catch
-                {
-                    // GetDefinition throws an exception if the definition doesn't exist
-                    return false;
-                }
-            }
-        }
 
         /// <summary>
         /// Delete a feature class from a geodatabase.
@@ -880,6 +1218,139 @@ namespace DataSearches
             catch { }
         }
 
+        /// <summary>
+        /// Delete a feature class.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
+        public static async Task<bool> DeleteFeatureClassAsync(string filePath, string fileName)
+        {
+            string featureClass = filePath + @"\" + fileName;
+
+            return await DeleteFeatureClassAsync(featureClass);
+        }
+
+        /// <summary>
+        /// Copy the input feature class to the output feature class.
+        /// </summary>
+        /// <param name="inFeatureClass"></param>
+        /// <param name="outFeatureClass"></param>
+        /// <param name="Messages"></param>
+        /// <returns></returns>
+        public static async Task<bool> DeleteFeatureClassAsync(string fileName)
+        {
+            // Make a value array of strings to be passed to the tool.
+            var parameters = Geoprocessing.MakeValueArray(fileName);
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+
+            //Geoprocessing.OpenToolDialog("management.Delete", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.Delete", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        public static async Task<bool> AddFieldToFeatureClassAsync(string inTable, string fieldName, string fieldType,
+            long fieldPrecision = -1, long fieldScale = -1, long fieldLength = -1,
+            string fieldAlias = null, bool fieldIsNullable = true, bool fieldIsRequred = false, string fieldDomain = null)
+        {
+            // Make a value array of strings to be passed to the tool.
+            var parameters = Geoprocessing.MakeValueArray(inTable, fieldName, fieldType,
+                fieldPrecision > 0 ? fieldPrecision : null, fieldScale > 0 ? fieldScale : null, fieldLength > 0 ? fieldLength : null,
+                fieldAlias ?? null, fieldIsNullable ? "NULLABLE" : "NON_NULLABLE",
+                fieldIsRequred ? "REQUIRED" : "NON_REQUIRED", fieldDomain);
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread;
+
+            //Geoprocessing.OpenToolDialog("management.AddField", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.AddField", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);   // Test this ???
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Count the features in a layer using a search where clause.
+        /// </summary>
+        /// <param name="layer"></param>
+        /// <param name="whereClause"></param>
+        /// <returns></returns>
+        public static async Task<long> CountFeaturesAsync(FeatureLayer layer, string whereClause)
+        {
+            long featureCount = 0;
+
+            if (layer == null)
+                return featureCount;
+
+            try
+            {
+                // Create a query filter using the where clause.
+                QueryFilter queryFilter = new()
+                {
+                    WhereClause = whereClause
+                };
+
+                featureCount = await QueuedTask.Run(() =>
+                {
+                    /// Count the number of features matching the search clause.
+                    FeatureClass featureClass = layer.GetFeatureClass();
+
+                    return featureClass.GetCount(queryFilter);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return 0;
+            }
+
+            return featureCount;
+        }
 
         #endregion Feature Class
 
@@ -1174,8 +1645,14 @@ namespace DataSearches
         /// <param name="outFeatureClass"></param>
         /// <param name="Messages"></param>
         /// <returns></returns>
-        public static async Task<bool> CopyFeaturesAsync(string inFeatureClass, string outFeatureClass,bool addToMap = false)
+        public static async Task<bool> CopyFeaturesAsync(string inFeatureClass, string outFeatureClass, bool addToMap = false)
         {
+            if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            if (String.IsNullOrEmpty(outFeatureClass))
+                return false;
+
             // Make a value array of strings to be passed to the tool.
             var parameters = Geoprocessing.MakeValueArray(inFeatureClass, outFeatureClass);
 
@@ -1223,6 +1700,7 @@ namespace DataSearches
         public static async Task<bool> CopyFeaturesAsync(string InWorkspace, string InDatasetName, string OutFeatureClass)
         {
             string inFeatureClass = InWorkspace + @"\" + InDatasetName;
+
             return await CopyFeaturesAsync(inFeatureClass, OutFeatureClass);
         }
 
@@ -1239,6 +1717,7 @@ namespace DataSearches
         {
             string inFeatureClass = InWorkspace + @"\" + InDatasetName;
             string outFeatureClass = OutWorkspace + @"\" + OutDatasetName;
+
             return await CopyFeaturesAsync(inFeatureClass, outFeatureClass);
         }
 

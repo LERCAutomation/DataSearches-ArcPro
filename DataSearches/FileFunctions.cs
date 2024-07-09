@@ -45,7 +45,7 @@ namespace DataSearches
 
             // Check if the directory exists.
             DirectoryInfo myDir = new(filePath);
-            if (myDir.Exists == false) return false;
+            if (!myDir.Exists) return false;
             return true;
         }
 
