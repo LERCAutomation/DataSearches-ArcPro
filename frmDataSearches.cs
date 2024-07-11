@@ -33,18 +33,6 @@ namespace DataSearches
         {
 
 
-            // The selected layers
-            List<string> SelectedLayers = new List<string>();
-            foreach (string strSelectedItem in lstLayers.SelectedItems)
-            {
-                SelectedLayers.Add(strSelectedItem);
-            }
-
-
-
-
-
-
 
 
 
@@ -83,110 +71,6 @@ namespace DataSearches
 
 
 
-            // Now go through the layers.
-
-            // Get any groups and initialise required layers.
-            List<string> liGroupNames = new List<string>();
-            List<int> liGroupLabels = new List<int>();
-            if (resetGroups)
-            {
-                liGroupNames = StringFunctions.ExtractGroups(SelectedLayers);
-                foreach (string strGroupName in liGroupNames)
-                {
-                    liGroupLabels.Add(1); // each group has its own label counter.
-                }
-            }
-
-
-
-
-
-
-                    //string strTempShapeFile = tempFolder + @"\TempShapes_" + strUserID + ".shp";
-                    //string strTempShapeOutput = tempFolder + @"\" + strTempOutput + ".shp";
-                    //string strTempDBFOutput = tempFolder + @"\" + strTempOutput + "DBF.dbf";
-                    string radiusText = "none";
-                    if (includeRadius) radiusText = radius; // Only include radius if requested.
-
-                    // Only export if the user has specified columns.
-                    int intLineCount = -999;
-                    if (mapColumns != "")
-                    {
-                        // Write out the results to table as appropriate.
-                        bool blIncHeaders = false;
-                        if (mapFormat.ToLower() == "csv") blIncHeaders = true;
-
-                        FileFunctions.WriteLine(_logFile, "Extracting summary information ...");
-
-                        intLineCount = _mapFunctions.ExportSelectionToCSV(tempMasterLayerName, outputTableName, mapColumns, blIncHeaders, tempFCOutput, tempTableOutput,
-                            mapGroupColumns, mapStatsColumns, mapOrderColumns, includeArea, areaMeasureUnit, includeDistance, radiusText, targetLayer, _logFile, RenameColumns: true);
-
-                        FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", intLineCount) + " record(s) exported");
-                    }
-
-                    // Copy to permanent layer as appropriate
-                    if (keepLayer)
-                    {
-                        // Keep the layer - write to permanent file (note this is not the summarised layer).
-                        FileFunctions.WriteLine(_logFile, "Copying selected GIS features to " + strShapeLayerName + ".shp ...");
-                        _mapFunctions.CopyFeatures(tempMasterLayerName, outputFileName, aLogFile: _logFile);
-
-                        // If the layer is to be added to the map
-                        if (addSelectedLayers.ToLower() != "no")
-                        {
-                            // Add the permanent layer to the map (by moving it to the group layer)
-                            _mapFunctions.MoveToGroupLayer(groupLayerName, _mapFunctions.GetLayer(strShapeLayerName, _logFile), _logFile);
-
-                            // If there is a layer file
-                            if (mapLayerFileName != "")
-                            {
-                                string strDisplayLayerFile = _layerFolder + @"\" + mapLayerFileName;
-                                _mapFunctions.ChangeLegend(strShapeLayerName, strDisplayLayerFile, displayLabels, _logFile);
-                            }
-
-                            FileFunctions.WriteLine(_logFile, "Output " + strShapeLayerName + " added to display");
-
-                            // If labels are to be displayed
-                            if (addSelectedLayers.ToLower().Contains("with ") && displayLabels)
-                            {
-                                // Translate the label string.
-                                if (mapLabelClause != "" && mapLayerFileName == "") // Only if we don't have a layer file.
-                                {
-                                    List<string> strLabelOptions = mapLabelClause.Split('$').ToList();
-                                    string strFont = strLabelOptions[0].Split(':')[1];
-                                    double dblSize = double.Parse(strLabelOptions[1].Split(':')[1]); // Needs error trapping
-                                    int intRed = int.Parse(strLabelOptions[2].Split(':')[1]); // Needs error trapping
-                                    int intGreen = int.Parse(strLabelOptions[3].Split(':')[1]);
-                                    int intBlue = int.Parse(strLabelOptions[4].Split(':')[1]);
-                                    string strOverlap = strLabelOptions[5].Split(':')[1];
-                                    _mapFunctions.AnnotateLayer(strShapeLayerName, "[" + mapLabelColumn + "]", strFont, dblSize,
-                                        intRed, intGreen, intBlue, strOverlap, aLogFile: _logFile);
-                                    FileFunctions.WriteLine(_logFile, "Labels added to output " + mapOutputName);
-                                }
-                                else if (mapLabelColumn != "" && mapLayerFileName == "")
-                                {
-                                    _mapFunctions.AnnotateLayer(mapOutputName, "[" + mapLabelColumn + "]", aLogFile: _logFile);
-                                    FileFunctions.WriteLine(_logFile, "Labels added to output " + mapOutputName);
-                                }
-                            }
-                            else
-                            {
-                                // Turn labels off
-                                _mapFunctions.SwitchLabels(mapOutputName, displayLabels, _logFile);
-                            }
-                        }
-                        else
-                        {
-                            // User doesn't want to add the layer to the display.
-                            _mapFunctions.RemoveLayer(mapOutputName, _logFile);
-                        }
-                    }
-
-                    // Shouldn't need this as it's removed in the function ExportSelectionToCSV
-                    //_mapFunctions.RemoveLayer(tempOutputLayerName, _logFile);
-                    //if (_mapFunctions.FeatureclassExists(tempFCOutput))
-                    //    _mapFunctions.DeleteFeatureclass(tempFCOutput, _logFile);
-
                     // Add to combined sites table as appropriate
                     // Function to take account of group by, order by and statistics fields.
                     if (mapCombinedSitesColumns != "" && combinedTableCreate)
@@ -197,22 +81,8 @@ namespace DataSearches
                             mapCombinedSitesStatsColumns, mapCombinedSitesOrderColumns, includeArea, areaMeasureUnit, includeDistance, radiusText, targetLayer, _logFile, false, RenameColumns: true);
 
                         FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", intLineCount) + " row(s) added to summary output");
-
-                        // Shouldn't need this as it's removed in the function ExportSelectionToCSV
-                        //_mapFunctions.RemoveLayer(tempOutputLayerName, _logFile);
-                        //if (_mapFunctions.FeatureclassExists(tempFCOutput))
-                        //    _mapFunctions.DeleteFeatureclass(tempFCOutput, _logFile);
                     }
 
-                    // Cleanup the temporary master layer.
-//                    FileFunctions.WriteLine(_logFile, "Cleaning up temporary master layer");
-                    _mapFunctions.RemoveLayer(tempMasterLayerName, _logFile);
-                    _mapFunctions.DeleteFeatureclass(tempMasterOutput, _logFile);
-
-                    // Clear the selection in the input layer.
- //                   FileFunctions.WriteLine(_logFile, "Clearing map selection");
-                    _mapFunctions.ClearSelectedMapFeatures(mapLayerName, _logFile);
-                    FileFunctions.WriteLine(_logFile, "Analysis complete");
                 }
 
 

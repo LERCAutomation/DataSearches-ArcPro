@@ -35,8 +35,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using static DataSearches.UI.PaneHeader2ViewModel;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 
 namespace DataSearches.UI
@@ -79,13 +77,16 @@ namespace DataSearches.UI
             Overwrite
         };
 
-        #endregion
+        #endregion Enums
 
         #region Fields
 
         private readonly DockpaneMainViewModel _dockPane;
 
         private string _userID;
+        private string _tempGDBName;
+
+        private bool _updateTable;
 
         private string _repChar;
         private bool _requireSiteName;
@@ -99,8 +100,6 @@ namespace DataSearches.UI
 
         private List<MapLayer> _mapLayers;
 
-        private bool _updateTable;
-
         private string _saveRootDir;
         private string _saveFolder;
         private string _gisFolder;
@@ -111,14 +110,17 @@ namespace DataSearches.UI
         private string _combinedSitesTableName;
         private string _combinedSitesColumnList;
         private string _combinedSitesTableFormat;
+        private string _combinedSitesOutputFile;
 
         private string _bufferPrefix;
         private string _bufferLayerName;
+        private string _bufferOutputFile;
         private string _bufferLayerFile;
-        string _bufferFields;
-        bool _keepBuffer;
+        private string _bufferFields;
+        private bool _keepBuffer;
 
         private string _searchLayerName;
+        private string _searchOutputFile;
         private string _groupLayerName;
 
         private bool _keepSearchFeature;
@@ -134,19 +136,19 @@ namespace DataSearches.UI
         private string _orgColumn;
         private string _radiusColumn;
 
-        List<string> _mapGroupNames = [];
-        List<int> _mapGroupLabels = [];
-        int _maxLabel = 1;
+        private List<string> _mapGroupNames = [];
+        private List<int> _mapGroupLabels = [];
+        private int _maxLabel = 1;
 
         private string _logFile;
 
         private Geodatabase _tempGDB;
-        string _tempMasterLayerName;
-        string _tempMasterOutputFile;
-        string _tempOutputLayerName;
-        string _tempFCOutputFile;
-        string _tempOutputTableName;
-        string _tempTableOutputFile;
+        private string _tempMasterLayerName;
+        private string _tempMasterOutputFile;
+        private string _tempOutputLayerName;
+        private string _tempFCOutputFile;
+        private string _tempOutputTableName;
+        private string _tempTableOutputFile;
 
         private const string _displayName = "DataSearches";
 
@@ -327,6 +329,7 @@ namespace DataSearches.UI
                 return (_processingLabel == null);
             }
         }
+
         /// <summary>
         /// Can the run button be pressed?
         /// </summary>
@@ -427,7 +430,7 @@ namespace DataSearches.UI
             }
         }
 
-        MessageType _messageLevel;
+        private MessageType _messageLevel;
 
         public MessageType MessageLevel
         {
@@ -451,7 +454,7 @@ namespace DataSearches.UI
                     return Visibility.Collapsed;
                 else
                     return Visibility.Visible;
-                }
+            }
         }
 
         public void ShowMessage(string msg, MessageType messageLevel)
@@ -465,7 +468,7 @@ namespace DataSearches.UI
             Message = "";
         }
 
-        #endregion
+        #endregion Message
 
         #region Processing
 
@@ -509,7 +512,7 @@ namespace DataSearches.UI
             ProcessingLabel = null;
         }
 
-        #endregion
+        #endregion Processing
 
         #region Reset Command
 
@@ -718,7 +721,7 @@ namespace DataSearches.UI
                 //|| _selectedTable == null)
                 //    return null;
                 //else
-                    return "Enter site name for search";
+                return "Enter site name for search";
             }
         }
 
@@ -1154,7 +1157,7 @@ namespace DataSearches.UI
             _dockPane.LayersListLoading = false;
 
             // Update the fields and buttons in the form.
-            UpdateFormControls ();
+            UpdateFormControls();
 
             // Warn the user of closed layers.
             int closedLayerCount = closedLayers.Count;
@@ -1367,20 +1370,6 @@ namespace DataSearches.UI
                 return;
             }
 
-            // Save the selected feature(s) if required.
-            if (_keepSearchFeature)
-            {
-                // Save search feature(s).
-                if (!await SaveSearchFeaturesAsync(_inputLayerName, _searchLayerName))
-                {
-                    MessageBox.Show("Error saving search feature(s).");
-                    FileFunctions.WriteLine(_logFile, "Error saving search feature(s)");
-
-                    StopSearch(searchRef, false, false);
-                    return;
-                }
-            }
-
             // Prepare the temporary geodatabase
             if (!await PrepareTemporaryGDBAsync())
             {
@@ -1401,13 +1390,29 @@ namespace DataSearches.UI
             // Update the table if required.
             //UpdateSearchFeaturesAsync();
 
-            // The output file for the buffer is a shapefile in the root save directory.
+            // The output file for the search features is a shapefile in the root save directory.
+            _searchOutputFile = _outputFolder + "\\" + _searchLayerName + ".shp";
+
+            // Save the selected feature(s).
+            if (!await SaveSearchFeaturesAsync())
+            {
+                MessageBox.Show("Error saving search feature(s).");
+                FileFunctions.WriteLine(_logFile, "Error saving search feature(s)");
+
+                StopSearch(searchRef, false, false);
+                return;
+            }
+
+            // Set the buffer layer name by appending the radius.
             _bufferLayerName = _bufferPrefix + "_" + radius;
             if (_bufferLayerName.Contains('.'))
                 _bufferLayerName = _bufferLayerName.Replace('.', '_');
 
+            // The output file for the buffer is a shapefile in the root save directory.
+            _bufferOutputFile = _outputFolder + "\\" + _bufferLayerName + ".shp";
+
             // Buffer search feature(s).
-            if (!await BufferSearchFeaturesAsync(_inputLayerName, _bufferLayerName, bufferSize, bufferUnitProcess, _bufferFields))
+            if (!await BufferSearchFeaturesAsync(bufferSize, bufferUnitProcess))
             {
                 //TODO ???
                 StopSearch(searchRef, false, true);
@@ -1415,8 +1420,8 @@ namespace DataSearches.UI
             }
 
             // Start the combined sites table before we do any analysis.
-            string combinedSitesTable = _outputFolder + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
-            if (!CreateCombinedSitesTable(combinedSitesTable, combinedSitesTableOption))
+            _combinedSitesOutputFile = _outputFolder + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
+            if (!CreateCombinedSitesTable(_combinedSitesOutputFile, combinedSitesTableOption))
             {
                 //TODO ???
                 StopSearch(searchRef, false, true);
@@ -1427,10 +1432,6 @@ namespace DataSearches.UI
             await ProcessMapLayersAsync(reference, siteName, shortRef, subref, radius, areaMeasureUnit, addSelectedLayersOption, overwriteLabelsOption, combinedSitesTableOption);
 
             FileFunctions.WriteLine(_logFile, "");
-
-
-
-
 
             // Clean up after the search
             await CleanUpSearchAsync(addSelectedLayersOption);
@@ -1497,7 +1498,7 @@ namespace DataSearches.UI
 
             // Open the log file (if required).
             if (OpenLogFile && message)
-            Process.Start("notepad.exe", _logFile);
+                Process.Start("notepad.exe", _logFile);
         }
 
         private async Task CleanUpSearchAsync(AddSelectedLayersOptions addSelectedLayersOption)
@@ -1508,11 +1509,40 @@ namespace DataSearches.UI
                 // Add the search layer to the map.
                 if (addSelectedLayersOption != AddSelectedLayersOptions.No)
                 {
-                    if (!await AddSearchFeaturesToMapAsync(_inputLayerName, _groupLayerName))
+                    // Set the search layer symbology to use.
+                    string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
+                    string symbologyFile = _layerFolder + "\\" + searchlayerFile;
+
+                    if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile))
                     {
-                        MessageBox.Show("Error adding search feature(s) to the map.");
-                        FileFunctions.WriteLine(_logFile, "Error adding search feature(s) to the map");
+                        MessageBox.Show("Error setting search feature layer in the map.");
+                        FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the map");
                     }
+
+                    FileFunctions.WriteLine(_logFile, "Search feature layer added to display");
+                }
+                else
+                {
+                    // Remove the search feature layer from the map.
+                    await _mapFunctions.RemoveLayerAsync(_searchLayerName);
+                }
+            }
+            else
+            {
+                try
+                {
+                    // Remove the search feature layer from the map.
+                    await _mapFunctions.RemoveLayerAsync(_searchLayerName);
+
+                    // Delete the search feature class.
+                    string searchOutputFile = _outputFolder + "\\" + _searchLayerName + ".shp";
+                    await ArcGISFunctions.DeleteFeatureClassAsync(searchOutputFile);
+
+                    FileFunctions.WriteLine(_logFile, "Search feature layer deleted");
+                }
+                catch
+                {
+                    //MessageBox.Show("Error deleting the search feature layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
 
@@ -1522,11 +1552,16 @@ namespace DataSearches.UI
                 // Add the output buffer layer to the map.
                 if (addSelectedLayersOption != AddSelectedLayersOptions.No)
                 {
-                    if (!await SetBufferInMapAsync(_bufferLayerFile, _groupLayerName))
+                    // Set the buffer layer symbology to use.
+                    string symbologyFile = _layerFolder + "\\" + _bufferLayerFile;
+
+                    if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile))
                     {
                         MessageBox.Show("Error setting buffer layer in the map.");
                         FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
                     }
+
+                    FileFunctions.WriteLine(_logFile, "Buffer layer added to display");
                 }
                 else
                 {
@@ -1542,8 +1577,7 @@ namespace DataSearches.UI
                     await _mapFunctions.RemoveLayerAsync(_bufferLayerName);
 
                     // Delete the buffer feature class.
-                    string bufferOutputFile = _outputFolder + "\\" + _bufferLayerName + ".shp";
-                    await ArcGISFunctions.DeleteFeatureClassAsync(bufferOutputFile);
+                    await ArcGISFunctions.DeleteFeatureClassAsync(_bufferOutputFile);
 
                     FileFunctions.WriteLine(_logFile, "Buffer layer deleted");
                 }
@@ -1553,8 +1587,14 @@ namespace DataSearches.UI
                 }
             }
 
+            // Remove the temporary master layer from the map.
+            await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
+
+            // Delete the temporary master feature class.
+            await ArcGISFunctions.DeleteFeatureClassAsync(_tempMasterOutputFile);
+
             // Clear the search features selection.
-            await _mapFunctions.ClearLayerSelectionAsync(_inputLayerName);
+            await _mapFunctions.ClearLayerSelectionAsync(_searchLayerName);
 
             // Remove the group layer from the map if it is empty.
             await _mapFunctions.RemoveGroupLayerAsync(_groupLayerName);
@@ -1723,15 +1763,15 @@ namespace DataSearches.UI
             string tempFolder = System.IO.Path.GetTempPath();
 
             // Create the temporary file geodatabase if it doesn't exist.
-            string tempGDBName = tempFolder + @"Temp.gdb";
+            _tempGDBName = tempFolder + @"Temp.gdb";
             _tempGDB = null;
-            if (!FileFunctions.DirExists(tempGDBName))
+            if (!FileFunctions.DirExists(_tempGDBName))
             {
-                _tempGDB = ArcGISFunctions.CreateFileGeodatabase(tempGDBName);
+                _tempGDB = ArcGISFunctions.CreateFileGeodatabase(_tempGDBName);
                 if (_tempGDB == null)
                 {
-                    MessageBox.Show("Error creating temporary geodatabase" + tempGDBName);
-                    FileFunctions.WriteLine(_logFile, "Error creating temporary geodatabase " + tempGDBName);
+                    MessageBox.Show("Error creating temporary geodatabase" + _tempGDBName);
+                    FileFunctions.WriteLine(_logFile, "Error creating temporary geodatabase " + _tempGDBName);
                     return false;
                 }
 
@@ -1740,29 +1780,29 @@ namespace DataSearches.UI
 
             // Delete any temporary feature classes and tables that still exist
             _tempMasterLayerName = "TempMaster_" + _userID;
-            _tempMasterOutputFile = tempGDBName + @"\" + _tempMasterLayerName;
+            _tempMasterOutputFile = _tempGDBName + @"\" + _tempMasterLayerName;
             await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
             if (await ArcGISFunctions.FeatureClassExistsAsync(_tempMasterOutputFile))
             {
-                ArcGISFunctions.DeleteFeatureClass(tempGDBName, _tempMasterLayerName);
+                ArcGISFunctions.DeleteFeatureClass(_tempGDBName, _tempMasterLayerName);
                 FileFunctions.WriteLine(_logFile, "Temporary master feature class deleted");
             }
 
             _tempOutputLayerName = "TempOutput_" + _userID;
-            _tempFCOutputFile = tempGDBName + @"\" + _tempOutputLayerName;
+            _tempFCOutputFile = _tempGDBName + @"\" + _tempOutputLayerName;
             await _mapFunctions.RemoveLayerAsync(_tempOutputLayerName);
             if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutputFile))
             {
-                ArcGISFunctions.DeleteFeatureClass(tempGDBName, _tempOutputLayerName);
+                ArcGISFunctions.DeleteFeatureClass(_tempGDBName, _tempOutputLayerName);
                 FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
             }
 
             _tempOutputTableName = "TempOutput_" + _userID + "DBF";
-            _tempTableOutputFile = tempGDBName + @"\" + _tempOutputTableName;
+            _tempTableOutputFile = _tempGDBName + @"\" + _tempOutputTableName;
             await _mapFunctions.RemoveLayerAsync(_tempOutputTableName);
             if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
             {
-                ArcGISFunctions.DeleteTable(tempGDBName, _tempOutputTableName);
+                ArcGISFunctions.DeleteTable(_tempGDBName, _tempOutputTableName);
                 FileFunctions.WriteLine(_logFile, "Temporary output table deleted");
             }
 
@@ -1771,20 +1811,19 @@ namespace DataSearches.UI
 
         private async Task<bool> UpdateSearchFeaturesAsync()
         {
+            //TODO ???
             return true;
         }
 
-        private async Task<bool> SaveSearchFeaturesAsync(string inputLayerName, string searchLayerName)
+        private async Task<bool> SaveSearchFeaturesAsync()
         {
             // Get the full layer path (in case it's nested in one or more groups).
-            string inputLayerPath = _mapFunctions.GetLayerPath(inputLayerName);
-
-            string searchOutputFile = _outputFolder + "\\" + searchLayerName + ".shp";
+            string inputLayerPath = _mapFunctions.GetLayerPath(_inputLayerName);
 
             FileFunctions.WriteLine(_logFile, "Saving search feature(s)");
 
             // Copy the selected feature(s) to an output file.
-            if (!await ArcGISFunctions.CopyFeaturesAsync(inputLayerPath, searchOutputFile, false))
+            if (!await ArcGISFunctions.CopyFeaturesAsync(inputLayerPath, _searchOutputFile, true))
             {
                 MessageBox.Show("Error saving search feature(s)");
                 FileFunctions.WriteLine(_logFile, "Error saving search feature(s)");
@@ -1794,51 +1833,40 @@ namespace DataSearches.UI
             return true;
         }
 
-        private async Task<bool> AddSearchFeaturesToMapAsync(string searchLayerName, string groupLayerName)
-        {
-            // Add layer to the map.
-            await _mapFunctions.AddLayerToMap(searchLayerName);
-
-            // Set the search layer symbology to use.
-            string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
-            string symbologyFile = _layerFolder + "\\" + searchlayerFile;
-
-            // Apply layer symbology.
-            if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(searchLayerName, symbologyFile))
-            {
-                MessageBox.Show("Error applying symbology to output search layer");
-                FileFunctions.WriteLine(_logFile, "Error applying symbology to output search layer");
-            }
-
-            // Move layer to the group layer.
-            if (!await _mapFunctions.MoveToGroupLayerAsync(_mapFunctions.FindLayer(searchLayerName), groupLayerName, 0))
-            {
-                MessageBox.Show("Error moving output search layer");
-                FileFunctions.WriteLine(_logFile, "Error moving output search layer");
-            }
-
-            return true;
-        }
-
-        private async Task<bool> BufferSearchFeaturesAsync(string searchLayerName, string bufferLayerName, string bufferSize,
-            string bufferUnitProcess, string bufferFields)
+        private async Task<bool> BufferSearchFeaturesAsync(string bufferSize, string bufferUnitProcess)
         {
             // Get the full layer path (in case it's nested in one or more groups).
-            string searchLayerPath = _mapFunctions.GetLayerPath(searchLayerName);
+            string searchLayerPath = _mapFunctions.GetLayerPath(_searchLayerName);
 
             // Create a buffer around the feature and save into a new file.
-            string bufferString = bufferSize + " " + bufferUnitProcess;
+            string bufferDistance = bufferSize + " " + bufferUnitProcess;
 
             // Safeguard for zero buffer size; Select a tiny buffer to allow
             // correct legending (expects a polygon).
             if (bufferSize == "0")
-                bufferString = "0.01 Meters";
+                bufferDistance = "0.01 Meters";
 
-            string bufferOutputFile = _outputFolder + "\\" + bufferLayerName + ".shp";
+            // Check if all fields in the aggregate fields exist. If not, ignore.
+            List<string> aggColumns = [.. _bufferFields.Split(';')];
+            string dissolveFields = "";
+            foreach (string fieldName in aggColumns)
+            {
+                if (await _mapFunctions.FieldExistsAsync(searchLayerPath, fieldName))
+                {
+                    dissolveFields = dissolveFields + fieldName + ";";
+                }
+            }
 
-            FileFunctions.WriteLine(_logFile, "Buffering feature(s) with a distance of " + bufferString);
+            FileFunctions.WriteLine(_logFile, "Buffering feature(s) with a distance of " + bufferDistance);
 
-            if (!await _mapFunctions.BufferFeaturesAsync(searchLayerPath, bufferOutputFile, bufferString, bufferFields))
+            string dissolveOption = "ALL";
+            if (dissolveFields != "")
+            {
+                dissolveFields = dissolveFields.Substring(0, dissolveFields.Length - 1);
+                dissolveOption = "LIST";
+            }
+
+            if (!await ArcGISFunctions.BufferFeaturesAsync(searchLayerPath, _bufferOutputFile, bufferDistance, "FULL", "ROUND", dissolveOption, dissolveFields, addToMap: true))
             {
                 MessageBox.Show("Error during feature buffering. Process aborted");
                 FileFunctions.WriteLine(_logFile, "Error during feature buffering. Process aborted");
@@ -1848,26 +1876,27 @@ namespace DataSearches.UI
             return true;
         }
 
-        private async Task<bool> SetBufferInMapAsync(string bufferLayerName, string groupLayerName)
+        private async Task<bool> SetLayerInMapAsync(string layerName, string symbologyFile)
         {
-            // Set the buffer layer symbology to use.
-            string symbologyFile = _layerFolder + "\\" + bufferLayerName;
-
             // Apply layer symbology.
-            if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(bufferLayerName, symbologyFile))
+            if (!String.IsNullOrEmpty(symbologyFile))
             {
-                MessageBox.Show("Error applying symbology to output buffer layer");
-                FileFunctions.WriteLine(_logFile, "Error applying symbology to output buffer layer");
+                if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(layerName, symbologyFile))
+                {
+                    MessageBox.Show("Error applying symbology to '" + layerName + "'");
+                    FileFunctions.WriteLine(_logFile, "Error applying symbology to '" + layerName + "'");
+                }
             }
 
             // Move layer to the group layer.
-            if (!await _mapFunctions.MoveToGroupLayerAsync(_mapFunctions.FindLayer(bufferLayerName), groupLayerName, -1))
+            if (String.IsNullOrEmpty(_groupLayerName))
             {
-                MessageBox.Show("Error moving output buffer layer");
-                FileFunctions.WriteLine(_logFile, "Error moving output buffer layer");
+                if (!await _mapFunctions.MoveToGroupLayerAsync(_mapFunctions.FindLayer(layerName), _groupLayerName, -1))
+                {
+                    MessageBox.Show("Error moving layer to '" + layerName + "'");
+                    FileFunctions.WriteLine(_logFile, "Error moving layer to '" + layerName + "'");
+                }
             }
-
-            FileFunctions.WriteLine(_logFile, "Buffer added to display");
 
             return true;
         }
@@ -1908,18 +1937,18 @@ namespace DataSearches.UI
                 string mapOrderColumns = selectedLayer.OrderColumns;
                 string mapCriteria = selectedLayer.Criteria;
 
-                bool includeArea = selectedLayer.IncludeArea;
-                bool includeDistance = selectedLayer.IncludeDistance;
-                bool includeRadius = selectedLayer.IncludeRadius;
+                bool mapIncludeArea = selectedLayer.IncludeArea;
+                bool mapIncludeDistance = selectedLayer.IncludeDistance;
+                bool mapIncludeRadius = selectedLayer.IncludeRadius;
 
                 string mapKeyColumn = selectedLayer.KeyColumn;
                 string mapFormat = selectedLayer.Format;
-                bool keepLayer = selectedLayer.KeepLayer;
+                bool mapKeepLayer = selectedLayer.KeepLayer;
                 string mapOutputType = selectedLayer.OutputType;
 
-                bool displayLabels = selectedLayer.DisplayLabels;
+                bool mapDisplayLabels = selectedLayer.DisplayLabels;
                 string mapLayerFileName = selectedLayer.LayerFileName;
-                bool overwriteLabels = selectedLayer.OverwriteLabels;
+                bool mapOverwriteLabels = selectedLayer.OverwriteLabels;
                 string mapLabelColumn = selectedLayer.LabelColumn;
                 string mapLabelClause = selectedLayer.LabelClause;
                 string mapMacroName = selectedLayer.MacroName;
@@ -1940,10 +1969,6 @@ namespace DataSearches.UI
                 mapStatsColumns = StringFunctions.AlignStatsColumns(mapColumns, mapStatsColumns, mapGroupColumns);
                 mapCombinedSitesStatsColumns = StringFunctions.AlignStatsColumns(mapCombinedSitesColumns, mapCombinedSitesStatsColumns, mapCombinedSitesGroupColumns);
 
-                // Create relevant output names.
-                string outputFileName = _outputFolder + @"\" + mapOutputName; // Output shapefile / feature class name. Note no extension to allow write to GDB.
-                string outputTableName = _outputFolder + @"\" + mapTableOutputName + "." + mapFormat.ToLower(); // Output table name.
-
                 FileFunctions.WriteLine(_logFile, "");
                 FileFunctions.WriteLine(_logFile, "Starting analysis for " + selectedLayer.LayerName);
 
@@ -1952,7 +1977,7 @@ namespace DataSearches.UI
 
                 // Select by location.
                 FileFunctions.WriteLine(_logFile, "Selecting features by location");
-                if (!await _mapFunctions.SelectLayerByLocationAsync(mapLayerPath, bufferLayerPath, "INTERSECT", "", "NEW_SELECTION"))
+                if (!await ArcGISFunctions.SelectLayerByLocationAsync(mapLayerPath, bufferLayerPath, "INTERSECT", "", "NEW_SELECTION"))
                 {
                     MessageBox.Show("Error selecting layer " + mapLayerName + " by location.");
                     FileFunctions.WriteLine(_logFile, "Error selecting layer " + mapLayerName + " by location");
@@ -1986,7 +2011,7 @@ namespace DataSearches.UI
                     FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", featureCount) + " feature(s) found");
 
                     // Create the map output depending on the output type required.
-                    if (!await CreateMapOutputAsync(mapLayerName, mapLayerPath, _bufferLayerName, bufferLayerPath, mapOutputType))
+                    if (!await CreateMapOutputAsync(mapLayerName, mapLayerPath, bufferLayerPath, mapOutputType))
                     {
                         MessageBox.Show("Cannot output selection from " + mapLayerName + " to " + _tempMasterOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Cannot output selection from " + mapLayerName + " to " + _tempMasterOutputFile);
@@ -1997,7 +2022,7 @@ namespace DataSearches.UI
                     // Add map labels to the output if required.
                     if (addSelectedLayersOption == AddSelectedLayersOptions.WithLabels && !String.IsNullOrEmpty(mapLabelColumn))
                     {
-                        if (!await AddMapLabelsAsync(overwriteLabelOption, overwriteLabels, mapLabelColumn, mapKeyColumn, mapGroupName))
+                        if (!await AddMapLabelsAsync(overwriteLabelOption, mapOverwriteLabels, mapLabelColumn, mapKeyColumn, mapGroupName))
                         {
                             MessageBox.Show("Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                             FileFunctions.WriteLine(_logFile, "Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
@@ -2006,30 +2031,81 @@ namespace DataSearches.UI
                         }
                     }
 
+                    // Create relevant output names.
+                    string mapOutputFile = _outputFolder + @"\" + mapOutputName; // Output shapefile / feature class name. Note no extension to allow write to GDB.
+                    string mapTableOutputFile = _outputFolder + @"\" + mapTableOutputName + "." + mapFormat.ToLower(); // Output table name.
+
+                    // Include headers for CSV files.
+                    bool includeHeaders = false;
+                    if (mapFormat.Equals("csv", StringComparison.CurrentCultureIgnoreCase))
+                        includeHeaders = true;
+
+                    // Only include radius if requested.
+                    string radiusText = "none";
+                    if (mapIncludeRadius)
+                        radiusText = radius;
+
+                    string areaUnit = "";
+                    if (mapIncludeArea)
+                        areaUnit = areaMeasureUnit;
+
                     // Export results to table if required.
                     if (!String.IsNullOrEmpty(mapFormat) && !String.IsNullOrEmpty(mapColumns))
                     {
-                        if (!await ExtractSummaryAsync(_tempMasterLayerName, outputTableName, mapColumns, _tempFCOutputFile, _tempTableOutputFile,
-                            mapGroupColumns, mapStatsColumns, mapOrderColumns, includeArea, areaMeasureUnit, includeDistance, radius, _inputLayerName))
+                        FileFunctions.WriteLine(_logFile, "Extracting summary output ...");
+
+                        int intLineCount = -999;
+                        intLineCount = await ExportSelectionAsync(mapTableOutputFile, mapColumns, mapGroupColumns, mapStatsColumns, mapOrderColumns,
+                            includeHeaders, areaUnit, mapIncludeDistance, radiusText);
+                        if (intLineCount < 0)
                         {
                             MessageBox.Show("Error extracting summary from " + _tempMasterOutputFile + ".");
                             FileFunctions.WriteLine(_logFile, "Error extracting summary from " + _tempMasterOutputFile);
 
                             return false;
                         }
+
+                        FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", intLineCount) + " record(s) exported");
                     }
 
+                    // Copy to permanent layer as appropriate
+                    if (mapKeepLayer)
+                    {
+                        if (!await KeepLayerAsync(mapOutputName, mapOutputFile, addSelectedLayersOption, mapLayerFileName, mapDisplayLabels, mapLabelClause, mapLabelColumn))
+                        {
+                            MessageBox.Show("Error saving layer " + _tempMasterOutputFile + ".");
+                            FileFunctions.WriteLine(_logFile, "Error saving layer " + _tempMasterOutputFile);
 
+                            return false;
+                        }
+                    }
 
+                    // Add to combined sites table if required.
+                    if (mapCombinedSitesColumns != "" && combinedSitesTableOption != CombinedSitesTableOptions.None)
+                    {
+                        FileFunctions.WriteLine(_logFile, "Extracting summary output for combined sites table ...");
 
+                        int intLineCount = -999;
+                        intLineCount = await ExportSelectionAsync(_combinedSitesOutputFile, mapCombinedSitesColumns, mapCombinedSitesGroupColumns,
+                            mapCombinedSitesStatsColumns, mapCombinedSitesOrderColumns,
+                            false, areaUnit, mapIncludeDistance, radiusText);
+
+                        if (intLineCount < 0)
+                        {
+                            MessageBox.Show("Error extracting summary from " + _tempMasterOutputFile + ".");
+                            FileFunctions.WriteLine(_logFile, "Error extracting summary from " + _tempMasterOutputFile);
+
+                            return false;
+                        }
+
+                        FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", intLineCount) + " row(s) added to combined sites table");
+                    }
 
                     // Cleanup the temporary master layer.
-                    //FileFunctions.WriteLine(_logFile, "Cleaning up temporary master layer");
                     await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
                     await ArcGISFunctions.DeleteFeatureClassAsync(_tempMasterOutputFile);
 
                     // Clear the selection in the input layer.
-                    //FileFunctions.WriteLine(_logFile, "Clearing map selection");
                     await _mapFunctions.ClearLayerSelectionAsync(mapLayerName);
 
                     FileFunctions.WriteLine(_logFile, "Analysis complete");
@@ -2037,37 +2113,33 @@ namespace DataSearches.UI
                 else
                 {
                     FileFunctions.WriteLine(_logFile, "No features found");
-
                 }
-
-
-
-
-
             }
 
             return true;
         }
 
-        private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath,
-            string _bufferLayerName, string bufferLayerPath, string mapOutputType)
+        private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath, string bufferLayerPath, string mapOutputType)
         {
             // Get the input feature class type.
             string mapLayerFCType = _mapFunctions.GetFeatureClassType(mapLayerName);
+            if (mapLayerFCType == null)
+                return false;
 
             // Get the buffer feature class type.
             string bufferFCType = _mapFunctions.GetFeatureClassType(_bufferLayerName);
+            if (bufferFCType == null)
+                return false;
 
             // If the input layer should be clipped to the buffer layer, do so now.
             if (mapOutputType == "CLIP")
             {
-
                 if ((mapLayerFCType == "polygon" & bufferFCType == "polygon") ||
                     (mapLayerFCType == "line" & (bufferFCType == "line" || bufferFCType == "polygon")))
                 {
                     // Clip
                     FileFunctions.WriteLine(_logFile, "Clipping selected features ...");
-                    return await _mapFunctions.ClipFeaturesAsync(mapLayerPath, bufferLayerPath, _tempMasterOutputFile, true);
+                    return await ArcGISFunctions.ClipFeaturesAsync(mapLayerPath, bufferLayerPath, _tempMasterOutputFile, true);
                 }
                 else
                 {
@@ -2079,19 +2151,18 @@ namespace DataSearches.UI
             // If the buffer layer should be clipped to the input layer, do so now.
             else if (mapOutputType == "OVERLAY")
             {
-
                 if ((bufferFCType == "polygon" & mapLayerFCType == "polygon") ||
                     (bufferFCType == "line" & (mapLayerFCType == "line" || mapLayerFCType == "polygon")))
                 {
                     // Clip
                     FileFunctions.WriteLine(_logFile, "Overlaying selected features ...");
-                    return await _mapFunctions.ClipFeaturesAsync(bufferLayerPath, mapLayerPath, _tempMasterOutputFile, true);
+                    return await ArcGISFunctions.ClipFeaturesAsync(bufferLayerPath, mapLayerPath, _tempMasterOutputFile, true);
                 }
                 else
                 {
                     // Select from the buffer layer.
                     FileFunctions.WriteLine(_logFile, "Selecting features  ...");
-                    await _mapFunctions.SelectLayerByLocationAsync(bufferLayerPath, mapLayerPath);
+                    await ArcGISFunctions.SelectLayerByLocationAsync(bufferLayerPath, mapLayerPath);
 
                     // Find the buffer layer by name.
                     FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName);
@@ -2123,13 +2194,15 @@ namespace DataSearches.UI
             // If the input layer should be intersected with the buffer layer, do so now.
             else if (mapOutputType == "INTERSECT")
             {
-
                 if ((mapLayerFCType == "polygon" & bufferFCType == "polygon") ||
                     (mapLayerFCType == "line" & bufferFCType == "line"))
                 {
+                    string[] features = ["'" + mapLayerPath + "' #", "'" + bufferLayerPath + "' #"];
+                    string inFeatures = string.Join(";", features);
+
                     // Intersect
                     FileFunctions.WriteLine(_logFile, "Intersecting selected features ...");
-                    return await _mapFunctions.IntersectFeaturesAsync(mapLayerPath, bufferLayerPath, _tempMasterOutputFile, true); // Selected features in input, buffer FC, output.
+                    return await ArcGISFunctions.IntersectFeaturesAsync(inFeatures, _tempMasterOutputFile, addToMap: true); // Selected features in input, buffer FC, output.
                 }
                 else
                 {
@@ -2151,19 +2224,19 @@ namespace DataSearches.UI
             String mapLabelColumn, string mapKeyColumn, string mapGroupName)
         {
             bool newLabelField = false;
-                // Check if the map label field exists. Create if necessary.
-                if (!await _mapFunctions.FieldExistsAsync(_tempMasterOutputFile, mapLabelColumn))
+            // Does the map label field already exist? If not, add it.
+            if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, mapLabelColumn))
+            {
+                if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, mapLabelColumn, "LONG"))
                 {
-                    if (!await CheckMapLabelField(_tempMasterOutputFile, mapLabelColumn, "LONG"))
-                    {
-                        //MessageBox.Show("Error adding map label field '" + mapLabelColumn + "' to " + _tempMasterOutputFile + ".");
-                        FileFunctions.WriteLine(_logFile, "Error adding map label field '" + mapLabelColumn + "' to " + _tempMasterOutputFile);
+                    //MessageBox.Show("Error adding map label field '" + mapLabelColumn + "' to " + _tempMasterOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error adding map label field '" + mapLabelColumn + "' to " + _tempMasterOutputFile);
 
-                        return false;
-                    }
-
-                    newLabelField = true;
+                    return false;
                 }
+
+                newLabelField = true;
+            }
 
             // Either we have a new label field, or we want to overwrite the labels and are allowed to.
             if (newLabelField ||
@@ -2178,21 +2251,6 @@ namespace DataSearches.UI
 
                     return false;
                 }
-            }
-
-            return true;
-        }
-
-        private async Task<bool> CheckMapLabelField(string outputFile, string fieldName, string fieldType)
-        {
-            // Check a new field name is given.
-            if (fieldName == "")
-                return false;
-
-            // If not, create a new label column.
-            if (!await ArcGISFunctions.AddFieldToFeatureClassAsync(outputFile, fieldName, fieldType))
-            {
-                return false;
             }
 
             return true;
@@ -2242,11 +2300,313 @@ namespace DataSearches.UI
             return true;
         }
 
-        private async Task<bool> ExtractSummaryAsync(string _tempMasterLayerName, string outputTableName, string mapColumns, string _tempFCOutputFile, string _tempTableOutputFile,
-                            string mapGroupColumns, string mapStatsColumns, string mapOrderColumns, bool includeArea, string areaMeasureUnit, bool includeDistance, string radius, string _inputLayerName)
+        private async Task<int> ExportSelectionAsync(string outputTableName,
+            string mapColumns, string mapGroupColumns, string mapStatsColumns, string mapOrderColumns,
+            bool includeHeaders, string areaUnit,
+            bool includeDistance, string radiusText)
         {
-            //TODO ???
-            await Task.Delay(1000);
+            int intLineCount = -999;
+
+            // Only export if the user has specified columns.
+            if (mapColumns == "")
+                return -1;
+
+            // Write out the results to table as appropriate.
+            FileFunctions.WriteLine(_logFile, "Extracting summary information ...");
+
+            // Check the input feature layer exists.
+            FeatureLayer inputFeaturelayer = _mapFunctions.FindLayer(_tempMasterLayerName);
+            if (inputFeaturelayer == null)
+                return -1;
+
+            // Get the input feature class type.
+            string inputFeatureType = _mapFunctions.GetFeatureClassType(inputFeaturelayer);
+            if (inputFeatureType == null)
+                return -1;
+
+            // Calculate the area field if required.
+            if (!String.IsNullOrEmpty(areaUnit) && inputFeatureType == "polygon")
+            {
+                // Does the area field already exist? If not, add it.
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Area"))
+                {
+                    if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, "Area", "DOUBLE", 20))
+                    {
+                        //MessageBox.Show("Error adding area field to " + _tempMasterOutputFile + ".");
+                        FileFunctions.WriteLine(_logFile, "Error adding area field to " + _tempMasterOutputFile);
+
+                        return -1;
+                    }
+                }
+
+                string geometryProperty = "Area AREA";
+                if (areaUnit.Equals("ha", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    areaUnit = "HECTARES";
+                }
+                else if (areaUnit.Equals("m2", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    areaUnit = "SQUARE_METERS";
+                }
+                else if (areaUnit.Equals("km2", StringComparison.CurrentCultureIgnoreCase))
+                {
+                    areaUnit = "SQUARE_KILOMETERS";
+                }
+
+                // Calculate the area field.
+                if (!await ArcGISFunctions.CalculateGeometryAsync(_tempMasterOutputFile, geometryProperty, "", areaUnit))
+                {
+                    //MessageBox.Show("Error calculating area field in " + _tempMasterOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
+
+                    return -1;
+                }
+            }
+
+            // Calculate the distance if required.
+            if (includeDistance)
+            {
+                // Now add the distance field by joining. This will take all fields.
+                if (!await ArcGISFunctions.SpatialJoinAsync(_tempMasterOutputFile, _searchLayerName, _tempFCOutputFile,
+                    "JOIN_ONE_TO_ONE", "KEEP_ALL", "", "CLOSEST", "0", "DISTANCE", addToMap: true))
+                {
+                    //MessageBox.Show("Error joining " + _tempMasterOutputFile  + " distance field to " + _tempMasterOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error joining " + _tempMasterOutputFile + " distance field to " + _tempMasterOutputFile);
+
+                    return -1;
+                }
+            }
+            else
+            {
+                // Do a straight copy of the input features.
+                if (!await ArcGISFunctions.CopyFeaturesAsync(_tempMasterOutputFile, _tempFCOutputFile, true))
+                {
+                    //MessageBox.Show("Error copying output file to " + _tempFCOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error copying output file to " + _tempFCOutputFile);
+
+                    return -1;
+                }
+            }
+
+            // After this the input to the remainder of the function should be from _tempFCOutputFile.
+
+            // Check the output feature layer exists.
+            FeatureLayer outputFeatureLayer = _mapFunctions.FindLayer(_tempOutputLayerName);
+            if (outputFeatureLayer == null)
+                return -1;
+
+            // Include radius if requested
+            if (radiusText != "none")
+            {
+                FileFunctions.WriteLine(_logFile, "Including radius column ...");
+
+                // Does the radius field already exist? If not, add it.
+                if (!await _mapFunctions.FieldExistsAsync(_tempOutputLayerName, "Radius"))
+                {
+                    if (!await ArcGISFunctions.AddFieldAsync(_tempFCOutputFile, "Radius", "TEXT", fieldLength: 25))
+                    {
+                        //MessageBox.Show("Error adding radius field to " + _tempFCOutputFile + ".");
+                        FileFunctions.WriteLine(_logFile, "Error adding radius field to " + _tempFCOutputFile);
+
+                        return -1;
+                    }
+                }
+
+                // Calculate the radius field.
+                if (!await ArcGISFunctions.CalculateFieldAsync(_tempFCOutputFile, "Radius", '"' + radiusText + '"'))
+                {
+                    //MessageBox.Show("Error calculating radius field in " + _tempFCOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error calculating radius field in " + _tempFCOutputFile);
+
+                    return -1;
+                }
+            }
+
+            // Check all the requested group by and statistics fields exist.
+            // Only pass those that do.
+            if (mapGroupColumns != "")
+            {
+                List<string> groupColumnList = mapGroupColumns.Split(';').ToList();
+                mapGroupColumns = "";
+                foreach (string groupColumn in groupColumnList)
+                {
+                    string columnName = groupColumn.Trim();
+
+                    if (!await _mapFunctions.FieldExistsAsync(_tempOutputLayerName, columnName))
+                        mapGroupColumns = mapGroupColumns + columnName + ";";
+                }
+                if (mapGroupColumns != "")
+                    mapGroupColumns = mapGroupColumns.Substring(0, mapGroupColumns.Length - 1);
+            }
+
+            if (mapStatsColumns != "")
+            {
+                List<string> statsColumnList = mapStatsColumns.Split(';').ToList();
+                mapStatsColumns = "";
+                foreach (string statsColumn in statsColumnList)
+                {
+                    List<string> statsComponents = statsColumn.Split(' ').ToList();
+                    string columnName = statsComponents[0].Trim(); // The field name.
+
+                    if (!await _mapFunctions.FieldExistsAsync(_tempOutputLayerName, columnName))
+                        mapStatsColumns = mapStatsColumns + statsColumn + ";";
+                }
+                if (mapStatsColumns != "")
+                    mapStatsColumns = mapStatsColumns.Substring(0, mapStatsColumns.Length - 1);
+            }
+
+            // If we have group columns but no statistics columns, add a dummy column.
+            bool blDummyAdded = false;
+            if (mapStatsColumns == "" && mapGroupColumns != "")
+            {
+                string strDummyField = mapGroupColumns.Split(';').ToList()[0];
+                mapStatsColumns = strDummyField + " FIRST";
+                blDummyAdded = true;
+            }
+
+            // Now do the summary statistics as required, or export the layer to table if not.
+            if (mapGroupColumns != "" || mapStatsColumns != "")
+            {
+                FileFunctions.WriteLine(_logFile, "Calculating summary statistics ...");
+
+                string statisticsFields = "";
+                if (mapStatsColumns != "")
+                    statisticsFields = mapStatsColumns;
+
+                string caseFields = "";
+                if (mapGroupColumns != "")
+                    caseFields = mapGroupColumns;
+
+                // Calculate the summary statistics.
+                if (!await ArcGISFunctions.CalculateSummaryStatisticsAsync(_tempFCOutputFile, _tempTableOutputFile, statisticsFields, caseFields, addToMap: true))
+                {
+                    //MessageBox.Show("Error calculating radius field in " + _tempFCOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error calculating summary statistics for '" + _tempMasterOutputFile + "' into " + _tempFCOutputFile);
+
+                    return -1;
+                }
+
+                //// Now rename the radius field.
+                //if (radiusText != "none")
+                //{
+                //    ITable tpOutTable = GetTable(_tempOutputTableName, aLogFile, Messages);
+
+                //    List<string> strFieldNames = mapStatsColumns.Split(';').ToList();
+                //    int intIndexCount = 0;
+                //    foreach (string strField in strFieldNames)
+                //    {
+                //        List<string> strFieldComponents = strField.Split(' ').ToList();
+                //        string strNewField = strFieldComponents[0]; // The original name of the field.
+
+                //        // Only rename the radius column
+                //        if (strNewField.ToLower() == "radius")
+                //        {
+                //            // Let's find out what the new field is called - could be anything.
+                //            int intNewIndex = 2; // OBJECTID = 0; Frequency = 1.
+                //            intNewIndex = intNewIndex + mapGroupColumns.Split(';').ToList().Count + intIndexCount; // Add the number of columns used for grouping
+
+                //            IField pNewField = tpOutTable.Fields.get_Field(intNewIndex);
+                //            string strInputField = pNewField.Name;
+                //            // Note index stays the same, since we're deleting the fields.
+
+                //            // Get the definition of the original field from the original feature class.
+                //            int intIndex = outputFeatureLayer.Fields.FindField(strNewField);
+                //            IField pField = outputFeatureLayer.Fields.get_Field(intIndex);
+
+                //            // Add the field to the new FC.
+                //            AddTableField(_tempOutputTableName, strNewField, pField.Type, pField.Length, aLogFile, Messages);
+                //            // Calculate the new field.
+                //            string strCalc = "[" + strInputField + "]";
+                //            CalculateField(tempTableFile, strNewField, strCalc, aLogFile, Messages);
+                //            DeleteField(tpOutTable, strInputField, aLogFile, Messages);
+                //        }
+                //    }
+                //}
+
+                // Now export the output table.
+                FileFunctions.WriteLine(_logFile, "Exporting output ...");
+                intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempOutputTableName, outputTableName, mapColumns, mapOrderColumns, false, true);
+            }
+            else
+            {
+                // Do straight copy of the feature class.
+                FileFunctions.WriteLine(_logFile, "Exporting output ...");
+                intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempOutputLayerName, outputTableName, mapColumns, mapOrderColumns, false, true);
+            }
+
+            // Remove all temporary feature classes and tables.
+            if (_mapFunctions.FindLayer(_tempOutputLayerName) != null)
+                await _mapFunctions.RemoveLayerAsync(_tempOutputLayerName);
+
+            if (_mapFunctions.FindTable(_tempOutputTableName) != null)
+                await _mapFunctions.RemoveTableAsync(_tempOutputTableName);
+
+            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutputFile))
+                ArcGISFunctions.DeleteFeatureClass(_tempGDBName, _tempOutputLayerName);
+
+            if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
+                ArcGISFunctions.DeleteTable(_tempGDBName, _tempOutputTableName);
+
+            return intLineCount;
+        }
+
+        private async Task<bool> KeepLayerAsync(string layerName, string outputFile, AddSelectedLayersOptions addSelectedLayersOption,
+            string layerFileName, bool displayLabels, string labelClause, string labelColumn)
+        {
+            // Copy to a permanent file (note this is not the summarised layer).
+            FileFunctions.WriteLine(_logFile, "Copying selected GIS features to " + outputFile + ".shp ...");
+            await ArcGISFunctions.CopyFeaturesAsync(_tempMasterLayerName, outputFile);
+
+            // If the layer is to be added to the map
+            if (addSelectedLayersOption != AddSelectedLayersOptions.No)
+            {
+                // Set the layer symbology to use.
+                string symbologyFile = _layerFolder + "\\" + layerFileName;
+
+                if (!await SetLayerInMapAsync(layerName, symbologyFile))
+                {
+                    MessageBox.Show("Error setting output layer in the map.");
+                    FileFunctions.WriteLine(_logFile, "Error setting output layer in the map");
+                }
+
+                FileFunctions.WriteLine(_logFile, "Output " + layerName + " added to display");
+
+                // If labels are to be displayed
+                if (addSelectedLayersOption == AddSelectedLayersOptions.WithLabels && displayLabels)
+                {
+                    // Translate the label string.
+                    if (labelClause != "" && layerFileName == "") // Only if we don't have a layer file.
+                    {
+                        List<string> labelOptions = labelClause.Split('$').ToList();
+                        string labelFont = labelOptions[0].Split(':')[1];
+                        double labelSize = double.Parse(labelOptions[1].Split(':')[1]); // Needs error trapping
+                        int labelRed = int.Parse(labelOptions[2].Split(':')[1]); // Needs error trapping
+                        int labelGreen = int.Parse(labelOptions[3].Split(':')[1]);
+                        int labelBlue = int.Parse(labelOptions[4].Split(':')[1]);
+                        string labelOverlap = labelOptions[5].Split(':')[1];
+
+                        await _mapFunctions.LabelLayerAsync(layerName, "[" + labelColumn + "]", labelFont, labelSize, "Normal",
+                            labelRed, labelGreen, labelBlue, labelOverlap);
+                    }
+                    else if (labelColumn != "" && layerFileName == "")
+                    {
+                        await _mapFunctions.LabelLayerAsync(layerName, "[" + labelColumn + "]");
+                    }
+
+                    FileFunctions.WriteLine(_logFile, "Labels added to output " + layerName);
+                }
+                else
+                {
+                    // Turn labels off
+                    await _mapFunctions.SwitchLabelsAsync(layerName, displayLabels);
+                }
+            }
+            else
+            {
+                // User doesn't want to add the layer to the display.
+                await _mapFunctions.RemoveLayerAsync(layerName);
+            }
+
             return true;
         }
 
@@ -2310,7 +2670,6 @@ namespace DataSearches.UI
         }
 
         #endregion INotifyPropertyChanged Members
-
     }
 
     /// <summary>
@@ -2381,6 +2740,7 @@ namespace DataSearches.UI
         public bool IsOpen { get; set; }
 
         private bool _isSelected;
+
         public bool IsSelected
         {
             get { return _isSelected; }
@@ -2430,6 +2790,5 @@ namespace DataSearches.UI
         }
 
         #endregion INotifyPropertyChanged Members
-
     }
 }

@@ -19,21 +19,17 @@
 // You should have received a copy of the GNU General Public License
 // along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
 
+using ArcGIS.Desktop.Core.Events;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Controls;
-using ArcGIS.Desktop.Mapping.Events;
 using ArcGIS.Desktop.Mapping;
-using ArcGIS.Desktop.Core.Events;
-using DataSearches;
-using System;
+using ArcGIS.Desktop.Mapping.Events;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
-using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
-using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
-using System.ComponentModel;
 
 namespace DataSearches.UI
 {
@@ -199,7 +195,7 @@ namespace DataSearches.UI
             }
         }
 
-        private List<TabControl> _primaryMenuList = [];
+        private readonly List<TabControl> _primaryMenuList = [];
 
         /// <summary>
         /// Get the list of dock panes.
@@ -343,6 +339,7 @@ namespace DataSearches.UI
         }
 
         private Visibility _dockpaneVisibility = Visibility.Visible;
+
         public Visibility DockpaneVisibility
         {
             get { return _dockpaneVisibility; }
@@ -457,7 +454,6 @@ namespace DataSearches.UI
         }
 
         #endregion INotifyPropertyChanged Members
-
     }
 
     /// <summary>

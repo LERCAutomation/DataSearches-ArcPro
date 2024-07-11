@@ -20,7 +20,6 @@
 // along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Desktop.Framework;
-using DataSearches;
 using DataSearches.Properties;
 using System;
 using System.Collections.Generic;

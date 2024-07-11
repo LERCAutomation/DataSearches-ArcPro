@@ -19,14 +19,11 @@
 // You should have received a copy of the GNU General Public License
 // along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
 
-using ArcGIS.Desktop.Core;
+using DataSearches.UI;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
-using System.Windows.Forms;
 using System.Xml;
-using DataSearches.UI;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 
 //This configuration file reader loads all of the variables to
@@ -740,7 +737,6 @@ namespace DataSearches
                                 statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
 
                             layer.StatisticsColumns = statsColumns;
-
                         }
                         catch
                         {
@@ -779,7 +775,6 @@ namespace DataSearches
                             // This is an optional node
                             layer.IncludeArea = false;
                         }
-
 
                         try
                         {
@@ -1192,21 +1187,21 @@ namespace DataSearches
             get { return _defaultBufferSize; }
         }
 
-        private List<string> _bufferUnitOptionsDisplay = [];
+        private readonly List<string> _bufferUnitOptionsDisplay = [];
 
         public List<string> BufferUnitOptionsDisplay
         {
             get { return _bufferUnitOptionsDisplay; }
         }
 
-        private List<string> _bufferUnitOptionsProcess = [];
+        private readonly List<string> _bufferUnitOptionsProcess = [];
 
         public List<string> BufferUnitOptionsProcess
         {
             get { return _bufferUnitOptionsProcess; }
         }
 
-        private List<string> _bufferUnitOptionsShort = [];
+        private readonly List<string> _bufferUnitOptionsShort = [];
 
         public List<string> BufferUnitOptionsShort
         {
@@ -1255,7 +1250,7 @@ namespace DataSearches
             get { return _searchLayer; }
         }
 
-        private List<string> _searchLayerExtensions = [];
+        private readonly List<string> _searchLayerExtensions = [];
 
         public List<string> SearchLayerExtensions
         {
@@ -1374,17 +1369,17 @@ namespace DataSearches
             get { return _combinedSitesTableFormat; }
         }
 
-        #endregion
+        #endregion Variables
 
         #region Map Variables
 
-        private List<MapLayer> _mapLayers = [];
+        private readonly List<MapLayer> _mapLayers = [];
 
         public List<MapLayer> MapLayers
         {
             get { return _mapLayers; }
         }
 
-        #endregion Variables
+        #endregion Map Variables
     }
 }
