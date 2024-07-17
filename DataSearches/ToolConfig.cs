@@ -190,7 +190,7 @@ namespace DataSearches
             try
             {
                 strRawText = xmlToolNode["DefaultProfile"].InnerText;
-                if (strRawText != "")
+                if (!string.IsNullOrEmpty(strRawText))
                     _defaultXML = strRawText; // If there is an entry; otherwise use the default.
             }
             catch

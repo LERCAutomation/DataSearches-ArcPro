@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
 namespace DataSearches
@@ -144,7 +145,8 @@ namespace DataSearches
             }
             if (addFileDot)
             {
-                outputString = outputString.Remove(outputString.Length - 4, 1);
+                if (repChar.Length > 0)
+                    outputString = outputString.Remove(outputString.Length - 4, repChar.Length);
                 outputString = outputString.Insert(outputString.Length - 3, ".");
             }
             return outputString;
@@ -247,7 +249,7 @@ namespace DataSearches
             {
                 strFormatted = strFormatted + strEntry.Trim() + ";";
             }
-            if (strFormatted != "")
+            if (!string.IsNullOrEmpty(strFormatted))
                 return strFormatted.Substring(0, strFormatted.Length - 1); // Remove the final semicolon.
             else
                 return "";
@@ -266,7 +268,7 @@ namespace DataSearches
             {
                 strFormatted = strFormatted + strEntry.Replace(";", " ") + ";";
             }
-            if (strFormatted != "")
+            if (!string.IsNullOrEmpty(strFormatted))
                 return strFormatted.Substring(0, strFormatted.Length - 1); // Remove the final comma.
             else
                 return "";
@@ -285,8 +287,9 @@ namespace DataSearches
         /// <returns></returns>
         public static string AlignStatsColumns(string AllColumns, string StatsColumns, string GroupColumns)
         {
-            if (GroupColumns == "" || AllColumns == "") //GroupColumns == "" ||
+            if (String.IsNullOrEmpty(GroupColumns) || String.IsNullOrEmpty(AllColumns))
                 return StatsColumns;
+
             List<string> liAllColumns = [.. AllColumns.Split(',')];
             foreach (string strFieldName in liAllColumns)
             {
@@ -294,13 +297,13 @@ namespace DataSearches
                 if (strFieldNameTr.Substring(0, 1) != "\"")
                 {
                     // Is it in the group columns?
-                    if (!GroupColumns.Contains(strFieldNameTr, StringComparison.CurrentCultureIgnoreCase))
+                    if (!GroupColumns.Contains(strFieldNameTr, StringComparison.OrdinalIgnoreCase))
                     {
                         // Is it in the stats columns?
-                        if (!StatsColumns.Contains(strFieldNameTr, StringComparison.CurrentCultureIgnoreCase))
+                        if (!StatsColumns.Contains(strFieldNameTr, StringComparison.OrdinalIgnoreCase))
                         {
                             // It is in neither - add it.
-                            if (StatsColumns != "")
+                            if (!string.IsNullOrEmpty(StatsColumns))
                                 StatsColumns += ";";
                             StatsColumns = StatsColumns + strFieldNameTr + " FIRST";
                         }

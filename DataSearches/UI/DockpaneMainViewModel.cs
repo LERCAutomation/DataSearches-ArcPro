@@ -312,14 +312,14 @@ namespace DataSearches.UI
                 DockpaneVisibility = Visibility.Hidden;
 
                 // Clear the form layers.
-                _paneH2VM.ClearLayers();
+                _paneH2VM?.ClearLayers();
             }
             else
             {
                 DockpaneVisibility = Visibility.Visible;
 
                 // Reload the form layers (don't wait for the response).
-                _paneH2VM.LoadLayersAsync(false, false);
+                _paneH2VM?.LoadLayersAsync(false, false);
             }
         }
 
@@ -330,7 +330,7 @@ namespace DataSearches.UI
                 DockpaneVisibility = Visibility.Hidden;
 
                 // Clear the form layers.
-                _paneH2VM.ClearLayers();
+                _paneH2VM?.ClearLayers();
             }
 
             _projectEventsSubscribed = false;

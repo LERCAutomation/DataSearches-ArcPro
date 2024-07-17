@@ -16,7 +16,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition MinHeight="297" Height="*" />
+                <RowDefinition MinHeight="200" Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -90,7 +90,7 @@
             <Grid Name="GridLayers" Grid.Row="2" Margin="0,4,0,8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="300" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
@@ -117,6 +117,8 @@
                           Grid.Column="1"
                           HorizontalContentAlignment="Stretch"
                           ItemsSource="{Binding OpenLayersList}"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          SelectionChanged="ListViewLayers_SelectionChanged"
                           SelectionMode="Extended">
                     <ListView.View>
                         <GridView AllowsColumnReorder="False">
@@ -125,14 +127,14 @@
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </Style>
                             </GridView.ColumnHeaderContainerStyle>
-                            <GridViewColumn DisplayMemberBinding="{Binding LayerGroup}">
+                            <GridViewColumn DisplayMemberBinding="{Binding NodeGroup}">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock HorizontalAlignment="Stretch" Text="{Binding}" />
                                     </DataTemplate>
                                 </GridViewColumn.CellTemplate>
                             </GridViewColumn>
-                            <GridViewColumn DisplayMemberBinding="{Binding LayerName}">
+                            <GridViewColumn DisplayMemberBinding="{Binding NodeLayer}">
                                 <GridViewColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock HorizontalAlignment="Stretch" Text="{Binding}" />
@@ -146,7 +148,8 @@
                             <Setter Property="IsSelected" Value="{Binding IsSelected}" />
                             <Style.Triggers>
                                 <Trigger Property="IsMouseOver" Value="true">
-                                    <Setter Property="Background" Value="DodgerBlue" />
+                                    <Setter Property="Background" Value="LightSkyBlue" />
+                                    <Setter Property="BorderBrush" Value="DodgerBlue" />
                                     <Setter Property="Foreground" Value="White" />
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">

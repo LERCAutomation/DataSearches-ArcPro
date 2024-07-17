@@ -27,12 +27,15 @@ using ArcGIS.Desktop.Catalog;
 using ArcGIS.Desktop.Core;
 using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Editing;
+using ArcGIS.Desktop.Editing.Attributes;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
+using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Policy;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QueryFilter = ArcGIS.Core.Data.QueryFilter;
@@ -102,6 +105,11 @@ namespace DataSearches
                 return null;
 
             return mapView;
+        }
+
+        public void PauseDrawing(bool pause)
+        {
+            _activeMapView.DrawingPaused = pause;
         }
 
         /// <summary>
@@ -203,6 +211,24 @@ namespace DataSearches
             }
         }
 
+        public async Task ZoomToLayerAsync(string layerName, double ratio = 1)
+        {
+            // Check if the layer is already loaded.
+            Layer findLayer = FindLayer(layerName);
+
+            // If the layer is not loaded, add it.
+            if (findLayer == null)
+                return;
+
+            // Zoom to the layer extent.
+            await _activeMapView.ZoomToAsync(findLayer, false);
+
+            // Get the camera for the active view, adjust the scale and zoom to the new camera position.
+            var camera = _activeMapView.Camera;
+            camera.Scale *= ratio;
+            await _activeMapView.ZoomToAsync(camera);
+        }
+
         #endregion Map
 
         #region Layers
@@ -252,7 +278,8 @@ namespace DataSearches
                 FeatureLayer layer = FindLayer(layerName);
 
                 // Remove the layer.
-                await RemoveLayerAsync(layer);
+                if (layer != null)
+                    await RemoveLayerAsync(layer);
             }
             catch
             {
@@ -299,17 +326,15 @@ namespace DataSearches
 
             // Get the feature layer.
             FeatureLayer outputFeaturelayer = FindLayer(outputLayerName);
-
             if (outputFeaturelayer == null)
                 return -1;
 
-            int intStart;
-            if (startNumber > 0)
-                intStart = startNumber;
+            int labelMax;
+            if (startNumber > 1)
+                labelMax = startNumber - 1;
             else
-                intStart = 1;
-            int intMax = intStart - 1;
-            int intValue = intMax;
+                labelMax = 0;
+            int labelVal = labelMax;
 
             string keyValue;
             string lastKeyValue = "";
@@ -349,16 +374,16 @@ namespace DataSearches
                         using Row record = rowCursor.Current;
 
                         // Get the key field value.
-                        keyValue = (string)record[keyFieldName];
+                        keyValue = record[keyFieldName].ToString();
 
                         // If the key value is different.
                         if (keyValue != lastKeyValue)
                         {
-                            intMax++;
-                            intValue = intMax;
+                            labelMax++;
+                            labelVal = labelMax;
                         }
 
-                        editOperation.Modify(record, labelFieldName, intValue);
+                        editOperation.Modify(record, labelFieldName, labelVal);
 
                         lastKeyValue = keyValue;
                     }
@@ -387,7 +412,98 @@ namespace DataSearches
                 await Project.Current.SaveEditsAsync();
             }
 
-            return intMax;
+            return labelMax;
+        }
+
+        public async Task<bool> UpdateFeaturesAsync(string layerName, string siteColumn, string siteName, string orgColumn, string orgName, string radiusColumn, string radiusText)
+        {
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            if (String.IsNullOrEmpty(siteColumn) && String.IsNullOrEmpty(orgColumn) && String.IsNullOrEmpty(radiusColumn))
+                return false;
+
+            if (!string.IsNullOrEmpty(siteColumn) && !await FieldExistsAsync(layerName, siteColumn))
+                return false;
+
+            if (!string.IsNullOrEmpty(orgColumn) && !await FieldExistsAsync(layerName, orgColumn))
+                return false;
+
+            if (!string.IsNullOrEmpty(radiusColumn) && !await FieldExistsAsync(layerName, radiusColumn))
+                return false;
+
+            // Get the feature layer.
+            FeatureLayer featurelayer = FindLayer(layerName);
+
+            if (featurelayer == null)
+                return false;
+
+            // Create an edit operation.
+            EditOperation editOperation = new();
+
+            try
+            {
+                await QueuedTask.Run(() =>
+                {
+                    // Get the oids for the selected features.
+                    var gsSelection = featurelayer.GetSelection();
+                    IReadOnlyList<long> selectedOIDs = gsSelection.GetObjectIDs();
+
+                    // Update the attributes of the selected features.
+                    var insp = new Inspector();
+                    insp.Load(featurelayer, selectedOIDs);
+
+                    if (!string.IsNullOrEmpty(siteColumn))
+                    {
+                        // Double check that attribute exists.
+                        ArcGIS.Desktop.Editing.Attributes.Attribute att = insp.FirstOrDefault(a => a.FieldName == siteColumn);
+                        if (att != null)
+                            insp[siteColumn] = siteName;
+                    }
+
+                    if (!string.IsNullOrEmpty(orgColumn))
+                    {
+                        // Double check that attribute exists.
+                        ArcGIS.Desktop.Editing.Attributes.Attribute att = insp.FirstOrDefault(a => a.FieldName == orgColumn);
+                        if (att != null)
+                            insp[orgColumn] = orgName;
+                    }
+
+                    if (!string.IsNullOrEmpty(radiusColumn))
+                    {
+                        // Double check that attribute exists.
+                        ArcGIS.Desktop.Editing.Attributes.Attribute att = insp.FirstOrDefault(a => a.FieldName == radiusColumn);
+                        if (att != null)
+                            insp[radiusColumn] = radiusText;
+                    }
+
+                    editOperation.Modify(insp);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            // Execute the edit operation.
+            if (!editOperation.IsEmpty)
+            {
+                if (!await editOperation.ExecuteAsync())
+                {
+                    MessageBox.Show(editOperation.ErrorMessage);
+                    return false;
+                }
+            }
+
+            // Check for unsaved edits.
+            if (Project.Current.HasEdits)
+            {
+                // Save edits.
+                await Project.Current.SaveEditsAsync();
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -718,6 +834,9 @@ namespace DataSearches
                 // Find the layer in the active map.
                 FeatureLayer layer = FindLayer(layerName);
 
+                if (layer == null)
+                    return null;
+
                 return GetLayerPath(layer);
             }
             catch
@@ -787,6 +906,9 @@ namespace DataSearches
             {
                 // Find the layer in the active map.
                 FeatureLayer layer = FindLayer(layerName);
+
+                if (layer == null)
+                    return null;
 
                 return GetFeatureClassType(layer);
             }
@@ -1172,9 +1294,18 @@ namespace DataSearches
                 }
             }
 
-            // Stop if there are any missing columns;
-            if (missingColumns)
+            // Stop if there are any missing columns.
+            if (missingColumns || string.IsNullOrEmpty(columns))
                 return -1;
+            else
+                columns = columns[..^1];
+
+            // Open output file.
+            StreamWriter txtFile = new(outputTable, append);
+
+            // Write the header if required.
+            if (!append && includeHeader)
+                txtFile.WriteLine(columns);
 
             int intLineCount = 0;
             try
@@ -1193,8 +1324,10 @@ namespace DataSearches
                     // Create a new list of sort descriptions.
                     List<ArcGIS.Core.Data.SortDescription> sortDescriptions = [];
 
-                    if (orderByColumns != "")
+                    if (!string.IsNullOrEmpty(orderByColumns))
                     {
+                        columnsList = [.. orderByColumns.Split(',')];
+
                         // Build the list of sort descriptions for each column in the input layer.
                         foreach (string column in columnsList)
                         {
@@ -1229,13 +1362,6 @@ namespace DataSearches
                         rowCursor = featureClass.Search();
                     }
 
-                    // Open output file.
-                    StreamWriter txtFile = new(outputTable, append);
-
-                    // Write the header if required.
-                    if (!append && includeHeader)
-                        txtFile.WriteLine(columns);
-
                     // Loop through the feature class/table using the cursor.
                     while (rowCursor.MoveNext())
                     {
@@ -1250,6 +1376,7 @@ namespace DataSearches
                             {
                                 // Get the field value.
                                 var columnValue = record[columnName];
+                                columnValue ??= "";
 
                                 // Wrap value if quotes if it is a string that contains a comma
                                 if ((columnValue is string) && (columnValue.ToString().Contains(',')))
@@ -1270,22 +1397,19 @@ namespace DataSearches
                             {
                                 newRow = newRow + columnName + ",";
                             }
-
-                            // Write the new row.
-                            txtFile.WriteLine(newRow);
-                            intLineCount++;
                         }
-                    }
 
+                        // Remove the final comma
+                        newRow = newRow[..^1];
+
+                        // Write the new row.
+                        txtFile.WriteLine(newRow);
+                        intLineCount++;
+                    }
+                    // Dispose of the objects.
                     featureClass.Dispose();
                     featureClassDefinition.Dispose();
                     rowCursor.Dispose();
-
-                    // Close the file.
-                    txtFile.Close();
-
-                    txtFile.Dispose();
-
                     rowCursor = null;
                 });
             }
@@ -1293,6 +1417,14 @@ namespace DataSearches
             {
                 // Handle Exception.
                 return 0;
+            }
+            finally
+            {
+                // Close the file.
+                txtFile.Close();
+
+                // Dispose of the object.
+                txtFile.Dispose();
             }
 
             return intLineCount;
@@ -1340,8 +1472,17 @@ namespace DataSearches
             }
 
             // Stop if there are any missing columns;
-            if (missingColumns)
+            if (missingColumns || string.IsNullOrEmpty(columns))
                 return -1;
+            else
+                columns = columns[..^1];
+
+            // Open output file.
+            StreamWriter txtFile = new(outputTable, append);
+
+            // Write the header if required.
+            if (!append && includeHeader)
+                txtFile.WriteLine(columns);
 
             int intLineCount = 0;
             try
@@ -1360,13 +1501,15 @@ namespace DataSearches
                     // Create a new list of sort descriptions.
                     List<ArcGIS.Core.Data.SortDescription> sortDescriptions = [];
 
-                    if (orderByColumns != "")
+                    if (!string.IsNullOrEmpty(orderByColumns))
                     {
+                        List<string> orderByColumnsList = [.. orderByColumns.Split(',')];
+
                         // Build the list of sort descriptions for each column in the input layer.
-                        foreach (string column in columnsList)
+                        foreach (string column in orderByColumnsList)
                         {
                             string columnName = column.Trim();
-                            if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
+                            if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
                             {
                                 // Get the field from the feature class definition.
                                 ArcGIS.Core.Data.Field field = tableDefinition.GetFields()
@@ -1396,17 +1539,10 @@ namespace DataSearches
                         rowCursor = table.Search();
                     }
 
-                    // Open output file.
-                    StreamWriter txtFile = new(outputTable, append);
-
-                    // Write the header if required.
-                    if (!append && includeHeader)
-                        txtFile.WriteLine(columns);
-
                     // Loop through the feature class/table using the cursor.
                     while (rowCursor.MoveNext())
                     {
-                        /// Get the current row.
+                        // Get the current row.
                         using Row record = rowCursor.Current;
 
                         string newRow = "";
@@ -1417,6 +1553,7 @@ namespace DataSearches
                             {
                                 // Get the field value.
                                 var columnValue = record[columnName];
+                                columnValue ??= "";
 
                                 // Wrap value if quotes if it is a string that contains a comma
                                 if ((columnValue is string) && (columnValue.ToString().Contains(',')))
@@ -1437,22 +1574,19 @@ namespace DataSearches
                             {
                                 newRow = newRow + columnName + ",";
                             }
-
-                            // Write the new row.
-                            txtFile.WriteLine(newRow);
-                            intLineCount++;
                         }
-                    }
 
+                        // Remove the final comma
+                        newRow = newRow[..^1];
+
+                        // Write the new row.
+                        txtFile.WriteLine(newRow);
+                        intLineCount++;
+                    }
+                    // Dispose of the objects.
                     table.Dispose();
                     tableDefinition.Dispose();
                     rowCursor.Dispose();
-
-                    // Close the file.
-                    txtFile.Close();
-
-                    txtFile.Dispose();
-
                     rowCursor = null;
                 });
             }
@@ -1460,6 +1594,14 @@ namespace DataSearches
             {
                 // Handle Exception.
                 return 0;
+            }
+            finally
+            {
+                // Close the file.
+                txtFile.Close();
+
+                // Dispose of the object.
+                txtFile.Dispose();
             }
 
             return intLineCount;
@@ -1528,16 +1670,41 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        public static void DeleteFeatureClass(string filePath, string fileName)
+        public static async Task DeleteGeodatabaseFCAsync(string filePath, string fileName)
         {
             try
             {
-                // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
-                using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
+                await QueuedTask.Run(() =>
+                {
+                    // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
+                    using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
 
-                DeleteFeatureClass(geodatabase, fileName);
+                    // Create a SchemaBuilder object
+                    SchemaBuilder schemaBuilder = new(geodatabase);
+
+                    // Create a FeatureClassDescription object.
+                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
+
+                    // Create a FeatureClassDescription object
+                    FeatureClassDescription featureClassDescription = new(featureClassDefinition);
+
+                    // Add the deletion for the feature class to the list of DDL tasks
+                    schemaBuilder.Delete(featureClassDescription);
+
+                    // Execute the DDL
+                    bool success = schemaBuilder.Build();
+                });
             }
-            catch { }
+            catch (GeodatabaseNotFoundOrOpenedException)
+            {
+                // Handle Exception.
+                return;
+            }
+            catch (GeodatabaseTableException)
+            {
+                // Handle Exception.
+                return;
+            }
         }
 
         /// <summary>
@@ -1545,24 +1712,27 @@ namespace DataSearches
         /// </summary>
         /// <param name="geodatabase"></param>
         /// <param name="fileName"></param>
-        public static void DeleteFeatureClass(Geodatabase geodatabase, string fileName)
+        public static async Task DeleteFeatureClassAsync(Geodatabase geodatabase, string fileName)
         {
             try
             {
-                // Create a SchemaBuilder object
-                SchemaBuilder schemaBuilder = new(geodatabase);
+                await QueuedTask.Run(() =>
+                {
+                    // Create a SchemaBuilder object
+                    SchemaBuilder schemaBuilder = new(geodatabase);
 
-                // Create a FeatureClassDescription object.
-                using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
+                    // Create a FeatureClassDescription object.
+                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
 
-                // Create a FeatureClassDescription object
-                FeatureClassDescription featureClassDescription = new(featureClassDefinition);
+                    // Create a FeatureClassDescription object
+                    FeatureClassDescription featureClassDescription = new(featureClassDefinition);
 
-                // Add the deletion for the feature class to the list of DDL tasks
-                schemaBuilder.Delete(featureClassDescription);
+                    // Add the deletion for the feature class to the list of DDL tasks
+                    schemaBuilder.Delete(featureClassDescription);
 
-                // Execute the DDL
-                bool success = schemaBuilder.Build();
+                    // Execute the DDL
+                    bool success = schemaBuilder.Build();
+                });
             }
             catch { }
         }
@@ -1598,7 +1768,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.Delete", parameters);  // Useful for debugging.
 
@@ -1645,7 +1815,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.AddField", parameters);  // Useful for debugging.
 
@@ -1653,6 +1823,51 @@ namespace DataSearches
             try
             {
                 IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.AddField", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        public static async Task<bool> RenameFieldAsync(string inTable, string fieldName, string newFieldName)
+        {
+            if (String.IsNullOrEmpty(inTable))
+                return false;
+
+            if (String.IsNullOrEmpty(fieldName))
+                return false;
+
+            if (String.IsNullOrEmpty(newFieldName))
+                return false;
+
+            // Make a value array of strings to be passed to the tool.
+            var parameters = Geoprocessing.MakeValueArray(inTable, fieldName, newFieldName);
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
+
+            //Geoprocessing.OpenToolDialog("management.AlterField", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.AlterField", parameters, environments, null, null, executeFlags);
 
                 if (gp_result.IsFailed)
                 {
@@ -1690,7 +1905,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.CalculateField", parameters);  // Useful for debugging.
 
@@ -1732,7 +1947,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.CalculateGeometryAttributes", parameters);  // Useful for debugging.
 
@@ -1819,7 +2034,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.SelectLayerByLocation", parameters);  // Useful for debugging.
 
@@ -1861,7 +2076,7 @@ namespace DataSearches
             // Make a value array of strings to be passed to the tool.
             //List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatureClass, outFeatureClass, bufferDistance, lineSide, lineEndType, method, dissolveOption)];
             List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatureClass, outFeatureClass, bufferDistance, lineSide, lineEndType, dissolveOption)];
-            if (dissolveFields != "")
+            if (!string.IsNullOrEmpty(dissolveFields))
                 parameters.Add(dissolveFields);
             parameters.Add(method);
 
@@ -1869,7 +2084,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -1916,7 +2131,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -1960,7 +2175,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -2010,7 +2225,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -2058,7 +2273,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -2279,14 +2494,30 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        public static void DeleteTable(string filePath, string fileName)
+        public static async Task DeleteGeodatabaseTableAsync(string filePath, string fileName)
         {
             try
             {
-                // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
-                using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
+                await QueuedTask.Run(() =>
+                {
+                    // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
+                    using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
 
-                DeleteTable(geodatabase, fileName);
+                    // Create a SchemaBuilder object
+                    SchemaBuilder schemaBuilder = new(geodatabase);
+
+                    // Create a FeatureClassDescription object.
+                    using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(tableName);
+
+                    // Create a FeatureClassDescription object
+                    TableDescription tableDescription = new(tableDefinition);
+
+                    // Add the deletion for the feature class to the list of DDL tasks
+                    schemaBuilder.Delete(tableDescription);
+
+                    // Execute the DDL
+                    bool success = schemaBuilder.Build();
+                });
             }
             catch { }
         }
@@ -2296,24 +2527,27 @@ namespace DataSearches
         /// </summary>
         /// <param name="geodatabase"></param>
         /// <param name="tableName"></param>
-        public static void DeleteTable(Geodatabase geodatabase, string tableName)
+        public static async Task DeleteGeodatabaseTableAsync(Geodatabase geodatabase, string tableName)
         {
             try
             {
-                // Create a SchemaBuilder object
-                SchemaBuilder schemaBuilder = new(geodatabase);
+                await QueuedTask.Run(() =>
+                {
+                    // Create a SchemaBuilder object
+                    SchemaBuilder schemaBuilder = new(geodatabase);
 
-                // Create a FeatureClassDescription object.
-                using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(tableName);
+                    // Create a FeatureClassDescription object.
+                    using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(tableName);
 
-                // Create a FeatureClassDescription object
-                TableDescription tableDescription = new(tableDefinition);
+                    // Create a FeatureClassDescription object
+                    TableDescription tableDescription = new(tableDefinition);
 
-                // Add the deletion for the feature class to the list of DDL tasks
-                schemaBuilder.Delete(tableDescription);
+                    // Add the deletion for the feature class to the list of DDL tasks
+                    schemaBuilder.Delete(tableDescription);
 
-                // Execute the DDL
-                bool success = schemaBuilder.Build();
+                    // Execute the DDL
+                    bool success = schemaBuilder.Build();
+                });
             }
             catch { }
         }
@@ -2406,7 +2640,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -2487,7 +2721,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 
@@ -2536,7 +2770,7 @@ namespace DataSearches
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
             // Set the geprocessing flags.
-            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread | GPExecuteToolFlags.RefreshProjectItems;
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
 

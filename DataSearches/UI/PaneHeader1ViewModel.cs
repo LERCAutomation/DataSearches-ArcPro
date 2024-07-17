@@ -555,12 +555,12 @@ namespace DataSearches.UI
             {
                 // Add if it's not the tool XML file.
                 string strFileName = FileFunctions.GetFileName(strFile);
-                if (!FileFunctions.GetFileNameWithoutExtension(strFileName).Equals(_displayName, StringComparison.CurrentCultureIgnoreCase)
-                && FileFunctions.GetExtension(strFile).Equals(".xml", StringComparison.CurrentCultureIgnoreCase))
+                if (!FileFunctions.GetFileNameWithoutExtension(strFileName).Equals(_displayName, StringComparison.OrdinalIgnoreCase)
+                && FileFunctions.GetExtension(strFile).Equals(".xml", StringComparison.OrdinalIgnoreCase))
                 {
                     // Add file to list of XML files.
                     xmlFilesList.Add(strFileName);
-                    if (strFileName.Equals(strDefaultXMLName, StringComparison.CurrentCultureIgnoreCase))
+                    if (strFileName.Equals(strDefaultXMLName, StringComparison.OrdinalIgnoreCase))
                         blDefaultFound = true;
                     else
                         blOnlyDefault = false;

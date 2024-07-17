@@ -670,14 +670,16 @@ namespace DataSearches
 
                         try
                         {
-                            string group;
-                            group = nodeName.Substring(0, nodeName.IndexOf('-')).Trim();
-                            layer.LayerGroup = group;
+                            string nodeGroup = nodeName.Substring(0, nodeName.IndexOf('-')).Trim();
+                            string nodeLayer = nodeName.Substring(nodeName.IndexOf('-') + 1).Trim();
+                            layer.NodeGroup = nodeGroup;
+                            layer.NodeLayer = nodeLayer;
                         }
                         catch
                         {
                             // This is an optional node
-                            layer.LayerGroup = null;
+                            layer.NodeGroup = null;
+                            layer.NodeLayer = null;
                         }
 
                         try
@@ -977,7 +979,7 @@ namespace DataSearches
                         try
                         {
                             string sitesColumns = node["CombinedSitesColumns"].InnerText;
-                            if (sitesColumns != "")
+                            if (!string.IsNullOrEmpty(sitesColumns))
                             {
                                 combinedSites = true;
                                 layer.CombinedSitesColumns = node["CombinedSitesColumns"].InnerText;
@@ -1036,10 +1038,10 @@ namespace DataSearches
                             {
                                 throw new("Could not locate the item 'CombinedSitesOrderByColumns' for map layer " + nodeName + " in the XML file");
                             }
-
-                            // Add the layer to the list of map layers.
-                            MapLayers.Add(layer);
                         }
+
+                        // Add the layer to the list of map layers.
+                        MapLayers.Add(layer);
                     }
                 }
             }
