@@ -124,54 +124,65 @@ namespace DataSearches
         {
             string strRawText;
 
-            // The existing file location where log files will be saved with output messages.
+            // The access database where all the data search details are stored.
             try
             {
-                _database = _xmlDataSearches["Database"].InnerText;
+                _databasePath = _xmlDataSearches["DatabasePath"].InnerText;
             }
             catch
             {
-                throw new("Could not locate item 'Database' in the XML profile.");
+                throw new("Could not locate item 'DatabasePath' in the XML profile.");
             }
 
-            // The field name of the search reference unique value.
-            try
+            // Only get the other database details if there is a path.
+            if (!string.IsNullOrEmpty(_databasePath))
             {
-                _refColumn = _xmlDataSearches["RefColumn"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate item 'RefColumn' in the XML profile.");
-            }
+                // The name of the table where the enquiries are stored in the database table.
+                try
+                {
+                    _databaseTable = _xmlDataSearches["DatabaseTable"].InnerText;
+                }
+                catch
+                {
+                    throw new("Could not locate item 'DatabaseTable' in the XML profile.");
+                }
 
-            // The field name of the search reference site name.
-            try
-            {
-                _siteColumn = _xmlDataSearches["SiteColumn"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate item 'SiteColumn' in the XML profile.");
-            }
+                // The column name of the search reference unique value in the database table.
+                try
+                {
+                    _databaseRefColumn = _xmlDataSearches["DatabaseRefColumn"].InnerText;
+                }
+                catch
+                {
+                    throw new("Could not locate item 'DatabaseRefColumn' in the XML profile.");
+                }
 
-            // The field name of the search reference organisation.
-            try
-            {
-                _orgColumn = _xmlDataSearches["OrgColumn"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate item 'OrgColumn' in the XML profile.");
-            }
+                // The column name of the site name in the database table.
+                try
+                {
+                    _databaseSiteColumn = _xmlDataSearches["DatabaseSiteColumn"].InnerText;
+                }
+                catch
+                {
+                    throw new("Could not locate item 'DatabaseSiteColumn' in the XML profile.");
+                }
 
-            // The field name of the search reference radius.
-            try
-            {
-                _radiusColumn = _xmlDataSearches["RadiusColumn"].InnerText;
+                // The column name of the organisation in the database table.
+                try
+                {
+                    _databaseOrgColumn = _xmlDataSearches["DatabaseOrgColumn"].InnerText;
+                }
+                catch
+                {
+                    throw new("Could not locate item 'DatabaseOrgColumn' in the XML profile.");
+                }
             }
-            catch
+            else
             {
-                throw new("Could not locate item 'RadiusColumn' in the XML profile.");
+                _databaseTable = null;
+                _databaseRefColumn = null;
+                _databaseSiteColumn = null;
+                _databaseOrgColumn = null;
             }
 
             // Is a site name required?
@@ -185,6 +196,19 @@ namespace DataSearches
             catch
             {
                 throw new("Could not locate item 'RequireSiteName' in the XML profile.");
+            }
+
+            // Is the organisation required?
+            try
+            {
+                _requireOrganisation = false;
+                strRawText = _xmlDataSearches["RequireOrganisation"].InnerText;
+                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                    _requireOrganisation = true;
+            }
+            catch
+            {
+                throw new("Could not locate item 'RequireOrganisation' in the XML profile.");
             }
 
             // The character(s) used to replace any special characters in folder names. Space is allowed.
@@ -426,6 +450,36 @@ namespace DataSearches
             catch
             {
                 throw new("Could not locate item 'SearchColumn' in the XML profile.");
+            }
+
+            // The column name in the search area layer used to store the site name.
+            try
+            {
+                _siteColumn = _xmlDataSearches["SiteColumn"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate item 'SiteColumn' in the XML profile.");
+            }
+
+            // The column name in the search area layer used to store the organisation.
+            try
+            {
+                _orgColumn = _xmlDataSearches["OrgColumn"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate item 'OrgColumn' in the XML profile.");
+            }
+
+            // The column name in the search area layer used to store the radius.
+            try
+            {
+                _radiusColumn = _xmlDataSearches["RadiusColumn"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate item 'RadiusColumn' in the XML profile.");
             }
 
             // Are we keeping the search feature as a layer? Yes/No.
@@ -844,29 +898,14 @@ namespace DataSearches
                         try
                         {
                             string strMapOutput = node["OutputType"].InnerText;
-                            string outputType;
-                            switch (strMapOutput.ToLower(System.Globalization.CultureInfo.CurrentCulture))
+                            string outputType = (strMapOutput.ToLower(System.Globalization.CultureInfo.CurrentCulture)) switch
                             {
-                                case "copy":
-                                    outputType = "COPY";
-                                    break;
-
-                                case "clip":
-                                    outputType = "CLIP";
-                                    break;
-
-                                case "overlay":
-                                    outputType = "OVERLAY";
-                                    break;
-
-                                case "intersect":
-                                    outputType = "INTERSECT";
-                                    break;
-
-                                default:
-                                    outputType = "COPY";
-                                    break;
-                            }
+                                "copy" => outputType = "COPY",
+                                "clip" => outputType = "CLIP",
+                                "overlay" => outputType = "OVERLAY",
+                                "intersect" => outputType = "INTERSECT",
+                                _ => "COPY",
+                            };
 
                             layer.OutputType = outputType;
                         }
@@ -1084,39 +1123,39 @@ namespace DataSearches
 
         #region Variables
 
-        private string _database;
+        private string _databasePath;
 
-        public string Database
+        public string DatabasePath
         {
-            get { return _database; }
+            get { return _databasePath; }
         }
 
-        private string _refColumn;
+        private string _databaseTable;
 
-        public string RefColumn
+        public string DatabaseTable
         {
-            get { return _refColumn; }
+            get { return _databaseTable; }
         }
 
-        private string _siteColumn;
+        private string _databaseRefColumn;
 
-        public string SiteColumn
+        public string DatabaseRefColumn
         {
-            get { return _siteColumn; }
+            get { return _databaseRefColumn; }
         }
 
-        private string _orgColumn;
+        private string _databaseSiteColumn;
 
-        public string OrgColumn
+        public string DatabaseSiteColumn
         {
-            get { return _orgColumn; }
+            get { return _databaseSiteColumn; }
         }
 
-        private string _radiusColumn;
+        private string _databaseOrgColumn;
 
-        public string RadiusColumn
+        public string DatabaseOrgColumn
         {
-            get { return _radiusColumn; }
+            get { return _databaseOrgColumn; }
         }
 
         private bool _requireSiteName;
@@ -1124,6 +1163,13 @@ namespace DataSearches
         public bool RequireSiteName
         {
             get { return _requireSiteName; }
+        }
+
+        private bool _requireOrganisation;
+
+        public bool RequireOrganisation
+        {
+            get { return _requireOrganisation; }
         }
 
         private string _repChar;
@@ -1264,6 +1310,27 @@ namespace DataSearches
         public string SearchColumn
         {
             get { return _searchColumn; }
+        }
+
+        private string _siteColumn;
+
+        public string SiteColumn
+        {
+            get { return _siteColumn; }
+        }
+
+        private string _orgColumn;
+
+        public string OrgColumn
+        {
+            get { return _orgColumn; }
+        }
+
+        private string _radiusColumn;
+
+        public string RadiusColumn
+        {
+            get { return _radiusColumn; }
         }
 
         private bool _keepSearchFeature;

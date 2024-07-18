@@ -16,7 +16,9 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition MinHeight="200" Height="*" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -57,7 +59,7 @@
                          ToolTip="Enter a search reference" />
             </Grid>
 
-            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,8" HorizontalAlignment="Stretch">
+            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=SiteNameTextVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="Auto" />
@@ -80,14 +82,42 @@
                 <TextBox Name="TextSiteName"
                          Grid.Column="2"
                          Margin="0,0,0,0"
-                         IsEnabled="{Binding Path=SiteNameTextEnabled}"
                          IsReadOnly="False"
                          Text="{Binding SiteNameText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          TextAlignment="Left"
                          ToolTip="{Binding SiteNameTooltip}" />
             </Grid>
 
-            <Grid Name="GridLayers" Grid.Row="2" Margin="0,4,0,8">
+            <Grid Name="GridOrganisation" Grid.Row="2" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OrganisationTextVisibility}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width ="*" />
+                </Grid.ColumnDefinitions>
+
+                <Label Name="AsterixOrganisation"
+                       Content="*"
+                       Grid.Column="0"
+                       Margin="0,0,0,0"
+                       Padding="0"
+                       Foreground="Red"
+                       VerticalAlignment="Top" />
+                <Label Name="LabelOrganisation"
+                       Content="Organisation:"
+                       Grid.Column="1"
+                       Margin="0,0,4,2"
+                       Padding="0"
+                       VerticalAlignment="Center" />
+                <TextBox Name="TextOrganisation"
+                         Grid.Column="2"
+                         Margin="0,0,0,0"
+                         IsReadOnly="False"
+                         Text="{Binding OrganisationText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         TextAlignment="Left"
+                         ToolTip="{Binding OrganisationTooltip}" />
+            </Grid>
+
+            <Grid Name="GridLayers" Grid.Row="3" Margin="0,4,0,8">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="300" />
@@ -163,7 +193,7 @@
                 </ListView>
             </Grid>
 
-            <Grid Name="GridBuffer" Grid.Row="3" Margin="0,4,0,8" HorizontalAlignment="Stretch">
+            <Grid Name="GridBuffer" Grid.Row="4" Margin="0,4,0,8" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="Auto" />
@@ -221,7 +251,7 @@
                         SelectedIndex="{Binding Path=SelectedBufferUnitsIndex}" />
             </Grid>
 
-            <Grid Name="GridAddToMap" Grid.Row="4" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
+            <Grid Name="GridAddToMap" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="Auto" />
@@ -254,7 +284,7 @@
                         SelectedValue="{Binding Path=SelectedAddToMap}" />
             </Grid>
 
-            <Grid Name="GridOverwriteLabels" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
+            <Grid Name="GridOverwriteLabels" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="Auto" />
@@ -287,7 +317,7 @@
                         SelectedValue="{Binding Path=SelectedOverwriteLabels}" />
             </Grid>
 
-            <Grid Name="GridCombinedSites" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
+            <Grid Name="GridCombinedSites" Grid.Row="7" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="Auto" />
@@ -320,7 +350,7 @@
                         SelectedValue="{Binding Path=SelectedCombinedSites}" />
             </Grid>
 
-            <Grid Name="GridOptions" Grid.Row="7" Margin="0,4,0,4">
+            <Grid Name="GridOptions" Grid.Row="8" Margin="0,4,0,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -372,7 +402,7 @@
             </Grid>
 
             <controls:MessageLabel
-                    Grid.Row="8"
+                    Grid.Row="9"
                     Margin="0,8,0,8"
                     MessageType="{Binding Path=MessageLevel}"
                     Severity="High"
@@ -381,7 +411,7 @@
                     CanClose="False"
                     Visibility="{Binding Path=HasMessage}" />
 
-            <Grid Name="GridButtons" Grid.Row="9" Margin="0,12,0,0">
+            <Grid Name="GridButtons" Grid.Row="10" Margin="0,12,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="24" />
                 </Grid.RowDefinitions>
@@ -430,7 +460,7 @@
                 </Button>
             </Grid>
 
-            <Grid Name="GridProcessing" Grid.Row="10" Margin="0,16,0,0" Height="Auto">
+            <Grid Name="GridProcessing" Grid.Row="11" Margin="0,16,0,0" Height="Auto">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="22" />
                     <ColumnDefinition Width="6" />
@@ -452,6 +482,16 @@
                        Content="{Binding Path=ProcessingLabel}"
                        Visibility="{Binding IsProcessing}" />
             </Grid>
+
+            <StackPanel Grid.Row="12" Orientation="Vertical" Visibility="{Binding IsProcessing}">
+                <TextBlock TextWrapping="Wrap" Margin="5,5,5,0" Text="{Binding ProcessingLabel}" />
+                <Grid>
+                    <ProgressBar x:Name="ProgressBar" Maximum="{Binding Path=MaxProgressValue, Mode=OneWay}" Minimum="1"
+                         HorizontalAlignment="Stretch" Height="20" Margin="5"
+                         Value="{Binding Path=ProgressValue, Mode=OneWay}" />
+                    <TextBlock Text="{Binding ProgressText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
         </Grid>
     </DockPanel>
 </UserControl>

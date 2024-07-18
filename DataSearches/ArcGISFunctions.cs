@@ -37,6 +37,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Policy;
 using System.Threading.Tasks;
+using System.Web;
 using System.Windows.Forms;
 using QueryFilter = ArcGIS.Core.Data.QueryFilter;
 
@@ -158,7 +159,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="url"></param>
         /// <returns></returns>
-        public async Task AddLayerToMap(string url)
+        public async Task<bool> AddLayerToMap(string url)
         {
             try
             {
@@ -179,7 +180,10 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
+                return false;
             }
+
+            return true;
         }
 
         /// <summary>
@@ -187,7 +191,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="url"></param>
         /// <returns></returns>
-        public async Task AddTableToMap(string url)
+        public async Task<bool> AddTableToMap(string url)
         {
             try
             {
@@ -208,25 +212,38 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
+                return false;
             }
+
+            return true;
         }
 
-        public async Task ZoomToLayerAsync(string layerName, double ratio = 1)
+        public async Task<bool> ZoomToLayerAsync(string layerName, double ratio = 1)
         {
             // Check if the layer is already loaded.
             Layer findLayer = FindLayer(layerName);
 
             // If the layer is not loaded, add it.
             if (findLayer == null)
-                return;
+                return false;
 
-            // Zoom to the layer extent.
-            await _activeMapView.ZoomToAsync(findLayer, false);
+            try
+            {
+                // Zoom to the layer extent.
+                await _activeMapView.ZoomToAsync(findLayer, false);
 
-            // Get the camera for the active view, adjust the scale and zoom to the new camera position.
-            var camera = _activeMapView.Camera;
-            camera.Scale *= ratio;
-            await _activeMapView.ZoomToAsync(camera);
+                // Get the camera for the active view, adjust the scale and zoom to the new camera position.
+                var camera = _activeMapView.Camera;
+                camera.Scale *= ratio;
+                await _activeMapView.ZoomToAsync(camera);
+            }
+            catch
+            {
+                // Handle exception.
+                return false;
+            }
+
+            return true;
         }
 
         #endregion Map
@@ -267,10 +284,10 @@ namespace DataSearches
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns></returns>
-        public async Task RemoveLayerAsync(string layerName)
+        public async Task<bool> RemoveLayerAsync(string layerName)
         {
             if (String.IsNullOrEmpty(layerName))
-                return;
+                return false;
 
             try
             {
@@ -279,12 +296,15 @@ namespace DataSearches
 
                 // Remove the layer.
                 if (layer != null)
-                    await RemoveLayerAsync(layer);
+                    return await RemoveLayerAsync(layer);
             }
             catch
             {
-                return;
+                // Handle exception.
+                return false;
             }
+
+            return true;
         }
 
         /// <summary>
@@ -292,7 +312,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="layer"></param>
         /// <returns></returns>
-        public async Task RemoveLayerAsync(Layer layer)
+        public async Task<bool> RemoveLayerAsync(Layer layer)
         {
             try
             {
@@ -306,7 +326,10 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
+                return false;
             }
+
+            return true;
         }
 
         public async Task<int> AddIncrementalNumbersAsync(string outputFeatureClass, string outputLayerName, string labelFieldName, string keyFieldName, int startNumber = 1)
@@ -383,7 +406,7 @@ namespace DataSearches
                             labelVal = labelMax;
                         }
 
-                        editOperation.Modify(record, labelFieldName, labelVal);
+                        //editOperation.Modify(record, labelFieldName, labelVal); //TODO: Temporarily commented out.
 
                         lastKeyValue = keyValue;
                     }
@@ -400,7 +423,7 @@ namespace DataSearches
             {
                 if (!await editOperation.ExecuteAsync())
                 {
-                    MessageBox.Show(editOperation.ErrorMessage);
+                    //MessageBox.Show(editOperation.ErrorMessage);
                     return -1;
                 }
             }
@@ -500,7 +523,7 @@ namespace DataSearches
             if (Project.Current.HasEdits)
             {
                 // Save edits.
-                await Project.Current.SaveEditsAsync();
+                return await Project.Current.SaveEditsAsync();
             }
 
             return true;
@@ -801,20 +824,36 @@ namespace DataSearches
         /// <returns></returns>
         public string GetLayerPath(Layer layer)
         {
+            if (layer == null)
+                return null;
+
             string layerPath = "";
 
-            // Get the parent for the layer.
-            ILayerContainer layerParent = layer.Parent;
-
-            // Loop while the parent is a group layer.
-            while (layerParent is GroupLayer)
+            try
             {
-                Layer grouplayer = (Layer)layerParent;
-                layerPath = grouplayer.Name + "/" + layerPath;
+                // Get the parent for the layer.
+                ILayerContainer layerParent = layer.Parent;
 
-                layerParent = grouplayer.Parent;
+                // Loop while the parent is a group layer.
+                while (layerParent is GroupLayer)
+                {
+                    // Get the parent layer.
+                    Layer grouplayer = (Layer)layerParent;
+
+                    // Append the parent name to the full layer path.
+                    layerPath = grouplayer.Name + "/" + layerPath;
+
+                    // Get the parent for the layer.
+                    layerParent = grouplayer.Parent;
+                }
+            }
+            catch
+            {
+                // Handle Exception.
+                return null;
             }
 
+            // Append the layer name to it's full path.
             return layerPath + layer.Name;
         }
 
@@ -841,6 +880,7 @@ namespace DataSearches
             }
             catch
             {
+                // Handle Exception.
                 return null;
             }
         }
@@ -857,37 +897,24 @@ namespace DataSearches
                 BasicFeatureLayer basicFeatureLayer = featureLayer as BasicFeatureLayer;
                 esriGeometryType shapeType = basicFeatureLayer.ShapeType;
 
-                string classType;
-                switch (shapeType)
+                return shapeType switch
                 {
-                    case esriGeometryType.esriGeometryPoint:
-                    case esriGeometryType.esriGeometryMultipoint:
-                        classType = "point";
-                        break;
-
-                    case esriGeometryType.esriGeometryPolygon:
-                    case esriGeometryType.esriGeometryRing:
-                        classType = "polygon";
-                        break;
-
-                    case esriGeometryType.esriGeometryLine:
-                    case esriGeometryType.esriGeometryPolyline:
-                    case esriGeometryType.esriGeometryCircularArc:
-                    case esriGeometryType.esriGeometryEllipticArc:
-                    case esriGeometryType.esriGeometryBezier3Curve:
-                    case esriGeometryType.esriGeometryPath:
-                        classType = "line";
-                        break;
-
-                    default:
-                        classType = "other";
-                        break;
-                }
-
-                return classType;
+                    esriGeometryType.esriGeometryPoint => "point",
+                    esriGeometryType.esriGeometryMultipoint => "point",
+                    esriGeometryType.esriGeometryPolygon => "polygon",
+                    esriGeometryType.esriGeometryRing => "polygon",
+                    esriGeometryType.esriGeometryLine => "line",
+                    esriGeometryType.esriGeometryPolyline => "line",
+                    esriGeometryType.esriGeometryCircularArc => "line",
+                    esriGeometryType.esriGeometryEllipticArc => "line",
+                    esriGeometryType.esriGeometryBezier3Curve => "line",
+                    esriGeometryType.esriGeometryPath => "line",
+                    _ => "other",
+                };
             }
             catch (Exception)
             {
+                // Handle the exception.
                 return null;
             }
         }
@@ -914,6 +941,7 @@ namespace DataSearches
             }
             catch
             {
+                // Handle Exception.
                 return null;
             }
         }
@@ -927,23 +955,31 @@ namespace DataSearches
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns></returns>
-        internal GroupLayer FindGroupLayer(string groupLayerName)
+        internal GroupLayer FindGroupLayer(string layerName)
         {
             // Check there is an input groupLayer name.
-            if (String.IsNullOrEmpty(groupLayerName))
+            if (String.IsNullOrEmpty(layerName))
                 return null;
 
-            // Finds group layers by name and returns a read only list of group layers.
-            IEnumerable<GroupLayer> groupLayers = _activeMap.FindLayers(groupLayerName).OfType<GroupLayer>();
-
-            while (groupLayers.Any())
+            try
             {
-                // Get the first group layer found by name.
-                GroupLayer groupLayer = groupLayers.First();
+                // Finds group layers by name and returns a read only list of group layers.
+                IEnumerable<GroupLayer> groupLayers = _activeMap.FindLayers(layerName).OfType<GroupLayer>();
 
-                // Check the group layer is in the active map.
-                if (groupLayer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
-                    return groupLayer;
+                while (groupLayers.Any())
+                {
+                    // Get the first group layer found by name.
+                    GroupLayer groupLayer = groupLayers.First();
+
+                    // Check the group layer is in the active map.
+                    if (groupLayer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                        return groupLayer;
+                }
+            }
+            catch
+            {
+                // Handle exception.
+                return null;
             }
 
             return null;
@@ -959,7 +995,7 @@ namespace DataSearches
         /// <returns></returns>
         public async Task<bool> MoveToGroupLayerAsync(Layer layer, string groupLayerName, int position)
         {
-            // Check there is an input groupLayer name.
+            // Check there is an input groupLayerName name.
             if (String.IsNullOrEmpty(groupLayerName))
                 return false;
 
@@ -1059,17 +1095,25 @@ namespace DataSearches
             if (String.IsNullOrEmpty(tableName))
                 return null;
 
-            // Finds tables by name and returns a read only list of standalone tables.
-            IEnumerable<StandaloneTable> tables = _activeMap.FindStandaloneTables(tableName).OfType<StandaloneTable>();
-
-            while (tables.Any())
+            try
             {
-                // Get the first table found by name.
-                StandaloneTable table = tables.First();
+                // Finds tables by name and returns a read only list of standalone tables.
+                IEnumerable<StandaloneTable> tables = _activeMap.FindStandaloneTables(tableName).OfType<StandaloneTable>();
 
-                // Check the table is in the active map.
-                if (table.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
-                    return table;
+                while (tables.Any())
+                {
+                    // Get the first table found by name.
+                    StandaloneTable table = tables.First();
+
+                    // Check the table is in the active map.
+                    if (table.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                        return table;
+                }
+            }
+            catch
+            {
+                // Handle exception.
+                return null;
             }
 
             return null;
@@ -1092,6 +1136,7 @@ namespace DataSearches
             }
             catch
             {
+                // Handle exception.
                 return false;
             }
         }
@@ -1101,7 +1146,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="table"></param>
         /// <returns></returns>
-        public async Task RemoveTableAsync(StandaloneTable table)
+        public async Task<bool> RemoveTableAsync(StandaloneTable table)
         {
             try
             {
@@ -1115,7 +1160,10 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
+                return false;
             }
+
+            return true;
         }
 
         #endregion Tables
@@ -1222,17 +1270,17 @@ namespace DataSearches
             return true;
         }
 
-        public async Task SwitchLabelsAsync(string layerName, bool displayLabels)
+        public async Task<bool> SwitchLabelsAsync(string layerName, bool displayLabels)
         {
             // Check there is an input layer.
             if (String.IsNullOrEmpty(layerName))
-                return;
+                return false;
 
             // Get the input feature layer.
             FeatureLayer featurelayer = FindLayer(layerName);
 
             if (featurelayer == null)
-                return;
+                return false;
 
             try
             {
@@ -1245,8 +1293,10 @@ namespace DataSearches
             catch
             {
                 // Handle Exception.
-                return;
+                return false;
             }
+
+            return true;
         }
 
         #endregion Symbology
@@ -1635,17 +1685,15 @@ namespace DataSearches
             }
             else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
             {
-                // It's an SDE class
+                // It's an SDE class.
                 // Not handled. We know the layer exists.
                 return true;
             }
-            else // it is a geodatabase class.
+            else // It is a geodatabase class.
             {
                 try
                 {
-                    bool exists = await FeatureClassExistsGDBAsync(filePath, fileName);
-
-                    return exists;
+                    return await FeatureClassExistsGDBAsync(filePath, fileName);
                 }
                 catch
                 {
@@ -1670,8 +1718,10 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        public static async Task DeleteGeodatabaseFCAsync(string filePath, string fileName)
+        public static async Task<bool> DeleteGeodatabaseFCAsync(string filePath, string fileName)
         {
+            bool success = false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -1692,28 +1742,32 @@ namespace DataSearches
                     schemaBuilder.Delete(featureClassDescription);
 
                     // Execute the DDL
-                    bool success = schemaBuilder.Build();
+                    success = schemaBuilder.Build();
                 });
             }
             catch (GeodatabaseNotFoundOrOpenedException)
             {
                 // Handle Exception.
-                return;
+                return false;
             }
             catch (GeodatabaseTableException)
             {
                 // Handle Exception.
-                return;
+                return false;
             }
+
+            return success;
         }
 
         /// <summary>
         /// Delete a feature class from a geodatabase.
         /// </summary>
         /// <param name="geodatabase"></param>
-        /// <param name="fileName"></param>
-        public static async Task DeleteFeatureClassAsync(Geodatabase geodatabase, string fileName)
+        /// <param name="featureClassName"></param>
+        public static async Task<bool> DeleteGeodatabaseFCAsync(Geodatabase geodatabase, string featureClassName)
         {
+            bool success = false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -1722,7 +1776,7 @@ namespace DataSearches
                     SchemaBuilder schemaBuilder = new(geodatabase);
 
                     // Create a FeatureClassDescription object.
-                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
+                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(featureClassName);
 
                     // Create a FeatureClassDescription object
                     FeatureClassDescription featureClassDescription = new(featureClassDefinition);
@@ -1731,10 +1785,16 @@ namespace DataSearches
                     schemaBuilder.Delete(featureClassDescription);
 
                     // Execute the DDL
-                    bool success = schemaBuilder.Build();
+                    success = schemaBuilder.Build();
                 });
             }
-            catch { }
+            catch
+            {
+                // Handle exception.
+                return false;
+            }
+
+            return success;
         }
 
         /// <summary>
@@ -2308,11 +2368,24 @@ namespace DataSearches
 
         public static Geodatabase CreateFileGeodatabase(string fullPath)
         {
-            // Create a FileGeodatabaseConnectionPath with the name of the file geodatabase you wish to create
-            FileGeodatabaseConnectionPath fileGeodatabaseConnectionPath = new(new Uri(fullPath));
+            if (string.IsNullOrEmpty(fullPath))
+                return null;
 
-            // Create and use the file geodatabase
-            Geodatabase geodatabase = SchemaBuilder.CreateGeodatabase(fileGeodatabaseConnectionPath);
+            Geodatabase geodatabase;
+
+            try
+            {
+                // Create a FileGeodatabaseConnectionPath with the name of the file geodatabase you wish to create
+                FileGeodatabaseConnectionPath fileGeodatabaseConnectionPath = new(new Uri(fullPath));
+
+                // Create and use the file geodatabase
+                geodatabase = SchemaBuilder.CreateGeodatabase(fileGeodatabaseConnectionPath);
+            }
+            catch
+            {
+                // Handle Exception.
+                return null;
+            }
 
             return geodatabase;
         }
@@ -2463,11 +2536,11 @@ namespace DataSearches
             }
             else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
             {
-                // It's an SDE class
+                // It's an SDE class.
                 // Not handled. We know the layer exists.
                 return true;
             }
-            else // it is a geodatabase class.
+            else // It is a geodatabase class.
             {
                 //IWorkspaceFactory pWSF = GetWorkspaceFactory(filePath);
                 //IWorkspace2 pWS = (IWorkspace2)pWSF.OpenFromFile(filePath, 0);
@@ -2494,8 +2567,16 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        public static async Task DeleteGeodatabaseTableAsync(string filePath, string fileName)
+        public static async Task<bool> DeleteGeodatabaseTableAsync(string filePath, string fileName)
         {
+            if (string.IsNullOrEmpty(filePath))
+                return false;
+
+            if (string.IsNullOrEmpty(fileName))
+                return false;
+
+            bool success = false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -2507,7 +2588,7 @@ namespace DataSearches
                     SchemaBuilder schemaBuilder = new(geodatabase);
 
                     // Create a FeatureClassDescription object.
-                    using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(tableName);
+                    using TableDefinition tableDefinition = geodatabase.GetDefinition<TableDefinition>(fileName);
 
                     // Create a FeatureClassDescription object
                     TableDescription tableDescription = new(tableDefinition);
@@ -2516,10 +2597,15 @@ namespace DataSearches
                     schemaBuilder.Delete(tableDescription);
 
                     // Execute the DDL
-                    bool success = schemaBuilder.Build();
+                    success = schemaBuilder.Build();
                 });
             }
-            catch { }
+            catch
+            {
+                return false;
+            }
+
+            return success;
         }
 
         /// <summary>
@@ -2527,8 +2613,16 @@ namespace DataSearches
         /// </summary>
         /// <param name="geodatabase"></param>
         /// <param name="tableName"></param>
-        public static async Task DeleteGeodatabaseTableAsync(Geodatabase geodatabase, string tableName)
+        public static async Task<bool> DeleteGeodatabaseTableAsync(Geodatabase geodatabase, string tableName)
         {
+            if (geodatabase == null)
+                return false;
+
+            if (string.IsNullOrEmpty(tableName))
+                return false;
+
+            bool success = false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -2546,10 +2640,15 @@ namespace DataSearches
                     schemaBuilder.Delete(tableDescription);
 
                     // Execute the DDL
-                    bool success = schemaBuilder.Build();
+                    success = schemaBuilder.Build();
                 });
             }
-            catch { }
+            catch
+            {
+                return false;
+            }
+
+            return success;
         }
 
         #endregion Table
@@ -2564,35 +2663,15 @@ namespace DataSearches
         /// <returns></returns>
         public static string GetOutputFileName(string fileType, string initialDirectory = @"C:\")
         {
-            BrowseProjectFilter bf;
-
-            //string saveItemDlg;
-            switch (fileType)
+            BrowseProjectFilter bf = fileType switch
             {
-                case "Geodatabase FC":
-                    bf = BrowseProjectFilter.GetFilter("esri_browseDialogFilters_geodatabaseItems_featureClasses");
-                    break;
-
-                case "Geodatabase Table":
-                    bf = BrowseProjectFilter.GetFilter("esri_browseDialogFilters_geodatabaseItems_tables");
-                    break;
-
-                case "Shapefile":
-                    bf = BrowseProjectFilter.GetFilter("esri_browseDialogFilters_shapefiles");
-                    break;
-
-                case "CSV file (comma delimited)":
-                    bf = BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_csv");
-                    break;
-
-                case "Text file (tab delimited)":
-                    bf = BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_txt");
-                    break;
-
-                default:
-                    bf = BrowseProjectFilter.GetFilter("esri_browseDialogFilters_all");
-                    break;
-            }
+                "Geodatabase FC" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_geodatabaseItems_featureClasses"),
+                "Geodatabase Table" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_geodatabaseItems_tables"),
+                "Shapefile"=> BrowseProjectFilter.GetFilter("esri_browseDialogFilters_shapefiles"),
+                "CSV file (comma delimited)"=> BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_csv"),
+                "Text file (tab delimited)" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_txt"),
+                _ => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_all"),
+            };
 
             // Display the saveItemDlg in an Open Item dialog.
             SaveItemDialog saveItemDlg = new()
