@@ -31,7 +31,7 @@
 
             <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,8" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -61,7 +61,7 @@
 
             <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=SiteNameTextVisibility}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
@@ -90,7 +90,7 @@
 
             <Grid Name="GridOrganisation" Grid.Row="2" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OrganisationTextVisibility}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
@@ -123,7 +123,7 @@
                     <RowDefinition Height="300" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -149,6 +149,7 @@
                           ItemsSource="{Binding OpenLayersList}"
                           ScrollViewer.VerticalScrollBarVisibility="Auto"
                           SelectionChanged="ListViewLayers_SelectionChanged"
+                          SelectedIndex="{Binding OpenLayersList_SelectedIndex}"
                           SelectionMode="Extended">
                     <ListView.View>
                         <GridView AllowsColumnReorder="False">
@@ -195,11 +196,11 @@
 
             <Grid Name="GridBuffer" Grid.Row="4" Margin="0,4,0,8" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="60" />
                     <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -253,7 +254,7 @@
 
             <Grid Name="GridAddToMap" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
@@ -286,7 +287,7 @@
 
             <Grid Name="GridOverwriteLabels" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -319,7 +320,7 @@
 
             <Grid Name="GridCombinedSites" Grid.Row="7" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -357,7 +358,7 @@
                 </Grid.RowDefinitions>
 
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -403,7 +404,7 @@
 
             <controls:MessageLabel
                     Grid.Row="9"
-                    Margin="0,8,0,8"
+                    Margin="0,8,0,0"
                     MessageType="{Binding Path=MessageLevel}"
                     Severity="High"
                     ShowHelp="False"
@@ -460,38 +461,65 @@
                 </Button>
             </Grid>
 
-            <Grid Name="GridProcessing" Grid.Row="11" Margin="0,16,0,0" Height="Auto">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="22" />
-                    <ColumnDefinition Width="6" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <Grid Name="GridProgress" Grid.Row="12" Margin="0,15,0,0" Height="Auto">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="22" />
+                    <RowDefinition Height="24" />
+                </Grid.RowDefinitions>
 
-                <controls:CircularAnimationControl
-                    Grid.Column="0"
-                    Foreground="{DynamicResource Esri_BorderSelectedBrush }"
-                    SpeedRatio="0.5"
-                    Width="22"
-                    Height="22"
-                    Visibility="{Binding IsProcessing}" />
-                <Label Name="LabelProcessing"
-                       Grid.Column="2"
-                       VerticalAlignment="Center"
-                       Padding="0"
-                       BorderThickness="0"
-                       Content="{Binding Path=ProcessingLabel}"
-                       Visibility="{Binding IsProcessing}" />
-            </Grid>
-
-            <StackPanel Grid.Row="12" Orientation="Vertical" Visibility="{Binding IsProcessing}">
-                <TextBlock TextWrapping="Wrap" Margin="5,5,5,0" Text="{Binding ProcessingLabel}" />
-                <Grid>
-                    <ProgressBar x:Name="ProgressBar" Maximum="{Binding Path=MaxProgressValue, Mode=OneWay}" Minimum="1"
-                         HorizontalAlignment="Stretch" Height="20" Margin="5"
-                         Value="{Binding Path=ProgressValue, Mode=OneWay}" />
-                    <TextBlock Text="{Binding ProgressText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Grid Name="GridProcessStatus" Grid.Row="0" Visibility="{Binding IsProcessing}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="22" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <controls:CircularAnimationControl
+                        Grid.Column="0"
+                        Foreground="{DynamicResource Esri_BorderSelectedBrush }"
+                        SpeedRatio="0.5"
+                        Width="22"
+                        Height="22"
+                        Visibility="{Binding IsProcessing}" />
+                    <TextBlock Name="TextBlockProcess"
+                               Grid.Column="1"
+                               Margin="5,0,0,0"
+                               VerticalAlignment="Center"
+                               Text="{Binding ProcessStatus}" />
                 </Grid>
-            </StackPanel>
+
+                <Grid Name="GridProgressAnimation" Grid.Row="1" Margin="0,5,0,0" Visibility="{Binding ProgressAnimating}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="48" />
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar x:Name="ProgressBar"
+                                 Grid.Column="0"
+                                 Height="22"
+                                 Margin="0,0,6,0"
+                                 HorizontalAlignment="Stretch"
+                                 Minimum="0"
+                                 Maximum="{Binding Path=MaxProgressValue, Mode=OneWay}"
+                                 Value="{Binding Path=ProgressValue, Mode=OneWay}" />
+                    <TextBlock Text="{Binding ProgressText}"
+                               Grid.Column="0"
+                               Margin="0,0,6,0"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                    <Button Name="ButtonCancel"
+                            Grid.Column="1"
+                            Margin="0,0,0,0"
+                            Padding="0"
+                            MinWidth="0"
+                            MinHeight="0"
+                            Command="{Binding Path=CancelCommand}"
+                            IsCancel="False"
+                            IsDefault="False"
+                            IsEnabled="{Binding Path=CancelButtonEnabled}"
+                            TabIndex="1"
+                            Style="{DynamicResource Esri_SimpleButton}"
+                            Content="Cancel"
+                            ToolTip="Cancel the process" />
+                </Grid>
+            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>

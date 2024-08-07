@@ -1,23 +1,23 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.Windows;
@@ -29,7 +29,7 @@ using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 // Does it show a dropdown list to choose a configuration file, or does it
 // load a default profile straight away?
 
-namespace DataSearches
+namespace DataTools
 {
     /// <summary>
     /// This class reads the tool XML file and stores the results.
@@ -43,7 +43,7 @@ namespace DataSearches
         private bool blChooseConfig;
 
         // Initialise components to read XML
-        private XmlElement xmlToolNode;
+        private readonly XmlElement xmlToolNode;
 
         #endregion Fields
 
@@ -122,7 +122,7 @@ namespace DataSearches
         /// <returns></returns>
         private bool XMLFileFound(string xmlFolder, string toolName, bool promptFilePath)
         {
-            string xmlFile = xmlFolder + string.Format(@"\{0}.xml", _toolName);
+            string xmlFile = xmlFolder + String.Format(@"\{0}.xml", _toolName);
 
             try
             {
@@ -132,24 +132,24 @@ namespace DataSearches
                     // Prompt the user for the correct file path.
                     string xmlFilePath = GetConfigFilePath();
 
-                    if (string.IsNullOrEmpty(xmlFilePath))
+                    if (String.IsNullOrEmpty(xmlFilePath))
                     {
                         _selectCancelled = true;
                         return false;
                     }
 
                     xmlFolder = xmlFilePath;
-                    xmlFile = xmlFolder + string.Format(@"\{0}.xml", _toolName);
+                    xmlFile = xmlFolder + String.Format(@"\{0}.xml", _toolName);
                 }
                 // If the tool XML file path is blank or doesn't exist.
-                else if (string.IsNullOrEmpty(xmlFile) || !FileFunctions.FileExists(xmlFile))
+                else if (String.IsNullOrEmpty(xmlFile) || !FileFunctions.FileExists(xmlFile))
                 {
                     _xmlLoaded = false;
                     return false;
                 }
 
                 // Check the tool XML file path exists.
-                if (string.IsNullOrEmpty(xmlFile) || !FileFunctions.FileExists(xmlFile))
+                if (String.IsNullOrEmpty(xmlFile) || (!FileFunctions.FileExists(xmlFile)))
                     return false;
             }
             catch (Exception ex)
@@ -176,7 +176,7 @@ namespace DataSearches
             {
                 blChooseConfig = false;
                 strRawText = xmlToolNode["ChooseXML"].InnerText;
-                if (strRawText.ToLower() is "yes" or "y")
+                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                 {
                     blChooseConfig = true;
                 }

@@ -1,30 +1,29 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
 
-namespace DataSearches
+namespace DataTools
 {
     /// Original code from:
     /// http://www.codeproject.com/Articles/11556/Converting-Wildcards-to-Regexes<summary>
@@ -126,7 +125,7 @@ namespace DataSearches
         /// <param name="inputString"></param>
         /// <param name="repChar"></param>
         /// <param name="isFileName"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string StripIllegals(string inputString, string repChar, bool isFileName = false)
         {
             // If it is a file name, check if there is a '.' at fourth place before last.
@@ -156,7 +155,7 @@ namespace DataSearches
         /// Check if the supplied replacement character is a valid character.
         /// </summary>
         /// <param name="repChar"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool IsValid(string repChar)
         {
             List<string> theIllegals = [@"\", "%", "$", ":", "*", "/", "?", "<", ">", "|", "~", "£", "."];
@@ -171,7 +170,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="inputString"></param>
         /// <param name="repChar"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string KeepNumbersAndSpaces(string inputString, string repChar)
         {
             string strOutputString = "";
@@ -199,7 +198,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="inputString"></param>
         /// <param name="repChar"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetSubref(string inputString, string repChar)
         {
             // Input should look like xx.xxxx or xxxx where x is an integer.
@@ -215,8 +214,8 @@ namespace DataSearches
         /// <param name="siteName"></param>
         /// <param name="shortRef"></param>
         /// <param name="subRef"></param>
-        /// <returns></returns>
-        public static string ReplaceSearchStrings(string rawName, string reference, string siteName, string shortRef, string subRef, string radius)
+        /// <returns>string</returns>
+        public static string ReplaceSearchStrings(string rawName, string reference, string siteName, string shortRef, string subRef, string radius = "")
         {
             string cleanName = rawName;
             cleanName = cleanName.Replace("%ref%", reference);
@@ -240,7 +239,7 @@ namespace DataSearches
         /// Replace a comma separated string with semi-colon separators.
         /// </summary>
         /// <param name="aGroupColumnString"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetGroupColumnsFormatted(string aGroupColumnString)
         {
             List<string> strColumns = [.. aGroupColumnString.Split(',')];
@@ -259,7 +258,7 @@ namespace DataSearches
         /// Replace a dollar separated string with semi-colon separators.
         /// </summary>
         /// <param name="aStatsColumnString"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetStatsColumnsFormatted(string aStatsColumnString)
         {
             List<string> strEntries = [.. aStatsColumnString.Split('$')];
@@ -284,7 +283,7 @@ namespace DataSearches
         /// <param name="AllColumns"></param>
         /// <param name="StatsColumns"></param>
         /// <param name="GroupColumns"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string AlignStatsColumns(string AllColumns, string StatsColumns, string GroupColumns)
         {
             if (String.IsNullOrEmpty(GroupColumns) || String.IsNullOrEmpty(AllColumns))
@@ -323,7 +322,7 @@ namespace DataSearches
         /// group names (in front of any hyphen in the layer names).
         /// </summary>
         /// <param name="LayerList"></param>
-        /// <returns></returns>
+        /// <returns>List<string></returns>
         public static List<string> ExtractGroups(List<string> LayerList)
         {
             List<string> liGroups = [];
@@ -347,7 +346,7 @@ namespace DataSearches
         /// the layer name.
         /// </summary>
         /// <param name="LayerName"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetGroupName(string LayerName)
         {
             int intHyphenIndex = LayerName.IndexOf('-');

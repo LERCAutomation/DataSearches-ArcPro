@@ -1,31 +1,29 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Windows.Forms;
 
-namespace DataSearches
+namespace DataTools
 {
     /// <summary>
     /// This class provides basic file and folder functions.
@@ -38,15 +36,18 @@ namespace DataSearches
         /// Check if a directory exists.
         /// </summary>
         /// <param name="filePath"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool DirExists(string filePath)
         {
             // Check input first.
-            if (filePath == null) return false;
+            if (string.IsNullOrEmpty(filePath))
+                return false;
 
             // Check if the directory exists.
             DirectoryInfo myDir = new(filePath);
-            if (!myDir.Exists) return false;
+            if (!myDir.Exists)
+                return false;
+
             return true;
         }
 
@@ -58,11 +59,13 @@ namespace DataSearches
         public static string GetDirectoryName(string fullPath)
         {
             // Check input first.
-            if (string.IsNullOrEmpty(fullPath)) return null;
+            if (string.IsNullOrEmpty(fullPath))
+                return null;
 
             // Get the directory name.
             FileInfo fileInfo = new(fullPath);
             string dirName = fileInfo.DirectoryName;
+
             return dirName;
         }
 
@@ -75,9 +78,17 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool FileExists(string filePath, string fileName)
         {
+            // Check input first.
+            if (string.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check input first.
+            if (string.IsNullOrEmpty(fileName))
+                return false;
+
             // If the directory exists.
             if (DirExists(filePath))
             {
@@ -104,15 +115,18 @@ namespace DataSearches
         /// Check if a file exists from a full path.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool FileExists(string fullPath)
         {
             // Check input first.
-            if (fullPath == null) return false;
+            if (string.IsNullOrEmpty(fullPath))
+                return false;
 
             // Check if the file exists.
             FileInfo fileInfo = new(fullPath);
-            if (fileInfo.Exists) return true;
+            if (fileInfo.Exists)
+                return true;
+
             return false;
         }
 
@@ -120,15 +134,17 @@ namespace DataSearches
         /// Get the name of a file from a full path.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetFileName(string fullPath)
         {
             // Check input first.
-            if (fullPath == null) return null;
+            if (string.IsNullOrEmpty(fullPath))
+                return null;
 
             // Get the file name.
             FileInfo fileInfo = new(fullPath);
             string fileName = fileInfo.Name;
+
             return fileName;
         }
 
@@ -136,15 +152,17 @@ namespace DataSearches
         /// Get a file extension from a full path.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetExtension(string fullPath)
         {
             // Check input first.
-            if (fullPath == null) return null;
+            if (string.IsNullOrEmpty(fullPath))
+                return null;
 
             // Get the file extension.
             FileInfo fileInfo = new(fullPath);
             string aExt = fileInfo.Extension;
+
             return aExt;
         }
 
@@ -152,9 +170,13 @@ namespace DataSearches
         /// Get all files in a directory.
         /// </summary>
         /// <param name="filePath"></param>
-        /// <returns></returns>
+        /// <returns>List<string></returns>
         public static List<string> GetAllFilesInDirectory(string filePath)
         {
+            // Check input first.
+            if (string.IsNullOrEmpty(filePath))
+                return null;
+
             List<string> myFileList = [];
             if (DirExists(filePath))
             {
@@ -164,6 +186,7 @@ namespace DataSearches
                     myFileList.Add(aFile);
                 }
             }
+
             return myFileList;
         }
 
@@ -171,11 +194,12 @@ namespace DataSearches
         /// Get a full file name without the extension.
         /// </summary>
         /// <param name="fullName"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetFullNameWithoutExtension(string fullName)
         {
             // Check input first.
-            if (fullName == null) return null;
+            if (string.IsNullOrEmpty(fullName))
+                return null;
 
             // Get the directory name.
             string filePath = GetDirectoryName(fullName);
@@ -190,11 +214,12 @@ namespace DataSearches
         /// Get a full file name without the extension.
         /// </summary>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetFileNameWithoutExtension(string fileName)
         {
             // Check input first.
-            if (fileName == null) return null;
+            if (string.IsNullOrEmpty(fileName))
+                return null;
 
             // Get the file name without the extension.
             fileName = Path.GetFileNameWithoutExtension(fileName);
@@ -206,9 +231,13 @@ namespace DataSearches
         /// Delete a file.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool DeleteFile(string fullPath)
         {
+            // Check input first.
+            if (string.IsNullOrEmpty(fullPath))
+                return false;
+
             if (FileExists(fullPath))
             {
                 try
@@ -225,15 +254,26 @@ namespace DataSearches
                 return true;
         }
 
-        public static bool WriteEmptyTextFile(string OutTable, string outHeader)
+        /// <summary>
+        /// Write a new text file with optional headers.
+        /// </summary>
+        /// <param name="outTable"></param>
+        /// <param name="outHeader"></param>
+        /// <returns>bool</returns>
+        public static bool WriteEmptyTextFile(string outTable, string outHeader)
         {
+            // Check input first.
+            if (string.IsNullOrEmpty(outTable))
+                return false;
+
             try
             {
                 // Open output file.
-                StreamWriter txtFile = new(OutTable, false);
+                StreamWriter txtFile = new(outTable, false);
 
                 // Write the headers to the file.
-                txtFile.WriteLine(outHeader);
+                if (!string.IsNullOrEmpty(outHeader))
+                    txtFile.WriteLine(outHeader);
 
                 // Close the file.
                 txtFile.Close();
@@ -256,12 +296,16 @@ namespace DataSearches
         /// Create a log file.
         /// </summary>
         /// <param name="logFile"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool CreateLogFile(string logFile)
         {
+            // Check input first.
+            if (string.IsNullOrEmpty(logFile))
+                return false;
+
             StreamWriter myWriter = new(logFile, false);
 
-            myWriter.WriteLine("Log file for Data Searches, started on " + DateTime.Now.ToString());
+            myWriter.WriteLine("Log file started on " + DateTime.Now.ToString());
             myWriter.Close();
             myWriter.Dispose();
             return true;
@@ -272,9 +316,13 @@ namespace DataSearches
         /// </summary>
         /// <param name="logFile"></param>
         /// <param name="logLine"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool WriteLine(string logFile, string logLine)
         {
+            // Check input first.
+            if (string.IsNullOrEmpty(logFile))
+                return false;
+
             try
             {
                 // Add the date and time to the start of the text.

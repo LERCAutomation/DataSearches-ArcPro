@@ -1,26 +1,27 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Desktop.Framework;
 using DataSearches.Properties;
+using DataTools;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -88,7 +89,7 @@ namespace DataSearches.UI
             ToolConfig toolConfig = new(_xmlFolder, _displayName, false);
 
             // If the tool config file can't be found or hasn't been loaded.
-            if (!toolConfig.XMLFound || !toolConfig.XMLLoaded)
+            if ((!toolConfig.XMLFound) || (!toolConfig.XMLLoaded))
             {
                 // Clear the list and selection.
                 _availableXMLFiles = [];
@@ -223,8 +224,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return !_dockPane.SearchRunning
-                    && !_dockPane.LayersListLoading;
+                return (!_dockPane.SearchRunning)
+                    && (!_dockPane.LayersListLoading);
             }
         }
 
@@ -270,7 +271,7 @@ namespace DataSearches.UI
         {
             get
             {
-                return !string.IsNullOrEmpty(XMLFolder);
+                return (!string.IsNullOrEmpty(XMLFolder));
             }
         }
 
@@ -351,9 +352,9 @@ namespace DataSearches.UI
         {
             get
             {
-                return !string.IsNullOrEmpty(SelectedXMLProfile)
-                    && !_dockPane.SearchRunning
-                    && !_dockPane.LayersListLoading;
+                return ((!string.IsNullOrEmpty(SelectedXMLProfile)
+                    && (!_dockPane.SearchRunning)
+                    && (!_dockPane.LayersListLoading)));
             }
         }
 
@@ -406,7 +407,7 @@ namespace DataSearches.UI
         {
             get
             {
-                var imageSource = Application.Current.Resources["FolderOpenState16"] as ImageSource;
+                var imageSource = System.Windows.Application.Current.Resources["FolderOpenState16"] as ImageSource;
                 return imageSource;
             }
         }
@@ -435,7 +436,7 @@ namespace DataSearches.UI
                 return;
 
             // If the tool config file can't be found or hasn't been loaded.
-            if (!toolConfig.XMLFound || !toolConfig.XMLLoaded)
+            if ((!toolConfig.XMLFound) || (!toolConfig.XMLLoaded))
             {
                 // Clear the list and selection.
                 _availableXMLFiles = [];
@@ -632,7 +633,7 @@ namespace DataSearches.UI
             {
                 string msg = "Invalid property name: " + propertyName;
 
-                if (ThrowOnInvalidPropertyName)
+                if (this.ThrowOnInvalidPropertyName)
                     throw new(msg);
                 else
                     Debug.Fail(msg);
@@ -662,7 +663,7 @@ namespace DataSearches.UI
         /// <param name="propertyName">The property that has a new value.</param>
         internal virtual void OnPropertyChanged(string propertyName)
         {
-            VerifyPropertyName(propertyName);
+            this.VerifyPropertyName(propertyName);
 
             PropertyChangedEventHandler handler = PropertyChanged;
             if (handler != null)

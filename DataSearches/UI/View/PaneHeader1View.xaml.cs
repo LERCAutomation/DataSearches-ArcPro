@@ -19,32 +19,18 @@
 // You should have received a copy of the GNU General Public License
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
-using ArcGIS.Desktop.Framework;
-using ArcGIS.Desktop.Framework.Contracts;
+using System.Windows.Controls;
 
-namespace DataSearches
+namespace DataSearches.UI
 {
-    internal class DataSearches : Module
+    /// <summary>
+    /// Interaction logic for PaneHeader1View.xaml
+    /// </summary>
+    public partial class PaneHeader1View : UserControl
     {
-        private static DataSearches _this = null;
-
-        /// <summary>
-        /// Retrieve the singleton instance to this module here
-        /// </summary>
-        public static DataSearches Current => _this ??= (DataSearches)FrameworkApplication.FindModule("DataSearches_Module");
-
-        #region Overrides
-
-        /// <summary>
-        /// Called by Framework when ArcGIS Pro is closing
-        /// </summary>
-        /// <returns>False to prevent Pro from closing, otherwise True</returns>
-        protected override bool CanUnload()
+        public PaneHeader1View()
         {
-            //return false to ~cancel~ Application close
-            return true;
+            InitializeComponent();
         }
-
-        #endregion Overrides
     }
 }

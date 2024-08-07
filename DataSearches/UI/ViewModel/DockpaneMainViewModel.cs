@@ -1,23 +1,23 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Desktop.Core.Events;
 using ArcGIS.Desktop.Framework;
@@ -46,7 +46,7 @@ namespace DataSearches.UI
         private PaneHeader2ViewModel _paneH2VM;
 
         private bool _mapEventsSubscribed;
-        private bool _projectEventsSubscribed;
+        private bool _projectClosedEventsSubscribed;
 
         #endregion Fields
 
@@ -135,6 +135,10 @@ namespace DataSearches.UI
 
         protected override void OnShow(bool isVisible)
         {
+            // Hide the dockpane if there is no active map.
+            //if (MapView.Active == null)
+            //    DockpaneVisibility = Visibility.Hidden;
+
             // Is the dockpane visible (or is the window not showing the map).
             if (isVisible)
             {
@@ -142,13 +146,15 @@ namespace DataSearches.UI
                 {
                     _mapEventsSubscribed = true;
 
-                    // Connect to map events.
+                    // Subscribe from map changed events.
                     ActiveMapViewChangedEvent.Subscribe(OnActiveMapViewChanged);
                 }
-                if (!_projectEventsSubscribed)
-                {
-                    _projectEventsSubscribed = true;
 
+                if (!_projectClosedEventsSubscribed)
+                {
+                    _projectClosedEventsSubscribed = true;
+
+                    // Suscribe to project closed events.
                     ProjectClosedEvent.Subscribe(OnProjectClosed);
                 }
             }
@@ -158,10 +164,11 @@ namespace DataSearches.UI
                 {
                     _mapEventsSubscribed = false;
 
-                    // Unsubscribe from map events.
+                    // Unsubscribe from map changed events.
                     ActiveMapViewChangedEvent.Unsubscribe(OnActiveMapViewChanged);
                 }
             }
+
             base.OnShow(isVisible);
         }
 
@@ -333,7 +340,7 @@ namespace DataSearches.UI
                 _paneH2VM?.ClearLayers();
             }
 
-            _projectEventsSubscribed = false;
+            _projectClosedEventsSubscribed = false;
 
             ProjectClosedEvent.Unsubscribe(OnProjectClosed);
         }

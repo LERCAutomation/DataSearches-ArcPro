@@ -1,25 +1,26 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using DataSearches.UI;
+using DataTools;
 using System;
 using System.Collections.Generic;
 using System.Windows;
@@ -269,6 +270,20 @@ namespace DataSearches
             catch
             {
                 throw new("Could not locate item 'LogFileName' in the XML profile.");
+            }
+
+            // Whether the map processing should be paused during processing?
+            try
+            {
+                _pauseMap = false;
+                strRawText = _xmlDataSearches["PauseMap"].InnerText;
+                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                    _pauseMap = true;
+            }
+            catch
+            {
+                // This is an optional node
+                _pauseMap = false;
             }
 
             // By default, should an existing log file be cleared?
@@ -1212,6 +1227,13 @@ namespace DataSearches
         public string LogFileName
         {
             get { return _logFileName; }
+        }
+
+        private bool _pauseMap;
+
+        public bool PauseMap
+        {
+            get { return _pauseMap; }
         }
 
         private bool _defaultClearLogFile;

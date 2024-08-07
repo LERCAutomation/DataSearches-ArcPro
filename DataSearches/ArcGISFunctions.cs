@@ -1,23 +1,23 @@
-﻿// The Data tools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
 // Copyright © 2024 Andy Foy Consulting.
 //
-// This file is part of DataSearches.
+// This file is part of DataTools suite of programs..
 //
-// DataSearches is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
+// DataTools are free software: you can redistribute it and/or modify
+// them under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// DataSearches is distributed in the hope that it will be useful,
+// DataTools are distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with DataSearches.  If not, see <http://www.gnu.org/licenses/>.
+// along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Core.CIM;
 using ArcGIS.Core.Data;
@@ -29,19 +29,16 @@ using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Editing;
 using ArcGIS.Desktop.Editing.Attributes;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
-using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Policy;
 using System.Threading.Tasks;
-using System.Web;
 using System.Windows.Forms;
 using QueryFilter = ArcGIS.Core.Data.QueryFilter;
 
-namespace DataSearches
+namespace DataTools
 {
     /// <summary>
     /// This class provides ArcGIS Pro map functions.
@@ -108,48 +105,48 @@ namespace DataSearches
             return mapView;
         }
 
+        /// <summary>
+        /// Pause or resume bool in the active map.
+        /// </summary>
+        /// <param name="pause"></param>
         public void PauseDrawing(bool pause)
         {
             _activeMapView.DrawingPaused = pause;
         }
 
         /// <summary>
-        /// Create a new map.
+        /// Create a new map and return the map name.
         /// </summary>
         /// <param name="mapName"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public async Task<string> CreateMapAsync(string mapName)
         {
             _activeMap = null;
             _activeMapView = null;
 
-            await QueuedTask.Run(() =>
+            // If no map name is supplied.
+            if (String.IsNullOrEmpty(mapName))
+                return null;
+
+            try
             {
-                try
+                await QueuedTask.Run(() =>
                 {
                     // Create a new map without a base map.
                     _activeMap = MapFactory.Instance.CreateMap(mapName, basemap: Basemap.None);
 
                     // Create and activate new map.
-                    ArcGIS.Desktop.Framework.FrameworkApplication.Panes.CreateMapPaneAsync(_activeMap, MapViewingMode.Map);
-                    //var paneTask = ProApp.Panes.CreateMapPaneAsync(_activeMap, MapViewingMode.Map);
-                    //paneTask.Wait();
+                    ProApp.Panes.CreateMapPaneAsync(_activeMap, MapViewingMode.Map);
+                });
 
-                    // Get the active map view;
-                    //_activeMapView = GetActiveMapView();
-
-                    //Pane pane = ProApp.Panes.ActivePane;
-                    //pane.Activate();
-                }
-                catch
-                {
-                    // CreateMap throws an exception if the map view wasn't created.
-                    // CreateMapPaneAsync throws an exception if the map isn't created.
-                }
-            });
-
-            // Get the active map view;
-            _activeMapView = GetActiveMapView();
+                // Get the active map view;
+                _activeMapView = GetActiveMapView();
+            }
+            catch
+            {
+                // Handle Exception.
+                return null;
+            }
 
             return _activeMap.Name;
         }
@@ -158,9 +155,13 @@ namespace DataSearches
         /// Add a layer to the active map.
         /// </summary>
         /// <param name="url"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> AddLayerToMap(string url)
         {
+            // If no url is supplied.
+            if (url == null)
+                return false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -190,9 +191,13 @@ namespace DataSearches
         /// Add a standalone layer to the active map.
         /// </summary>
         /// <param name="url"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> AddTableToMap(string url)
         {
+            // If no url is supplied.
+            if (url == null)
+                return false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -218,12 +223,23 @@ namespace DataSearches
             return true;
         }
 
-        public async Task<bool> ZoomToLayerAsync(string layerName, double ratio = 1)
+        /// <summary>
+        /// Zoom to a layer for a given ratio or scale.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="ratio"></param>
+        /// <param name="scale"></param>
+        /// <returns>bool</returns>
+        public async Task<bool> ZoomToLayerAsync(string layerName, double ratio = 1, double scale = 10000)
         {
+            // Check there is an input feature layer name.
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
             // Check if the layer is already loaded.
             Layer findLayer = FindLayer(layerName);
 
-            // If the layer is not loaded, add it.
+            // If the layer is not loaded.
             if (findLayer == null)
                 return false;
 
@@ -232,9 +248,16 @@ namespace DataSearches
                 // Zoom to the layer extent.
                 await _activeMapView.ZoomToAsync(findLayer, false);
 
-                // Get the camera for the active view, adjust the scale and zoom to the new camera position.
+                // Get the camera for the active view.
                 var camera = _activeMapView.Camera;
-                camera.Scale *= ratio;
+
+                // Adjust the camera scale.
+                if (ratio != 1)
+                    camera.Scale *= ratio;
+                else if (scale > 0)
+                    camera.Scale = scale;
+
+                // Zoom to the new camera position.
                 await _activeMapView.ZoomToAsync(camera);
             }
             catch
@@ -254,26 +277,36 @@ namespace DataSearches
         /// Find a feature layer by name in the active map.
         /// </summary>
         /// <param name="layerName"></param>
-        /// <returns></returns>
+        /// <returns>FeatureLayer</returns>
         internal FeatureLayer FindLayer(string layerName)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
-            //IEnumerable<Layer> layers = _activeMap.Layers.Where(layer => layer is FeatureLayer);
-
             // Finds layers by name and returns a read only list of feature layers.
             IEnumerable<FeatureLayer> layers = _activeMap.FindLayers(layerName, true).OfType<FeatureLayer>();
 
-            while (layers.Any())
-            {
-                // Get the first feature layer found by name.
-                FeatureLayer layer = layers.First();
+            // If no layers are loaded.
+            if (layers == null)
+                return null;
 
-                // Check the feature layer is in the active map.
-                if (layer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
-                    return layer;
+            try
+            {
+                while (layers.Any())
+                {
+                    // Get the first feature layer found by name.
+                    FeatureLayer layer = layers.First();
+
+                    // Check the feature layer is in the active map.
+                    if (layer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                        return layer;
+                }
+            }
+            catch
+            {
+                // Handle exception.
+                return null;
             }
 
             return null;
@@ -283,9 +316,10 @@ namespace DataSearches
         /// Remove a layer by name from the active map.
         /// </summary>
         /// <param name="layerName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> RemoveLayerAsync(string layerName)
         {
+            // Check there is an input layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
@@ -311,9 +345,13 @@ namespace DataSearches
         /// Remove a layer from the active map.
         /// </summary>
         /// <param name="layer"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> RemoveLayerAsync(Layer layer)
         {
+            // Check there is an input layer.
+            if (layer == null)
+                return false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -332,9 +370,18 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Add incremental numbers to the label field in a feature class.
+        /// </summary>
+        /// <param name="outputFeatureClass"></param>
+        /// <param name="outputLayerName"></param>
+        /// <param name="labelFieldName"></param>
+        /// <param name="keyFieldName"></param>
+        /// <param name="startNumber"></param>
+        /// <returns>int</returns>
         public async Task<int> AddIncrementalNumbersAsync(string outputFeatureClass, string outputLayerName, string labelFieldName, string keyFieldName, int startNumber = 1)
         {
-            // Check the obvious.
+            // Check the input parameters.
             if (!await ArcGISFunctions.FeatureClassExistsAsync(outputFeatureClass))
                 return -1;
 
@@ -411,6 +458,23 @@ namespace DataSearches
                         lastKeyValue = keyValue;
                     }
                 });
+
+                // Execute the edit operation.
+                if (!editOperation.IsEmpty)
+                {
+                    if (!await editOperation.ExecuteAsync())
+                    {
+                        //MessageBox.Show(editOperation.ErrorMessage);
+                        return -1;
+                    }
+                }
+
+                // Check for unsaved edits.
+                if (Project.Current.HasEdits)
+                {
+                    // Save edits.
+                    await Project.Current.SaveEditsAsync();
+                }
             }
             catch
             {
@@ -418,28 +482,23 @@ namespace DataSearches
                 return 0;
             }
 
-            // Execute the edit operation.
-            if (!editOperation.IsEmpty)
-            {
-                if (!await editOperation.ExecuteAsync())
-                {
-                    //MessageBox.Show(editOperation.ErrorMessage);
-                    return -1;
-                }
-            }
-
-            // Check for unsaved edits.
-            if (Project.Current.HasEdits)
-            {
-                // Save edits.
-                await Project.Current.SaveEditsAsync();
-            }
-
             return labelMax;
         }
 
+        /// <summary>
+        /// Update the selected features in a feature class.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="siteColumn"></param>
+        /// <param name="siteName"></param>
+        /// <param name="orgColumn"></param>
+        /// <param name="orgName"></param>
+        /// <param name="radiusColumn"></param>
+        /// <param name="radiusText"></param>
+        /// <returns>bool</returns>
         public async Task<bool> UpdateFeaturesAsync(string layerName, string siteColumn, string siteName, string orgColumn, string orgName, string radiusColumn, string radiusText)
         {
+            // Check the input parameters.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
@@ -479,51 +538,48 @@ namespace DataSearches
                     if (!string.IsNullOrEmpty(siteColumn))
                     {
                         // Double check that attribute exists.
-                        ArcGIS.Desktop.Editing.Attributes.Attribute att = insp.FirstOrDefault(a => a.FieldName == siteColumn);
-                        if (att != null)
+                        if (insp.FirstOrDefault(a => a.FieldName == siteColumn) != null)
                             insp[siteColumn] = siteName;
                     }
 
                     if (!string.IsNullOrEmpty(orgColumn))
                     {
                         // Double check that attribute exists.
-                        ArcGIS.Desktop.Editing.Attributes.Attribute att = insp.FirstOrDefault(a => a.FieldName == orgColumn);
-                        if (att != null)
+                        if (insp.FirstOrDefault(a => a.FieldName == orgColumn) != null)
                             insp[orgColumn] = orgName;
                     }
 
                     if (!string.IsNullOrEmpty(radiusColumn))
                     {
                         // Double check that attribute exists.
-                        ArcGIS.Desktop.Editing.Attributes.Attribute att = insp.FirstOrDefault(a => a.FieldName == radiusColumn);
-                        if (att != null)
+                        if (insp.FirstOrDefault(a => a.FieldName == radiusColumn) != null)
                             insp[radiusColumn] = radiusText;
                     }
 
                     editOperation.Modify(insp);
                 });
+
+                // Execute the edit operation.
+                if (!editOperation.IsEmpty)
+                {
+                    if (!await editOperation.ExecuteAsync())
+                    {
+                        MessageBox.Show(editOperation.ErrorMessage);
+                        return false;
+                    }
+                }
+
+                // Check for unsaved edits.
+                if (Project.Current.HasEdits)
+                {
+                    // Save edits.
+                    return await Project.Current.SaveEditsAsync();
+                }
             }
             catch
             {
                 // Handle Exception.
                 return false;
-            }
-
-            // Execute the edit operation.
-            if (!editOperation.IsEmpty)
-            {
-                if (!await editOperation.ExecuteAsync())
-                {
-                    MessageBox.Show(editOperation.ErrorMessage);
-                    return false;
-                }
-            }
-
-            // Check for unsaved edits.
-            if (Project.Current.HasEdits)
-            {
-                // Save edits.
-                return await Project.Current.SaveEditsAsync();
             }
 
             return true;
@@ -534,9 +590,11 @@ namespace DataSearches
         /// </summary>
         /// <param name="layerName"></param>
         /// <param name="whereClause"></param>
-        /// <returns></returns>
+        /// <param name="selectionMethod"></param>
+        /// <returns>bool</returns>
         public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause, SelectionCombinationMethod selectionMethod)
         {
+            // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
@@ -570,13 +628,13 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Clear selected features in layerName.
+        /// Clear selected features in a feature layer.
         /// </summary>
         /// <param name="layerName"></param>
-        /// <param name="searchClause"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> ClearLayerSelectionAsync(string layerName)
         {
+            // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
@@ -603,8 +661,14 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Get tge list of fields for a feature class.
+        /// </summary>
+        /// <param name="layerPath"></param>
+        /// <returns>IReadOnlyList<ArcGIS.Core.Data.Field></returns>
         public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetFCFieldsAsync(string layerPath)
         {
+            // Check there is an input feature layer path.
             if (String.IsNullOrEmpty(layerPath))
                 return null;
 
@@ -644,8 +708,14 @@ namespace DataSearches
             }
         }
 
+        /// <summary>
+        /// Get the list of fields for a standalone table.
+        /// </summary>
+        /// <param name="layerPath"></param>
+        /// <returns>IReadOnlyList<ArcGIS.Core.Data.Field></returns>
         public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetTableFieldsAsync(string layerPath)
         {
+            // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerPath))
                 return null;
 
@@ -685,9 +755,19 @@ namespace DataSearches
             }
         }
 
-        public bool FieldExists(IReadOnlyList<ArcGIS.Core.Data.Field> fields, string fieldName)
+        /// <summary>
+        /// Check if a field exists in a list of fields.
+        /// </summary>
+        /// <param name="fields"></param>
+        /// <param name="fieldName"></param>
+        /// <returns>IReadOnlyList<ArcGIS.Core.Data.Field></returns>
+        public static bool FieldExists(IReadOnlyList<ArcGIS.Core.Data.Field> fields, string fieldName)
         {
             bool fldFound = false;
+
+            // Check there is an input field name.
+            if (String.IsNullOrEmpty(fieldName))
+                return false;
 
             foreach (ArcGIS.Core.Data.Field fld in fields)
             {
@@ -701,9 +781,20 @@ namespace DataSearches
             return fldFound;
         }
 
+        /// <summary>
+        /// Check if a field exists in a feature class.
+        /// </summary>
+        /// <param name="layerPath"></param>
+        /// <param name="fieldName"></param>
+        /// <returns>bool</returns>
         public async Task<bool> FieldExistsAsync(string layerPath, string fieldName)
         {
+            // Check there is an input feature layer path.
             if (String.IsNullOrEmpty(layerPath))
+                return false;
+
+            // Check there is an input field name.
+            if (String.IsNullOrEmpty(fieldName))
                 return false;
 
             try
@@ -753,9 +844,20 @@ namespace DataSearches
             }
         }
 
+        /// <summary>
+        /// Check if a field is numeric in a feature class.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="fieldName"></param>
+        /// <returns>bool</returns>
         public async Task<bool> FieldIsNumericAsync(string layerName, string fieldName)
         {
+            // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            // Check there is an input field name.
+            if (String.IsNullOrEmpty(fieldName))
                 return false;
 
             try
@@ -788,19 +890,16 @@ namespace DataSearches
                         {
                             if (fld.Name == fieldName || fld.AliasName == fieldName)
                             {
-                                switch (fld.FieldType)
+                                fldIsNumeric = fld.FieldType switch
                                 {
-                                    case FieldType.SmallInteger:
-                                    case FieldType.BigInteger:
-                                    case FieldType.Integer:
-                                    case FieldType.Single:
-                                    case FieldType.Double:
-                                        fldIsNumeric = true;
-                                        break;
+                                    FieldType.SmallInteger => true,
+                                    FieldType.BigInteger => true,
+                                    FieldType.Integer => true,
+                                    FieldType.Single => true,
+                                    FieldType.Double => true,
+                                    _ => false,
+                                };
 
-                                    default:
-                                        break;
-                                }
                                 break;
                             }
                         }
@@ -821,9 +920,10 @@ namespace DataSearches
         /// to include any parent group names.
         /// </summary>
         /// <param name="layer"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public string GetLayerPath(Layer layer)
         {
+            // Check there is an input layer.
             if (layer == null)
                 return null;
 
@@ -858,13 +958,14 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Get the full layer path name for a layer in the map (i.e.
+        /// Get the full layer path name for a layer name in the map (i.e.
         /// to include any parent group names.
         /// </summary>
         /// <param name="layer"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public string GetLayerPath(string layerName)
         {
+            // Check there is an input layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
@@ -876,6 +977,7 @@ namespace DataSearches
                 if (layer == null)
                     return null;
 
+                // Get the full layer path.
                 return GetLayerPath(layer);
             }
             catch
@@ -886,12 +988,16 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Returns a simplified feature class shape type: point, line, polygon.
+        /// Returns a simplified feature class shape type for a feature layer.
         /// </summary>
         /// <param name="featureLayer"></param>
-        /// <returns></returns>
+        /// <returns>string: point, line, polygon</returns>
         public string GetFeatureClassType(FeatureLayer featureLayer)
         {
+            // Check there is an input feature layer.
+            if (featureLayer == null)
+                return null;
+
             try
             {
                 BasicFeatureLayer basicFeatureLayer = featureLayer as BasicFeatureLayer;
@@ -920,12 +1026,13 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Returns a simplified feature class shape type: point, line, polygon.
+        /// Returns a simplified feature class shape type for a layer name.
         /// </summary>
-        /// <param name="featureLayer"></param>
-        /// <returns></returns>
+        /// <param name="layerName"></param>
+        /// <returns>string: point, line, polygon</returns>
         public string GetFeatureClassType(string layerName)
         {
+            // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
@@ -954,10 +1061,10 @@ namespace DataSearches
         /// Find a group layer by name in the active map.
         /// </summary>
         /// <param name="layerName"></param>
-        /// <returns></returns>
+        /// <returns>GroupLayer</returns>
         internal GroupLayer FindGroupLayer(string layerName)
         {
-            // Check there is an input groupLayer name.
+            // Check there is an input group layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
@@ -987,20 +1094,20 @@ namespace DataSearches
 
         /// <summary>
         /// Move a layer into a group layer (creating the group layer if
-        /// it doesn't already exist.
+        /// it doesn't already exist).
         /// </summary>
-        /// <param name="groupLayerName"></param>
         /// <param name="layer"></param>
+        /// <param name="groupLayerName"></param>
         /// <param name="position"></param>
-        /// <returns></returns>
-        public async Task<bool> MoveToGroupLayerAsync(Layer layer, string groupLayerName, int position)
+        /// <returns>bool</returns>
+        public async Task<bool> MoveToGroupLayerAsync(Layer layer, string groupLayerName, int position = -1)
         {
-            // Check there is an input groupLayerName name.
-            if (String.IsNullOrEmpty(groupLayerName))
-                return false;
-
             // Check if there is an input layer.
             if (layer == null)
+                return false;
+
+            // Check there is an input group layer name.
+            if (String.IsNullOrEmpty(groupLayerName))
                 return false;
 
             // Does the group layer exist?
@@ -1047,24 +1154,24 @@ namespace DataSearches
         /// Remove a group layer if it is empty.
         /// </summary>
         /// <param name="groupLayerName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> RemoveGroupLayerAsync(string groupLayerName)
         {
-            // Check there is an input groupLayer name.
+            // Check there is an input group layer name.
             if (String.IsNullOrEmpty(groupLayerName))
                 return false;
 
-            // Does the group layer exist?
-            GroupLayer groupLayer = FindGroupLayer(groupLayerName);
-            if (groupLayer == null)
-                return false;
-
-            // Count the layers in the group.
-            if (groupLayer.Layers.Count != 0)
-                return true;
-
             try
             {
+                // Does the group layer exist?
+                GroupLayer groupLayer = FindGroupLayer(groupLayerName);
+                if (groupLayer == null)
+                    return false;
+
+                // Count the layers in the group.
+                if (groupLayer.Layers.Count != 0)
+                    return true;
+
                 await QueuedTask.Run(() =>
                 {
                     // Remove the group layer.
@@ -1088,7 +1195,7 @@ namespace DataSearches
         /// Find a table by name in the active map.
         /// </summary>
         /// <param name="tableName"></param>
-        /// <returns></returns>
+        /// <returns>StandaloneTable</returns>
         internal StandaloneTable FindTable(string tableName)
         {
             // Check there is an input table name.
@@ -1119,8 +1226,17 @@ namespace DataSearches
             return null;
         }
 
+        /// <summary>
+        /// Remove a table from the active map.
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <returns>bool</returns>
         public async Task<bool> RemoveTableAsync(string tableName)
         {
+            // Check there is an input table name.
+            if (String.IsNullOrEmpty(tableName))
+                return false;
+
             try
             {
                 // Find the table in the active map.
@@ -1142,12 +1258,16 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Remove a table from the active map.
+        /// Remove a standalone table from the active map.
         /// </summary>
         /// <param name="table"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> RemoveTableAsync(StandaloneTable table)
         {
+            // Check there is an input table name.
+            if (table == null)
+                return false;
+
             try
             {
                 await QueuedTask.Run(() =>
@@ -1175,7 +1295,7 @@ namespace DataSearches
         /// </summary>
         /// <param name="layerName"></param>
         /// <param name="layerFile"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile)
         {
             // Check there is an input layer name.
@@ -1219,8 +1339,22 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Apply a label style to a label column of a layer by name.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="labelColumn"></param>
+        /// <param name="labelFont"></param>
+        /// <param name="labelSize"></param>
+        /// <param name="labelStyle"></param>
+        /// <param name="labelRed"></param>
+        /// <param name="labelGreen"></param>
+        /// <param name="labelBlue"></param>
+        /// <param name="labelOverlap"></param>
+        /// <param name="displayLabels"></param>
+        /// <returns>bool</returns>
         public async Task<bool> LabelLayerAsync(string layerName, string labelColumn, string labelFont = "Arial", double labelSize = 10, string labelStyle = "Normal",
-                            int labelRed = 0, int labelGreen = 0, int labelBlue = 0, string labelOverlap = "OnePerShape", bool displayLabels = true)
+                            int labelRed = 0, int labelGreen = 0, int labelBlue = 0, bool allowOverlap = true, bool displayLabels = true)
         {
             // Check there is an input layer.
             if (String.IsNullOrEmpty(layerName))
@@ -1254,6 +1388,14 @@ namespace DataSearches
                     // Set the label text symbol.
                     labelClass.TextSymbol.Symbol = textSymbol;
 
+                    // Check if the label engine is Maplex or standard.
+                    CIMGeneralPlacementProperties labelEngine =
+                       MapView.Active.Map.GetDefinition().GeneralPlacementProperties;
+
+                    // Modify label placement (if standard label engine).
+                    if (labelEngine is CIMStandardGeneralPlacementProperties) //Current labeling engine is Standard labeling engine
+                        labelClass.StandardLabelPlacementProperties.AllowOverlappingLabels = allowOverlap;
+
                     // Set the label definition back to the layer.
                     featurelayer.SetDefinition(lyrDefn);
 
@@ -1270,6 +1412,12 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Switch if a layers labels are visible or not.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="displayLabels"></param>
+        /// <returns>bool</returns>
         public async Task<bool> SwitchLabelsAsync(string layerName, bool displayLabels)
         {
             // Check there is an input layer.
@@ -1303,45 +1451,71 @@ namespace DataSearches
 
         #region Export
 
+        /// <summary>
+        /// Copy a feature class to a text fiile.
+        /// </summary>
+        /// <param name="inputLayer"></param>
+        /// <param name="outputTable"></param>
+        /// <param name="columns"></param>
+        /// <param name="orderByColumns"></param>
+        /// <param name="append"></param>
+        /// <param name="includeHeader"></param>
+        /// <returns>bool</returns>
         public async Task<int> CopyFCToTextFileAsync(string inputLayer, string outputTable, string columns, string orderByColumns,
             bool append = false, bool includeHeader = true)
         {
-            // Check there is an input table.
+            // Check there is an input layer name.
             if (String.IsNullOrEmpty(inputLayer))
+                return -1;
+
+            // Check there is an output table name.
+            if (String.IsNullOrEmpty(outputTable))
                 return -1;
 
             // Check there are columns to output.
             if (String.IsNullOrEmpty(columns))
                 return -1;
 
-            // Get the input feature layer.
-            FeatureLayer inputFeaturelayer = FindLayer(inputLayer);
-
-            if (inputFeaturelayer == null)
-                return -1;
-
-            // Get the list of fields for the input table.
-            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
-            inputfields = await GetFCFieldsAsync(inputLayer);
-
-            // Check a list of fields is returned.
-            if (inputfields == null || inputfields.Count == 0)
-                return -1;
-
-            // Align the columns with what actually exists in the layer.
-            List<string> columnsList = [.. columns.Split(',')];
             bool missingColumns = false;
-            columns = "";
-            foreach (string column in columnsList)
+            FeatureLayer inputFeaturelayer;
+            List<string> columnsList = [];
+            List<string> orderByColumnsList = [];
+            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
+
+            try
             {
-                string columnName = column.Trim();
-                if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
-                    columns = columns + columnName + ",";
-                else
+                // Get the input feature layer.
+                inputFeaturelayer = FindLayer(inputLayer);
+
+                if (inputFeaturelayer == null)
+                    return -1;
+
+                // Get the list of fields for the input table.
+                inputfields = await GetFCFieldsAsync(inputLayer);
+
+                // Check a list of fields is returned.
+                if (inputfields == null || inputfields.Count == 0)
+                    return -1;
+
+                // Align the columns with what actually exists in the layer.
+                columnsList = [.. columns.Split(',')];
+                columns = "";
+                foreach (string column in columnsList)
                 {
-                    missingColumns = true;
-                    break;
+                    string columnName = column.Trim();
+                    if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
+                        columns = columns + columnName + ",";
+                    else
+                    {
+                        missingColumns = true;
+                        break;
+                    }
                 }
+            }
+            catch
+            {
+                // Handle Exception.
+                return -1;
             }
 
             // Stop if there are any missing columns.
@@ -1376,13 +1550,13 @@ namespace DataSearches
 
                     if (!string.IsNullOrEmpty(orderByColumns))
                     {
-                        columnsList = [.. orderByColumns.Split(',')];
+                        orderByColumnsList = [.. orderByColumns.Split(',')];
 
                         // Build the list of sort descriptions for each column in the input layer.
                         foreach (string column in columnsList)
                         {
                             string columnName = column.Trim();
-                            if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
+                            if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
                             {
                                 // Get the field from the feature class definition.
                                 ArcGIS.Core.Data.Field field = featureClassDefinition.GetFields()
@@ -1415,7 +1589,7 @@ namespace DataSearches
                     // Loop through the feature class/table using the cursor.
                     while (rowCursor.MoveNext())
                     {
-                        /// Get the current row.
+                        // Get the current row.
                         using Row record = rowCursor.Current;
 
                         string newRow = "";
@@ -1480,48 +1654,74 @@ namespace DataSearches
             return intLineCount;
         }
 
+        /// <summary>
+        /// Copy a table to a text file.
+        /// </summary>
+        /// <param name="inputLayer"></param>
+        /// <param name="outputTable"></param>
+        /// <param name="columns"></param>
+        /// <param name="orderByColumns"></param>
+        /// <param name="append"></param>
+        /// <param name="includeHeader"></param>
+        /// <returns>bool</returns>
         public async Task<int> CopyTableToTextFileAsync(string inputLayer, string outputTable, string columns, string orderByColumns,
             bool append = false, bool includeHeader = true)
         {
-            // Check there is an input table.
+            // Check there is an input table name.
             if (String.IsNullOrEmpty(inputLayer))
+                return -1;
+
+            // Check there is an output table name.
+            if (String.IsNullOrEmpty(outputTable))
                 return -1;
 
             // Check there are columns to output.
             if (String.IsNullOrEmpty(columns))
                 return -1;
 
-            // Get the input feature layer.
-            StandaloneTable inputTable = FindTable(inputLayer);
-
-            if (inputTable == null)
-                return -1;
-
-            // Get the list of fields for the input table.
-            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
-            inputfields = await GetTableFieldsAsync(inputLayer);
-
-            // Check a list of fields is returned.
-            if (inputfields == null || inputfields.Count == 0)
-                return -1;
-
-            // Align the columns with what actually exists in the layer.
-            List<string> columnsList = [.. columns.Split(',')];
             bool missingColumns = false;
-            columns = "";
-            foreach (string column in columnsList)
+            StandaloneTable inputTable;
+            List<string> columnsList = [];
+            List<string> orderByColumnsList = [];
+            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
+
+            try
             {
-                string columnName = column.Trim();
-                if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
-                    columns = columns + columnName + ",";
-                else
+                // Get the input feature layer.
+                inputTable = FindTable(inputLayer);
+
+                if (inputTable == null)
+                    return -1;
+
+                // Get the list of fields for the input table.
+                inputfields = await GetTableFieldsAsync(inputLayer);
+
+                // Check a list of fields is returned.
+                if (inputfields == null || inputfields.Count == 0)
+                    return -1;
+
+                // Align the columns with what actually exists in the layer.
+                columnsList = [.. columns.Split(',')];
+                columns = "";
+                foreach (string column in columnsList)
                 {
-                    missingColumns = true;
-                    break;
+                    string columnName = column.Trim();
+                    if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
+                        columns = columns + columnName + ",";
+                    else
+                    {
+                        missingColumns = true;
+                        break;
+                    }
                 }
             }
+            catch
+            {
+                // Handle Exception.
+                return -1;
+            }
 
-            // Stop if there are any missing columns;
+            // Stop if there are any missing columns.
             if (missingColumns || string.IsNullOrEmpty(columns))
                 return -1;
             else
@@ -1553,7 +1753,7 @@ namespace DataSearches
 
                     if (!string.IsNullOrEmpty(orderByColumns))
                     {
-                        List<string> orderByColumnsList = [.. orderByColumns.Split(',')];
+                        orderByColumnsList = [.. orderByColumns.Split(',')];
 
                         // Build the list of sort descriptions for each column in the input layer.
                         foreach (string column in orderByColumnsList)
@@ -1672,9 +1872,17 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<bool> FeatureClassExistsAsync(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             if (fileName.Substring(fileName.Length - 4, 1) == ".")
             {
                 // It's a file.
@@ -1707,9 +1915,13 @@ namespace DataSearches
         /// Check if the feature class exists.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<bool> FeatureClassExistsAsync(string fullPath)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(fullPath))
+                return false;
+
             return await FeatureClassExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
         }
 
@@ -1718,8 +1930,17 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> DeleteGeodatabaseFCAsync(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             bool success = false;
 
             try
@@ -1764,8 +1985,17 @@ namespace DataSearches
         /// </summary>
         /// <param name="geodatabase"></param>
         /// <param name="featureClassName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> DeleteGeodatabaseFCAsync(Geodatabase geodatabase, string featureClassName)
         {
+            // Check there is an input geodatabase.
+            if (geodatabase == null)
+                return false;
+
+            // Check there is an input feature class name.
+            if (String.IsNullOrEmpty(featureClassName))
+                return false;
+
             bool success = false;
 
             try
@@ -1798,26 +2028,34 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Delete a feature class.
+        /// Delete a feature class by file path and file name.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> DeleteFeatureClassAsync(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             string featureClass = filePath + @"\" + fileName;
 
             return await DeleteFeatureClassAsync(featureClass);
         }
 
         /// <summary>
-        /// Copy the input feature class to the output feature class.
+        /// Delete a feature class by file name.
         /// </summary>
-        /// <param name="inFeatureClass"></param>
-        /// <param name="outFeatureClass"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
+        /// <param name="fileName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> DeleteFeatureClassAsync(string fileName)
         {
+            // Check there is an input file name.
             if (String.IsNullOrEmpty(fileName))
                 return false;
 
@@ -1855,13 +2093,29 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Add a field to a feature class or table.
+        /// </summary>
+        /// <param name="inTable"></param>
+        /// <param name="fieldName"></param>
+        /// <param name="fieldType"></param>
+        /// <param name="fieldPrecision"></param>
+        /// <param name="fieldScale"></param>
+        /// <param name="fieldLength"></param>
+        /// <param name="fieldAlias"></param>
+        /// <param name="fieldIsNullable"></param>
+        /// <param name="fieldIsRequred"></param>
+        /// <param name="fieldDomain"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> AddFieldAsync(string inTable, string fieldName, string fieldType = "TEXT",
             long fieldPrecision = -1, long fieldScale = -1, long fieldLength = -1, string fieldAlias = null,
             bool fieldIsNullable = true, bool fieldIsRequred = false, string fieldDomain = null)
         {
+            // Check if there is an input table name.
             if (String.IsNullOrEmpty(inTable))
                 return false;
 
+            // Check if there is an input field name.
             if (String.IsNullOrEmpty(fieldName))
                 return false;
 
@@ -1902,14 +2156,24 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Rename a field in a feature class or table.
+        /// </summary>
+        /// <param name="inTable"></param>
+        /// <param name="fieldName"></param>
+        /// <param name="newFieldName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> RenameFieldAsync(string inTable, string fieldName, string newFieldName)
         {
+            // Check if there is an input table name.
             if (String.IsNullOrEmpty(inTable))
                 return false;
 
+            // Check if there is an input old field name.
             if (String.IsNullOrEmpty(fieldName))
                 return false;
 
+            // Check if there is an input new field name.
             if (String.IsNullOrEmpty(newFieldName))
                 return false;
 
@@ -1947,14 +2211,24 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Calculate a field in a feature class or table.
+        /// </summary>
+        /// <param name="inTable"></param>
+        /// <param name="fieldName"></param>
+        /// <param name="fieldCalc"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> CalculateFieldAsync(string inTable, string fieldName, string fieldCalc)
         {
+            // Check if there is an input table name.
             if (String.IsNullOrEmpty(inTable))
                 return false;
 
+            // Check if there is an input field name.
             if (String.IsNullOrEmpty(fieldName))
                 return false;
 
+            // Check if there is an input field calculcation string.
             if (String.IsNullOrEmpty(fieldCalc))
                 return false;
 
@@ -1992,11 +2266,21 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Calculate the geometry of a feature class.
+        /// </summary>
+        /// <param name="inTable"></param>
+        /// <param name="geometryProperty"></param>
+        /// <param name="lineUnit"></param>
+        /// <param name="areaUnit"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> CalculateGeometryAsync(string inTable, string geometryProperty, string lineUnit = "", string areaUnit = "")
         {
+            // Check if there is an input table name.
             if (String.IsNullOrEmpty(inTable))
                 return false;
 
+            // Check if there is an input geometry property.
             if (String.IsNullOrEmpty(geometryProperty))
                 return false;
 
@@ -2039,11 +2323,12 @@ namespace DataSearches
         /// </summary>
         /// <param name="layer"></param>
         /// <param name="whereClause"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<long> CountFeaturesAsync(FeatureLayer layer, string whereClause)
         {
             long featureCount = 0;
 
+            // Check if there is an input layer name.
             if (layer == null)
                 return featureCount;
 
@@ -2073,17 +2358,22 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Select features in layerName by location.
+        /// Select features in feature class by location.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <param name="whereClause"></param>
-        /// <returns></returns>
+        /// <param name="targetLayer"></param>
+        /// <param name="searchLayer"></param>
+        /// <param name="overlapType"></param>
+        /// <param name="searchDistance"></param>
+        /// <param name="selectionType"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> SelectLayerByLocationAsync(string targetLayer, string searchLayer,
             string overlapType = "INTERSECT", string searchDistance = "", string selectionType = "NEW_SELECTION")
         {
+            // Check if there is an input target layer name.
             if (String.IsNullOrEmpty(targetLayer))
                 return false;
 
+            // Check if there is an input search layer name.
             if (String.IsNullOrEmpty(searchLayer))
                 return false;
 
@@ -2121,15 +2411,31 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Buffer the features in a feature class with a specified distance.
+        /// </summary>
+        /// <param name="inFeatureClass"></param>
+        /// <param name="outFeatureClass"></param>
+        /// <param name="bufferDistance"></param>
+        /// <param name="lineSide"></param>
+        /// <param name="lineEndType"></param>
+        /// <param name="dissolveOption"></param>
+        /// <param name="dissolveFields"></param>
+        /// <param name="method"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> BufferFeaturesAsync(string inFeatureClass, string outFeatureClass, string bufferDistance,
             string lineSide = "FULL", string lineEndType = "ROUND", string dissolveOption = "NONE", string dissolveFields = "", string method = "PLANAR", bool addToMap = false)
         {
+            // Check if there is an input feature class.
             if (String.IsNullOrEmpty(inFeatureClass))
                 return false;
 
+            // Check if there is an output feature class.
             if (String.IsNullOrEmpty(outFeatureClass))
                 return false;
 
+            // Check if there is an input buffer distance.
             if (String.IsNullOrEmpty(bufferDistance))
                 return false;
 
@@ -2173,14 +2479,25 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Clip the features in a feature class using a clip feature layer.
+        /// </summary>
+        /// <param name="inFeatureClass"></param>
+        /// <param name="clipFeatureClass"></param>
+        /// <param name="outFeatureClass"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> ClipFeaturesAsync(string inFeatureClass, string clipFeatureClass, string outFeatureClass, bool addToMap = false)
         {
+            // Check if there is an input feature class.
             if (String.IsNullOrEmpty(inFeatureClass))
                 return false;
 
+            // Check if there is an input clip feature class.
             if (String.IsNullOrEmpty(clipFeatureClass))
                 return false;
 
+            // Check if there is an output feature class.
             if (String.IsNullOrEmpty(outFeatureClass))
                 return false;
 
@@ -2220,11 +2537,22 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Intersect the features in a feature class with another feature class.
+        /// </summary>
+        /// <param name="inFeatures"></param>
+        /// <param name="outFeatureClass"></param>
+        /// <param name="joinAttributes"></param>
+        /// <param name="outputType"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> IntersectFeaturesAsync(string inFeatures, string outFeatureClass, string joinAttributes = "ALL", string outputType = "INPUT", bool addToMap = false)
         {
+            // Check if there is an input feature class.
             if (String.IsNullOrEmpty(inFeatures))
                 return false;
 
+            // Check if there is an output feature class.
             if (String.IsNullOrEmpty(outFeatureClass))
                 return false;
 
@@ -2264,16 +2592,34 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Spatially join a feature class with another feature class.
+        /// </summary>
+        /// <param name="targetFeatures"></param>
+        /// <param name="joinFeatures"></param>
+        /// <param name="outFeatureClass"></param>
+        /// <param name="joinOperation"></param>
+        /// <param name="joinType"></param>
+        /// <param name="fieldMapping"></param>
+        /// <param name="matchOption"></param>
+        /// <param name="searchRadius"></param>
+        /// <param name="distanceField"></param>
+        /// <param name="matchFields"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> SpatialJoinAsync(string targetFeatures, string joinFeatures, string outFeatureClass, string joinOperation = "JOIN_ONE_TO_ONE",
             string joinType = "KEEP_ALL", string fieldMapping = "", string matchOption = "INTERSECT", string searchRadius = "0", string distanceField = "",
             string matchFields = "", bool addToMap = false)
         {
+            // Check if there is an input target feature class.
             if (String.IsNullOrEmpty(targetFeatures))
                 return false;
 
+            // Check if there is an input join feature class.
             if (String.IsNullOrEmpty(joinFeatures))
                 return false;
 
+            // Check if there is an output feature class.
             if (String.IsNullOrEmpty(outFeatureClass))
                 return false;
 
@@ -2314,15 +2660,28 @@ namespace DataSearches
             return true;
         }
 
+        /// <summary>
+        /// Calculate the summary statistics for a feature class or table.
+        /// </summary>
+        /// <param name="inTable"></param>
+        /// <param name="outTable"></param>
+        /// <param name="statisticsFields"></param>
+        /// <param name="caseFields"></param>
+        /// <param name="concatenationSeparator"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> CalculateSummaryStatisticsAsync(string inTable, string outTable, string statisticsFields,
             string caseFields = "", string concatenationSeparator = "", bool addToMap = false)
         {
+            // Check if there is an input table name.
             if (String.IsNullOrEmpty(inTable))
                 return false;
 
+            // Check if there is an output table name.
             if (String.IsNullOrEmpty(outTable))
                 return false;
 
+            // Check if there is an input statistics fields string.
             if (String.IsNullOrEmpty(statisticsFields))
                 return false;
 
@@ -2366,8 +2725,14 @@ namespace DataSearches
 
         #region Geodatabase
 
+        /// <summary>
+        /// Create a new file geodatabase.
+        /// </summary>
+        /// <param name="fullPath"></param>
+        /// <returns>bool</returns>
         public static Geodatabase CreateFileGeodatabase(string fullPath)
         {
+            // Check if there is an input full path.
             if (string.IsNullOrEmpty(fullPath))
                 return null;
 
@@ -2391,13 +2756,21 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check if the feature class exists in a geodatabase.
+        /// Check if a feature class exists in a geodatabase.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<bool> FeatureClassExistsGDBAsync(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             bool exists = false;
 
             try
@@ -2429,13 +2802,21 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check if the layer exists in a geodatabase.
+        /// Check if a layer exists in a geodatabase.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<bool> TableExistsGDBAsync(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             bool exists = false;
 
             try
@@ -2471,13 +2852,21 @@ namespace DataSearches
         #region Table
 
         /// <summary>
-        /// Check if the feature class exists in the file path.
+        /// Check if a feature class exists in the file path.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<bool> TableExistsAsync(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             if (fileName.Substring(fileName.Length - 4, 1) == ".")
             {
                 // It's a file.
@@ -2509,23 +2898,35 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check if the feature class exists.
+        /// Check if a feature class exists.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static async Task<bool> TableExistsAsync(string fullPath)
         {
+            // Check there is an input full path.
+            if (String.IsNullOrEmpty(fullPath))
+                return false;
+
             return await TableExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
         }
 
         /// <summary>
-        /// Check the layer exists in the file path.
+        /// Check a layer exists in the file path.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool TableExists(string filePath, string fileName)
         {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
             if (fileName.Substring(fileName.Length - 4, 1) == ".")
             {
                 // It's a file.
@@ -2553,12 +2954,16 @@ namespace DataSearches
         }
 
         /// <summary>
-        /// Check if the layer exists.
+        /// Check if a layer exists.
         /// </summary>
         /// <param name="fullPath"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public static bool TableExists(string fullPath)
         {
+            // Check there is an input full path.
+            if (String.IsNullOrEmpty(fullPath))
+                return false;
+
             return TableExists(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
         }
 
@@ -2567,12 +2972,15 @@ namespace DataSearches
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> DeleteGeodatabaseTableAsync(string filePath, string fileName)
         {
-            if (string.IsNullOrEmpty(filePath))
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
                 return false;
 
-            if (string.IsNullOrEmpty(fileName))
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
                 return false;
 
             bool success = false;
@@ -2613,11 +3021,14 @@ namespace DataSearches
         /// </summary>
         /// <param name="geodatabase"></param>
         /// <param name="tableName"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> DeleteGeodatabaseTableAsync(Geodatabase geodatabase, string tableName)
         {
+            // Check if the is an input geodatabase
             if (geodatabase == null)
                 return false;
 
+            // Check if there is an input table name.
             if (string.IsNullOrEmpty(tableName))
                 return false;
 
@@ -2660,15 +3071,15 @@ namespace DataSearches
         /// </summary>
         /// <param name="fileType"></param>
         /// <param name="initialDirectory"></param>
-        /// <returns></returns>
+        /// <returns>string</returns>
         public static string GetOutputFileName(string fileType, string initialDirectory = @"C:\")
         {
             BrowseProjectFilter bf = fileType switch
             {
                 "Geodatabase FC" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_geodatabaseItems_featureClasses"),
                 "Geodatabase Table" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_geodatabaseItems_tables"),
-                "Shapefile"=> BrowseProjectFilter.GetFilter("esri_browseDialogFilters_shapefiles"),
-                "CSV file (comma delimited)"=> BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_csv"),
+                "Shapefile" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_shapefiles"),
+                "CSV file (comma delimited)" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_csv"),
                 "Text file (tab delimited)" => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_textFiles_txt"),
                 _ => BrowseProjectFilter.GetFilter("esri_browseDialogFilters_all"),
             };
@@ -2702,13 +3113,15 @@ namespace DataSearches
         /// </summary>
         /// <param name="inFeatureClass"></param>
         /// <param name="outFeatureClass"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> CopyFeaturesAsync(string inFeatureClass, string outFeatureClass, bool addToMap = false)
         {
+            // Check if there is an input feature class.
             if (String.IsNullOrEmpty(inFeatureClass))
                 return false;
 
+            // Check if there is an output feature class.
             if (String.IsNullOrEmpty(outFeatureClass))
                 return false;
 
@@ -2754,13 +3167,25 @@ namespace DataSearches
         /// <param name="inputWorkspace"></param>
         /// <param name="inputDatasetName"></param>
         /// <param name="outputFeatureClass"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
-        public static async Task<bool> CopyFeaturesAsync(string inputWorkspace, string inputDatasetName, string outputFeatureClass)
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> CopyFeaturesAsync(string inputWorkspace, string inputDatasetName, string outputFeatureClass, bool addToMap = false)
         {
+            // Check there is an input workspace.
+            if (String.IsNullOrEmpty(inputWorkspace))
+                return false;
+
+            // Check there is an input dataset name.
+            if (String.IsNullOrEmpty(inputDatasetName))
+                return false;
+
+            // Check there is an output feature class.
+            if (String.IsNullOrEmpty(outputFeatureClass))
+                return false;
+
             string inFeatureClass = inputWorkspace + @"\" + inputDatasetName;
 
-            return await CopyFeaturesAsync(inFeatureClass, outputFeatureClass);
+            return await CopyFeaturesAsync(inFeatureClass, outputFeatureClass, addToMap);
         }
 
         /// <summary>
@@ -2770,14 +3195,30 @@ namespace DataSearches
         /// <param name="inputDatasetName"></param>
         /// <param name="outputWorkspace"></param>
         /// <param name="outputDatasetName"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
-        public static async Task<bool> CopyFeaturesAsync(string inputWorkspace, string inputDatasetName, string outputWorkspace, string outputDatasetName)
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> CopyFeaturesAsync(string inputWorkspace, string inputDatasetName, string outputWorkspace, string outputDatasetName, bool addToMap = false)
         {
+            // Check there is an input workspace.
+            if (String.IsNullOrEmpty(inputWorkspace))
+                return false;
+
+            // Check there is an input dataset name.
+            if (String.IsNullOrEmpty(inputDatasetName))
+                return false;
+
+            // Check there is an output workspace.
+            if (String.IsNullOrEmpty(outputWorkspace))
+                return false;
+
+            // Check there is an output dataset name.
+            if (String.IsNullOrEmpty(outputDatasetName))
+                return false;
+
             string inFeatureClass = inputWorkspace + @"\" + inputDatasetName;
             string outFeatureClass = outputWorkspace + @"\" + outputDatasetName;
 
-            return await CopyFeaturesAsync(inFeatureClass, outFeatureClass);
+            return await CopyFeaturesAsync(inFeatureClass, outFeatureClass, addToMap);
         }
 
         #endregion CopyFeatures
@@ -2787,12 +3228,20 @@ namespace DataSearches
         /// <summary>
         /// Export the input table to the output table.
         /// </summary>
-        /// <param name="InTable"></param>
-        /// <param name="OutFile"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
+        /// <param name="inTable"></param>
+        /// <param name="outTable"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> ExportFeaturesAsync(string inTable, string outTable, bool addToMap = false)
         {
+            // Check there is an input table name.
+            if (String.IsNullOrEmpty(inTable))
+                return false;
+
+            // Check there is an output table name.
+            if (String.IsNullOrEmpty(inTable))
+                return false;
+
             // Make a value array of strings to be passed to the tool.
             var parameters = Geoprocessing.MakeValueArray(inTable, outTable);
 
@@ -2838,10 +3287,18 @@ namespace DataSearches
         /// </summary>
         /// <param name="inTable"></param>
         /// <param name="outTable"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
         public static async Task<bool> CopyTableAsync(string inTable, string outTable, bool addToMap = false)
         {
+            // Check there is an input table name.
+            if (String.IsNullOrEmpty(inTable))
+                return false;
+
+            // Check there is an output table name.
+            if (String.IsNullOrEmpty(inTable))
+                return false;
+
             // Make a value array of strings to be passed to the tool.
             var parameters = Geoprocessing.MakeValueArray(inTable, outTable);
 
@@ -2881,31 +3338,59 @@ namespace DataSearches
         /// <summary>
         /// Copy the input dataset name to the output table.
         /// </summary>
-        /// <param name="InWorkspace"></param>
-        /// <param name="InDatasetName"></param>
-        /// <param name="OutTable"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
-        public static async Task<bool> CopyTableAsync(string InWorkspace, string InDatasetName, string OutTable)
+        /// <param name="inputWorkspace"></param>
+        /// <param name="inputDatasetName"></param>
+        /// <param name="outputTable"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> CopyTableAsync(string inputWorkspace, string inputDatasetName, string outputTable)
         {
-            string inTable = InWorkspace + @"\" + InDatasetName;
-            return await CopyTableAsync(inTable, OutTable);
+            // Check there is an input workspace.
+            if (String.IsNullOrEmpty(inputWorkspace))
+                return false;
+
+            // Check there is an input dataset name.
+            if (String.IsNullOrEmpty(inputDatasetName))
+                return false;
+
+            // Check there is an output feature class.
+            if (String.IsNullOrEmpty(outputTable))
+                return false;
+
+            string inputTable = inputWorkspace + @"\" + inputDatasetName;
+
+            return await CopyTableAsync(inputTable, outputTable);
         }
 
         /// <summary>
         /// Copy the input dataset to the output dataset.
         /// </summary>
-        /// <param name="InWorkspace"></param>
-        /// <param name="InDatasetName"></param>
-        /// <param name="OutWorkspace"></param>
-        /// <param name="OutDatasetName"></param>
-        /// <param name="Messages"></param>
-        /// <returns></returns>
-        public static async Task<bool> CopyTableAsync(string InWorkspace, string InDatasetName, string OutWorkspace, string OutDatasetName)
+        /// <param name="inputWorkspace"></param>
+        /// <param name="inputDatasetName"></param>
+        /// <param name="outputWorkspace"></param>
+        /// <param name="outputDatasetName"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> CopyTableAsync(string inputWorkspace, string inputDatasetName, string outputWorkspace, string outputDatasetName)
         {
-            string inTable = InWorkspace + @"\" + InDatasetName;
-            string outTable = OutWorkspace + @"\" + OutDatasetName;
-            return await CopyTableAsync(inTable, outTable);
+            // Check there is an input workspace.
+            if (String.IsNullOrEmpty(inputWorkspace))
+                return false;
+
+            // Check there is an input dataset name.
+            if (String.IsNullOrEmpty(inputDatasetName))
+                return false;
+
+            // Check there is an output workspace.
+            if (String.IsNullOrEmpty(outputWorkspace))
+                return false;
+
+            // Check there is an output dataset name.
+            if (String.IsNullOrEmpty(outputDatasetName))
+                return false;
+
+            string inputTable = inputWorkspace + @"\" + inputDatasetName;
+            string outputTable = outputWorkspace + @"\" + outputDatasetName;
+
+            return await CopyTableAsync(inputTable, outputTable);
         }
 
         #endregion Copy Table
