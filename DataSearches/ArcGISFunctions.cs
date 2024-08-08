@@ -1503,7 +1503,7 @@ namespace DataTools
                 foreach (string column in columnsList)
                 {
                     string columnName = column.Trim();
-                    if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
+                    if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
                         columns = columns + columnName + ",";
                     else
                     {
@@ -1553,9 +1553,20 @@ namespace DataTools
                         orderByColumnsList = [.. orderByColumns.Split(',')];
 
                         // Build the list of sort descriptions for each column in the input layer.
-                        foreach (string column in columnsList)
+                        foreach (string column in orderByColumnsList)
                         {
+                            // Get the column name (ignoring any trailing ASC/DESC sort order).
                             string columnName = column.Trim();
+                            if (columnName.Contains(' ', StringComparison.CurrentCulture))
+                                columnName = columnName.Split(" ")[0].Trim();
+
+                            // Set the sort order to ascending or descending.
+                            ArcGIS.Core.Data.SortOrder sortOrder = ArcGIS.Core.Data.SortOrder.Ascending;
+                            if ((column.EndsWith(" DES", true, System.Globalization.CultureInfo.CurrentCulture)) ||
+                               (column.EndsWith(" DESC", true, System.Globalization.CultureInfo.CurrentCulture)))
+                                sortOrder = ArcGIS.Core.Data.SortOrder.Descending;
+
+                            // If the column is in the input table use it for sorting.
                             if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
                             {
                                 // Get the field from the feature class definition.
@@ -1566,7 +1577,7 @@ namespace DataTools
                                 ArcGIS.Core.Data.SortDescription sortDescription = new(field)
                                 {
                                     CaseSensitivity = CaseSensitivity.Insensitive,
-                                    SortOrder = ArcGIS.Core.Data.SortOrder.Ascending
+                                    SortOrder = sortOrder
                                 };
 
                                 // Add the SortDescription to the list.
@@ -1706,7 +1717,7 @@ namespace DataTools
                 foreach (string column in columnsList)
                 {
                     string columnName = column.Trim();
-                    if ((columnName.Substring(0, 1) != "\"") || (!FieldExists(inputfields, columnName)))
+                    if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
                         columns = columns + columnName + ",";
                     else
                     {
@@ -1724,8 +1735,8 @@ namespace DataTools
             // Stop if there are any missing columns.
             if (missingColumns || string.IsNullOrEmpty(columns))
                 return -1;
-            else
-                columns = columns[..^1];
+
+            columns = columns[..^1];
 
             // Open output file.
             StreamWriter txtFile = new(outputTable, append);
@@ -1755,10 +1766,18 @@ namespace DataTools
                     {
                         orderByColumnsList = [.. orderByColumns.Split(',')];
 
-                        // Build the list of sort descriptions for each column in the input layer.
+                        // Build the list of sort descriptions for each orderby column in the input layer.
                         foreach (string column in orderByColumnsList)
                         {
-                            string columnName = column.Trim();
+                            // Get the column name (ignoring any possible ASC/DESC sort order.
+                            string columnName = column.Split(" ")[0].Trim();
+
+                            // Set the sort order to ascending or descending.
+                            ArcGIS.Core.Data.SortOrder sortOrder = ArcGIS.Core.Data.SortOrder.Ascending;
+                            if (column.EndsWith(" DESC", true, System.Globalization.CultureInfo.CurrentCulture))
+                                sortOrder = ArcGIS.Core.Data.SortOrder.Descending;
+
+                            // If the column is in the input table use it for sorting.
                             if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
                             {
                                 // Get the field from the feature class definition.
@@ -1769,7 +1788,7 @@ namespace DataTools
                                 ArcGIS.Core.Data.SortDescription sortDescription = new(field)
                                 {
                                     CaseSensitivity = CaseSensitivity.Insensitive,
-                                    SortOrder = ArcGIS.Core.Data.SortOrder.Ascending
+                                    SortOrder = sortOrder
                                 };
 
                                 // Add the SortDescription to the list.
@@ -1843,7 +1862,7 @@ namespace DataTools
             catch
             {
                 // Handle Exception.
-                return 0;
+                return -1;
             }
             finally
             {
@@ -2661,6 +2680,76 @@ namespace DataTools
         }
 
         /// <summary>
+        /// Permanently join fields from one feature class to another feature class.
+        /// </summary>
+        /// <param name="inFeatures"></param>
+        /// <param name="inField"
+        /// <param name="joinFeatures"></param>
+        /// <param name="joinField"></param>
+        /// <param name="fields"></param>
+        /// <param name="fmOption"></param>
+        /// <param name="fieldMapping"></param>
+        /// <param name="indexJoinFields"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> JoinFieldsAsync(string inFeatures, string inField, string joinFeatures, string joinField,
+            string fields = "", string fmOption = "NOT_USE_FM", string fieldMapping = "", string indexJoinFields = "NO_INDEXES",
+            bool addToMap = false)
+        {
+            // Check if there is an input target feature class.
+            if (String.IsNullOrEmpty(inFeatures))
+                return false;
+
+            // Check if there is an input field name.
+            if (String.IsNullOrEmpty(inField))
+                return false;
+
+            // Check if there is a join feature class.
+            if (String.IsNullOrEmpty(joinFeatures))
+                return false;
+
+            // Check if there is a join field name.
+            if (String.IsNullOrEmpty(joinField))
+                return false;
+
+            // Make a value array of strings to be passed to the tool.
+            List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatures, inField, joinFeatures, joinField, fields,
+                fmOption, fieldMapping, indexJoinFields)];
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
+            if (addToMap)
+                executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
+
+            //Geoprocessing.OpenToolDialog("management.JoinField", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.JoinField", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Calculate the summary statistics for a feature class or table.
         /// </summary>
         /// <param name="inTable"></param>
@@ -2702,6 +2791,117 @@ namespace DataTools
             try
             {
                 IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("analysis.Statistics", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Convert the features in a feature class to a point feature class.
+        /// </summary>
+        /// <param name="inFeatureClass"></param>
+        /// <param name="outFeatureClass"></param>
+        /// <param name="pointLocation"></param>
+        /// <param name="addToMap"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> FeatureToPointAsync(string inFeatureClass, string outFeatureClass, string pointLocation = "CENTROID", bool addToMap = false)
+        {
+            // Check if there is an input feature class.
+            if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            // Check if there is an output feature class.
+            if (String.IsNullOrEmpty(outFeatureClass))
+                return false;
+
+            // Make a value array of strings to be passed to the tool.
+            List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatureClass, outFeatureClass, pointLocation)];
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
+            if (addToMap)
+                executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
+
+            //Geoprocessing.OpenToolDialog("management.FeatureToPoint", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("management.FeatureToPoint", parameters, environments, null, null, executeFlags);
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);
+
+                    var messages = gp_result.Messages;
+                    var errMessages = gp_result.ErrorMessages;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Convert the features in a feature class to a point feature class.
+        /// </summary>
+        /// <param name="inFeatureClass"></param>
+        /// <param name="nearFeatureClass"></param>
+        /// <param name="searchRadius"></param>
+        /// <param name="location"></param>
+        /// <param name="angle"></param>
+        /// <param name="method"></param>
+        /// <param name="fieldNames"></param>
+        /// <param name="distanceUnit"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> NearAnalysisAsync(string inFeatureClass, string nearFeatureClass, string searchRadius = "",
+            string location = "NO_LOCATION", string angle = "NO_ANGLE", string method = "PLANAR", string fieldNames = "", string distanceUnit = "")
+        {
+            // Check if there is an input feature class.
+            if (String.IsNullOrEmpty(inFeatureClass))
+                return false;
+
+            // Check if there is an output feature class.
+            if (String.IsNullOrEmpty(nearFeatureClass))
+                return false;
+
+            // Make a value array of strings to be passed to the tool.
+            List<string> parameters = [.. Geoprocessing.MakeValueArray(inFeatureClass, nearFeatureClass, searchRadius, location, angle, method, fieldNames, distanceUnit)];
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
+
+            //Geoprocessing.OpenToolDialog("analysis.Near", parameters);  // Useful for debugging.
+
+            // Execute the tool.
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync("analysis.Near", parameters, environments, null, null, executeFlags);
 
                 if (gp_result.IsFailed)
                 {

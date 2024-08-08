@@ -27,6 +27,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,8" HorizontalAlignment="Stretch">
@@ -252,7 +253,33 @@
                         SelectedIndex="{Binding Path=SelectedBufferUnitsIndex}" />
             </Grid>
 
-            <Grid Name="GridAddToMap" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
+            <Grid Name="GridKeepLayers" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Right" Visibility="{Binding Path=KeepLayersVisibility}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <CheckBox Name="CheckBoxKeepLayers"
+                          Grid.Row="0"
+                          Grid.Column="1"
+                          Margin="0,2,4,0"
+                          Padding="0"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center"
+                          ToolTip="Keep the selected output layers?"
+                          IsChecked="{Binding KeepSelectedLayers, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Label Name="LabelKeepLayers"
+                       Content="Keep Layers?"
+                       Grid.Row="0"
+                       Grid.Column="2"
+                       Margin="2,2,0,0"
+                       Padding="0"
+                       VerticalAlignment="Center" />
+            </Grid>
+
+            <Grid Name="GridAddToMap" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -285,7 +312,7 @@
                         SelectedValue="{Binding Path=SelectedAddToMap}" />
             </Grid>
 
-            <Grid Name="GridOverwriteLabels" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
+            <Grid Name="GridOverwriteLabels" Grid.Row="7" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -318,7 +345,7 @@
                         SelectedValue="{Binding Path=SelectedOverwriteLabels}" />
             </Grid>
 
-            <Grid Name="GridCombinedSites" Grid.Row="7" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
+            <Grid Name="GridCombinedSites" Grid.Row="8" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -351,12 +378,7 @@
                         SelectedValue="{Binding Path=SelectedCombinedSites}" />
             </Grid>
 
-            <Grid Name="GridOptions" Grid.Row="8" Margin="0,4,0,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
+            <Grid Name="GridOptions" Grid.Row="9" Margin="0,4,0,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -403,7 +425,7 @@
             </Grid>
 
             <controls:MessageLabel
-                    Grid.Row="9"
+                    Grid.Row="10"
                     Margin="0,8,0,0"
                     MessageType="{Binding Path=MessageLevel}"
                     Severity="High"
@@ -412,7 +434,7 @@
                     CanClose="False"
                     Visibility="{Binding Path=HasMessage}" />
 
-            <Grid Name="GridButtons" Grid.Row="10" Margin="0,12,0,0">
+            <Grid Name="GridButtons" Grid.Row="11" Margin="0,12,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="24" />
                 </Grid.RowDefinitions>

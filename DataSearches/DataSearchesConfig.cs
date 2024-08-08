@@ -559,6 +559,22 @@ namespace DataSearches
                 throw new("Error parsing 'AddSelectedLayersOptions' string. Check for correct string formatting and placement of delimiters");
             }
 
+            // The default option for whether selected map layers should be kept.
+            try
+            {
+                _defaultKeepSelectedLayers = false;
+                strRawText = _xmlDataSearches["DefaultKeepSelectedLayers"].InnerText;
+                if (string.IsNullOrEmpty(strRawText))
+                    _defaultKeepSelectedLayers = null;
+                else if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                    _defaultKeepSelectedLayers = true;
+            }
+            catch
+            {
+                // This is an optional node
+                _defaultKeepSelectedLayers = false;
+            }
+
             // The default option (position in the list) for whether selected map layers should be added to the map window.
             try
             {
@@ -849,17 +865,32 @@ namespace DataSearches
 
                         try
                         {
-                            bool includeDistance = false;
-                            strRawText = node["IncludeDistance"].InnerText;
+                            bool includeBoundaryDistance = false;
+                            strRawText = node["IncludeBoundaryDistance"].InnerText;
                             if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                includeDistance = true;
+                                includeBoundaryDistance = true;
 
-                            layer.IncludeDistance = includeDistance;
+                            layer.IncludeBoundaryDistance = includeBoundaryDistance;
                         }
                         catch
                         {
                             // This is an optional node
-                            layer.IncludeDistance = false;
+                            layer.IncludeBoundaryDistance = false;
+                        }
+
+                        try
+                        {
+                            bool includeCentroidDistance = false;
+                            strRawText = node["IncludeCentroidDistance"].InnerText;
+                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                                includeCentroidDistance = true;
+
+                            layer.IncludeCentroidDistance = includeCentroidDistance;
+                        }
+                        catch
+                        {
+                            // This is an optional node
+                            layer.IncludeCentroidDistance = false;
                         }
 
                         try
@@ -1388,6 +1419,13 @@ namespace DataSearches
         public List<string> AddSelectedLayersOptions
         {
             get { return _addSelectedLayersOptions; }
+        }
+
+        private bool? _defaultKeepSelectedLayers;
+
+        public bool? DefaultKeepSelectedLayers
+        {
+            get { return _defaultKeepSelectedLayers; }
         }
 
         private int _defaultAddSelectedLayers;
