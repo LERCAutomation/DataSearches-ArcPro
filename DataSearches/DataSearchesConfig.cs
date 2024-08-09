@@ -123,7 +123,7 @@ namespace DataSearches
         /// <returns></returns>
         public bool GetMandatoryVariables()
         {
-            string strRawText;
+            string rawText;
 
             // The access database where all the data search details are stored.
             try
@@ -190,8 +190,8 @@ namespace DataSearches
             try
             {
                 _requireSiteName = false;
-                strRawText = _xmlDataSearches["RequireSiteName"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["RequireSiteName"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _requireSiteName = true;
             }
             catch
@@ -203,8 +203,8 @@ namespace DataSearches
             try
             {
                 _requireOrganisation = false;
-                strRawText = _xmlDataSearches["RequireOrganisation"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["RequireOrganisation"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _requireOrganisation = true;
             }
             catch
@@ -276,8 +276,8 @@ namespace DataSearches
             try
             {
                 _pauseMap = false;
-                strRawText = _xmlDataSearches["PauseMap"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["PauseMap"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _pauseMap = true;
             }
             catch
@@ -290,8 +290,8 @@ namespace DataSearches
             try
             {
                 _defaultClearLogFile = false;
-                strRawText = _xmlDataSearches["DefaultClearLogFile"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["DefaultClearLogFile"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _defaultClearLogFile = true;
             }
             catch
@@ -304,8 +304,8 @@ namespace DataSearches
             try
             {
                 _defaultOpenLogFile = false;
-                strRawText = _xmlDataSearches["DefaultOpenLogFile"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["DefaultOpenLogFile"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _defaultOpenLogFile = true;
             }
             catch
@@ -317,8 +317,8 @@ namespace DataSearches
             // The default size to use for the buffer.
             try
             {
-                strRawText = _xmlDataSearches["DefaultBufferSize"].InnerText;
-                bool blResult = Double.TryParse(strRawText, out double i);
+                rawText = _xmlDataSearches["DefaultBufferSize"].InnerText;
+                bool blResult = Double.TryParse(rawText, out double i);
                 if (blResult)
                     _defaultBufferSize = (int)i;
                 else
@@ -335,7 +335,7 @@ namespace DataSearches
             // The options for the buffer units. It is not recommended that these are changed.
             try
             {
-                strRawText = _xmlDataSearches["BufferUnitOptions"].InnerText;
+                rawText = _xmlDataSearches["BufferUnitOptions"].InnerText;
             }
             catch
             {
@@ -344,7 +344,7 @@ namespace DataSearches
             try
             {
                 char[] chrSplit1Chars = ['$'];
-                string[] liRawList = strRawText.Split(chrSplit1Chars);
+                string[] liRawList = rawText.Split(chrSplit1Chars);
 
                 char[] chrSplit2Chars = [';'];
                 foreach (string strEntry in liRawList)
@@ -363,8 +363,8 @@ namespace DataSearches
             // The default option (position in the list) to use for the buffer units.
             try
             {
-                strRawText = _xmlDataSearches["DefaultBufferUnit"].InnerText;
-                bool blResult = Double.TryParse(strRawText, out double i);
+                rawText = _xmlDataSearches["DefaultBufferUnit"].InnerText;
+                bool blResult = Double.TryParse(rawText, out double i);
                 if (blResult)
                     _defaultBufferUnit = (int)i;
                 else
@@ -382,8 +382,8 @@ namespace DataSearches
             try
             {
                 _updateTable = false;
-                strRawText = _xmlDataSearches["UpdateTable"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["UpdateTable"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _updateTable = true;
             }
             catch
@@ -395,8 +395,8 @@ namespace DataSearches
             try
             {
                 _keepBufferArea = false;
-                strRawText = _xmlDataSearches["KeepBufferArea"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["KeepBufferArea"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _keepBufferArea = true;
             }
             catch
@@ -437,7 +437,7 @@ namespace DataSearches
             // The extension names for point, polygon and line search area layers.
             try
             {
-                strRawText = _xmlDataSearches["SearchLayerExtensions"].InnerText;
+                rawText = _xmlDataSearches["SearchLayerExtensions"].InnerText;
             }
             catch
             {
@@ -446,10 +446,10 @@ namespace DataSearches
             try
             {
                 char[] chrSplit1Chars = [';'];
-                string[] liRawList = strRawText.Split(chrSplit1Chars);
-                foreach (string strEntry in liRawList)
+                string[] liRawList = rawText.Split(chrSplit1Chars);
+                foreach (string rawEntry in liRawList)
                 {
-                    SearchLayerExtensions.Add(strEntry);
+                    SearchLayerExtensions.Add(rawEntry);
                 }
             }
             catch
@@ -501,8 +501,8 @@ namespace DataSearches
             try
             {
                 _keepSearchFeature = false;
-                strRawText = _xmlDataSearches["KeepSearchFeature"].InnerText;
-                if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                rawText = _xmlDataSearches["KeepSearchFeature"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _keepSearchFeature = true;
             }
             catch
@@ -543,7 +543,7 @@ namespace DataSearches
             // The options for showing the selected tables.
             try
             {
-                strRawText = _xmlDataSearches["AddSelectedLayersOptions"].InnerText;
+                rawText = _xmlDataSearches["AddSelectedLayersOptions"].InnerText;
             }
             catch
             {
@@ -552,7 +552,7 @@ namespace DataSearches
             try
             {
                 char[] chrSplitChars = [';'];
-                _addSelectedLayersOptions = [.. strRawText.Split(chrSplitChars)];
+                _addSelectedLayersOptions = [.. rawText.Split(chrSplitChars)];
             }
             catch
             {
@@ -563,10 +563,10 @@ namespace DataSearches
             try
             {
                 _defaultKeepSelectedLayers = false;
-                strRawText = _xmlDataSearches["DefaultKeepSelectedLayers"].InnerText;
-                if (string.IsNullOrEmpty(strRawText))
+                rawText = _xmlDataSearches["DefaultKeepSelectedLayers"].InnerText;
+                if (string.IsNullOrEmpty(rawText))
                     _defaultKeepSelectedLayers = null;
-                else if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                else if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _defaultKeepSelectedLayers = true;
             }
             catch
@@ -578,8 +578,8 @@ namespace DataSearches
             // The default option (position in the list) for whether selected map layers should be added to the map window.
             try
             {
-                strRawText = _xmlDataSearches["DefaultAddSelectedLayers"].InnerText;
-                bool blResult = Double.TryParse(strRawText, out double i);
+                rawText = _xmlDataSearches["DefaultAddSelectedLayers"].InnerText;
+                bool blResult = Double.TryParse(rawText, out double i);
                 if (blResult)
                     _defaultAddSelectedLayers = (int)i;
                 else
@@ -606,7 +606,7 @@ namespace DataSearches
             // The options for overwritting the map labels.
             try
             {
-                strRawText = _xmlDataSearches["OverwriteLabelOptions"].InnerText;
+                rawText = _xmlDataSearches["OverwriteLabelOptions"].InnerText;
             }
             catch
             {
@@ -615,7 +615,7 @@ namespace DataSearches
             try
             {
                 char[] chrSplitChars = [';'];
-                _overwriteLabelOptions = [.. strRawText.Split(chrSplitChars)];
+                _overwriteLabelOptions = [.. rawText.Split(chrSplitChars)];
             }
             catch
             {
@@ -625,8 +625,8 @@ namespace DataSearches
             // Whether any map label columns should be overwritten (default setting).
             try
             {
-                strRawText = _xmlDataSearches["DefaultOverwriteLabels"].InnerText;
-                bool blResult = Double.TryParse(strRawText, out double i);
+                rawText = _xmlDataSearches["DefaultOverwriteLabels"].InnerText;
+                bool blResult = Double.TryParse(rawText, out double i);
                 if (blResult)
                     _defaultOverwriteLabels = (int)i;
                 else
@@ -653,7 +653,7 @@ namespace DataSearches
             // Options for filling out the Combined Sites table dropdown (do not change).
             try
             {
-                strRawText = _xmlDataSearches["CombinedSitesTableOptions"].InnerText;
+                rawText = _xmlDataSearches["CombinedSitesTableOptions"].InnerText;
             }
             catch
             {
@@ -662,7 +662,7 @@ namespace DataSearches
             try
             {
                 char[] chrSplitChars = [';'];
-                _combinedSitesTableOptions = [.. strRawText.Split(chrSplitChars)];
+                _combinedSitesTableOptions = [.. rawText.Split(chrSplitChars)];
             }
             catch
             {
@@ -672,8 +672,8 @@ namespace DataSearches
             // Whether a combined sites table should be created by default.
             try
             {
-                strRawText = _xmlDataSearches["DefaultCombinedSitesTable"].InnerText;
-                bool blResult = Double.TryParse(strRawText, out double i);
+                rawText = _xmlDataSearches["DefaultCombinedSitesTable"].InnerText;
+                bool blResult = Double.TryParse(rawText, out double i);
                 if (blResult)
                     _defaultCombinedSitesTable = (int)i;
                 else
@@ -726,7 +726,7 @@ namespace DataSearches
         /// </summary>
         public bool GetMapVariables()
         {
-            string strRawText;
+            string rawText;
 
             // The the map layer collection.
             XmlElement MapLayerCollection;
@@ -851,8 +851,8 @@ namespace DataSearches
                         try
                         {
                             bool includeArea = false;
-                            strRawText = node["IncludeArea"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["IncludeArea"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 includeArea = true;
 
                             layer.IncludeArea = includeArea;
@@ -865,39 +865,26 @@ namespace DataSearches
 
                         try
                         {
-                            bool includeBoundaryDistance = false;
-                            strRawText = node["IncludeBoundaryDistance"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                includeBoundaryDistance = true;
+                            rawText = node["IncudeNearFields"].InnerText;
+                            string includeNear = (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture)) switch
+                            {
+                                "centroid" => "CENTROID",
+                                "boundary" => "BOUNDARY",
+                                _ => "",
+                            };
 
-                            layer.IncludeBoundaryDistance = includeBoundaryDistance;
+                            layer.IncludeNearFields = includeNear;
                         }
                         catch
                         {
-                            // This is an optional node
-                            layer.IncludeBoundaryDistance = false;
-                        }
-
-                        try
-                        {
-                            bool includeCentroidDistance = false;
-                            strRawText = node["IncludeCentroidDistance"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                                includeCentroidDistance = true;
-
-                            layer.IncludeCentroidDistance = includeCentroidDistance;
-                        }
-                        catch
-                        {
-                            // This is an optional node
-                            layer.IncludeCentroidDistance = false;
+                            throw new("Could not locate the item 'IncudeNearFields' for map layer " + nodeName + " in the XML file");
                         }
 
                         try
                         {
                             bool includeRadius = false;
-                            strRawText = node["IncludeRadius"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["IncludeRadius"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 includeRadius = true;
 
                             layer.IncludeRadius = includeRadius;
@@ -929,8 +916,8 @@ namespace DataSearches
                         try
                         {
                             bool keepLayer = false;
-                            strRawText = node["KeepLayer"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["KeepLayer"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 keepLayer = true;
 
                             layer.KeepLayer = keepLayer;
@@ -946,10 +933,10 @@ namespace DataSearches
                             string strMapOutput = node["OutputType"].InnerText;
                             string outputType = (strMapOutput.ToLower(System.Globalization.CultureInfo.CurrentCulture)) switch
                             {
-                                "copy" => outputType = "COPY",
-                                "clip" => outputType = "CLIP",
-                                "overlay" => outputType = "OVERLAY",
-                                "intersect" => outputType = "INTERSECT",
+                                "copy" => "COPY",
+                                "clip" => "CLIP",
+                                "overlay" => "OVERLAY",
+                                "intersect" => "INTERSECT",
                                 _ => "COPY",
                             };
 
@@ -963,8 +950,8 @@ namespace DataSearches
                         try
                         {
                             bool loadWarning = false;
-                            strRawText = node["LoadWarning"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["LoadWarning"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 loadWarning = true;
 
                             layer.LoadWarning = loadWarning;
@@ -978,8 +965,8 @@ namespace DataSearches
                         try
                         {
                             bool preselectLayer = false;
-                            strRawText = node["PreselectLayer"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["PreselectLayer"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 preselectLayer = true;
 
                             layer.PreselectLayer = preselectLayer;
@@ -993,8 +980,8 @@ namespace DataSearches
                         try
                         {
                             bool displayLabels = false;
-                            strRawText = node["DisplayLabels"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["DisplayLabels"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 displayLabels = true;
 
                             layer.DisplayLabels = displayLabels;
@@ -1018,8 +1005,8 @@ namespace DataSearches
                         try
                         {
                             bool overwriteLabels = false;
-                            strRawText = node["OverwriteLabels"].InnerText;
-                            if (strRawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                            rawText = node["OverwriteLabels"].InnerText;
+                            if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                                 overwriteLabels = true;
 
                             layer.OverwriteLabels = overwriteLabels;

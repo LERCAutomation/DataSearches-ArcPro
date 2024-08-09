@@ -2666,8 +2666,7 @@ namespace DataSearches.UI
             string mapCriteria = selectedLayer.Criteria;
 
             bool mapIncludeArea = selectedLayer.IncludeArea;
-            bool mapIncludeBoundaryDistance = selectedLayer.IncludeBoundaryDistance;
-            bool mapIncludeCentroidDistance = selectedLayer.IncludeCentroidDistance;
+            string mapIncludeNearFields = selectedLayer.IncludeNearFields;
             bool mapIncludeRadius = selectedLayer.IncludeRadius;
 
             string mapKeyColumn = selectedLayer.KeyColumn;
@@ -2791,7 +2790,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Extracting summary information ...");
 
                 int intLineCount = await ExportSelectionAsync(mapTableOutputFile, mapFormat.ToLower(), mapColumns, mapGroupColumns, mapStatsColumns, mapOrderColumns,
-                    includeHeaders, false, areaUnit, mapIncludeBoundaryDistance, mapIncludeCentroidDistance, radiusText);
+                    includeHeaders, false, areaUnit, mapIncludeNearFields, radiusText);
                 if (intLineCount <= 0)
                 {
                     //MessageBox.Show("Error extracting summary from " + _tempMasterOutputFile + ".");
@@ -2823,7 +2822,7 @@ namespace DataSearches.UI
 
                 int intLineCount = await ExportSelectionAsync(_combinedSitesOutputFile, _combinedSitesTableFormat, mapCombinedSitesColumns, mapCombinedSitesGroupColumns,
                     mapCombinedSitesStatsColumns, mapCombinedSitesOrderColumns,
-                    false, true, areaUnit, mapIncludeBoundaryDistance, mapIncludeCentroidDistance, radiusText);
+                    false, true, areaUnit, mapIncludeNearFields, radiusText);
 
                 if (intLineCount < 0)
                 {
@@ -3091,13 +3090,12 @@ namespace DataSearches.UI
         /// <param name="includeHeaders"></param>
         /// <param name="append"></param>
         /// <param name="areaUnit"></param>
-        /// <param name="includeBoundaryDistance"></param>
-        /// <param name="includeCentroidDistance"></param>
+        /// <param name="includeNearFields"></param>
         /// <param name="radiusText"></param>
         /// <returns></returns>
         private async Task<int> ExportSelectionAsync(string outputTableName, string outputFormat,
             string mapColumns, string mapGroupColumns, string mapStatsColumns, string mapOrderColumns,
-            bool includeHeaders, bool append, string areaUnit, bool includeBoundaryDistance, bool includeCentroidDistance, string radiusText)
+            bool includeHeaders, bool append, string areaUnit, string includeNearFields, string radiusText)
         {
             int intLineCount;
 
@@ -3156,45 +3154,35 @@ namespace DataSearches.UI
                 }
             }
 
-            // Calculate the boundary distance if required.
-            if (includeBoundaryDistance)
+            // Copy the input features.
+            if (!await ArcGISFunctions.CopyFeaturesAsync(_tempMasterOutputFile, _tempFCOutputFile, true))
             {
-                // Now add the boundary distance field by spatial joining back
-                // to the search feature(s). This will add all fields from the
-                // search feature layer plus a new DISTANCE field.
-                if (!await ArcGISFunctions.SpatialJoinAsync(_tempMasterOutputFile, _searchLayerName, _tempFCOutputFile,
-                    "JOIN_ONE_TO_ONE", "KEEP_ALL", "", "CLOSEST", "0", "DISTANCE", addToMap: true))
+                //MessageBox.Show("Error copying output file to " + _tempFCOutputFile + ".");
+                FileFunctions.WriteLine(_logFile, "Error copying output file to " + _tempFCOutputFile);
+                _SearchErrors = true;
+
+                return -1;
+            }
+
+            // Calculate the boundary distance and bearing if required.
+            if (includeNearFields == "BOUNDARY")
+            {
+                // Calculate the distance and additional proximity fields.
+                if (!await ArcGISFunctions.NearAnalysisAsync(_tempFCOutputFile, _searchLayerName,
+                    radiusText, "LOCATION", "ANGLE", "PLANAR", null, "METERS"))
                 {
-                    //MessageBox.Show("Error joining " + _tempMasterOutputFile  + " distance field to " + _tempMasterOutputFile + ".");
-                    FileFunctions.WriteLine(_logFile, "Error joining " + _tempMasterOutputFile + " distance field to " + _tempMasterOutputFile);
+                    //MessageBox.Show("Error calculating nearest distance from " + _tempFCPointsOutputFile + " to " + _tempSearchPointsOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error calculating nearest distance from " + _tempFCOutputFile + " to " + _searchLayerName);
                     _SearchErrors = true;
 
                     return -1;
                 }
             }
-            else
-            {
-                // Do a straight copy of the input features.
-                if (!await ArcGISFunctions.CopyFeaturesAsync(_tempMasterOutputFile, _tempFCOutputFile, true))
-                {
-                    //MessageBox.Show("Error copying output file to " + _tempFCOutputFile + ".");
-                    FileFunctions.WriteLine(_logFile, "Error copying output file to " + _tempFCOutputFile);
-                    _SearchErrors = true;
-
-                    return -1;
-                }
-            }
-
-            //-------------------------------------------------------------
-            // After this the input to the remainder of the function
-            // should be reading from _tempFCOutputFile (_tempFCLayerName).
-            //-------------------------------------------------------------
-
-            // Calculate the centroid distance if required.
-            if (includeCentroidDistance)
+            // Calculate the centroid distance and bearing if required.
+            else if (includeNearFields == "CENTROID")
             {
                 // Convert the output features to points.
-                if (!await ArcGISFunctions.FeatureToPointAsync(_tempFCLayerName, _tempFCPointsOutputFile,
+                if (!await ArcGISFunctions.FeatureToPointAsync(_tempFCOutputFile, _tempFCPointsOutputFile,
                     "CENTROID", addToMap: false))
                 {
                     //MessageBox.Show("Error converting " + _tempFCOutputFile + " features to points into " + _tempFCPointsOutputFile + ".");
@@ -3208,8 +3196,8 @@ namespace DataSearches.UI
                 if (!await ArcGISFunctions.FeatureToPointAsync(_searchLayerName, _tempSearchPointsOutputFile,
                     "CENTROID", addToMap: false))
                 {
-                    //MessageBox.Show("Error converting " + _tempFCOutputFile + " features to points into " + _tempFCPointsOutputFile + ".");
-                    FileFunctions.WriteLine(_logFile, "Error converting " + _tempFCOutputFile + " features to points into " + _tempFCPointsOutputFile);
+                    //MessageBox.Show("Error converting " + _searchLayerName + " features to points into " + _tempSearchPointsOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error converting " + _searchLayerName + " features to points into " + _tempSearchPointsOutputFile);
                     _SearchErrors = true;
 
                     return -1;
@@ -3239,6 +3227,11 @@ namespace DataSearches.UI
                     return -1;
                 }
             }
+
+            //-------------------------------------------------------------
+            // After this the input to the remainder of the function
+            // should be reading from _tempFCOutputFile (_tempFCLayerName).
+            //-------------------------------------------------------------
 
             // Check the output feature layer exists.
             FeatureLayer outputFeatureLayer = _mapFunctions.FindLayer(_tempFCLayerName);
@@ -3637,9 +3630,7 @@ namespace DataSearches.UI
 
         public bool IncludeArea { get; set; }
 
-        public bool IncludeBoundaryDistance { get; set; }
-
-        public bool IncludeCentroidDistance { get; set; }
+        public string IncludeNearFields { get; set; }
 
         public bool IncludeRadius { get; set; }
 
