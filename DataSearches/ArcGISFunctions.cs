@@ -1503,7 +1503,7 @@ namespace DataTools
                 foreach (string column in columnsList)
                 {
                     string columnName = column.Trim();
-                    if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
+                    if ((columnName.Substring(0, 1) == "\"") || (FieldExists(inputfields, columnName)))
                         columns = columns + columnName + ",";
                     else
                     {
@@ -1717,7 +1717,7 @@ namespace DataTools
                 foreach (string column in columnsList)
                 {
                     string columnName = column.Trim();
-                    if ((columnName.Substring(0, 1) != "\"") && (FieldExists(inputfields, columnName)))
+                    if ((columnName.Substring(0, 1) == "\"") || (FieldExists(inputfields, columnName)))
                         columns = columns + columnName + ",";
                     else
                     {
