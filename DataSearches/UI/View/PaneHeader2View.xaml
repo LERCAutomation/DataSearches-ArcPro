@@ -17,10 +17,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition MinHeight="200" Height="*" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition MinHeight="150" Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -425,123 +422,16 @@
             </Grid>
 
             <controls:MessageLabel
-                    Grid.Row="10"
-                    Margin="0,8,0,0"
-                    MessageType="{Binding Path=MessageLevel}"
-                    Severity="High"
-                    ShowHelp="False"
-                    Content="{Binding Path=Message}"
-                    CanClose="False"
-                    Visibility="{Binding Path=HasMessage}" />
+                Grid.Row="10"
+                Margin="0,8,0,0"
+                Height="24"
+                MessageType="{Binding Path=MessageLevel}"
+                Severity="High"
+                ShowHelp="False"
+                Content="{Binding Path=Message}"
+                CanClose="False"
+                Visibility="{Binding Path=HasMessage}" />
 
-            <Grid Name="GridButtons" Grid.Row="11" Margin="0,12,0,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="24" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="70" />
-                </Grid.ColumnDefinitions>
-
-                <Button Name="ButtonReset"
-                        Grid.Column="0"
-                        Margin="0,0,2,0"
-                        Padding="0"
-                        MinWidth="0"
-                        MinHeight="0"
-                        Command="{Binding Path=ResetCommand}"
-                        CommandParameter="{Binding ElementName=ListBoxLayers, Path=SelectedItems}"
-                        IsCancel="False"
-                        IsDefault="False"
-                        IsEnabled="{Binding Path=ResetButtonEnabled}"
-                        TabIndex="1"
-                        Style="{DynamicResource Esri_SimpleButton}"
-                        Content="Reset"
-                        ToolTip="Reset the form" />
-                <Button Name="ButtonRun"
-                        Grid.Column="2"
-                        Margin="2,0,0,0"
-                        Padding="0"
-                        MinWidth="0"
-                        MinHeight="0"
-                        Command="{Binding Path=RunCommand}"
-                        IsCancel="False"
-                        IsDefault="True"
-                        IsEnabled="{Binding Path=RunButtonEnabled}"
-                        TabIndex="2"
-                        Style="{DynamicResource Esri_SimpleButton}">
-                    <StackPanel Orientation="Horizontal">
-                        <Image Source="{Binding ButtonRunImg}" Width="16" Height="16" />
-                        <Label Content="Run" Padding="4,0,0,0" />
-                    </StackPanel>
-                    <Button.ToolTip>
-                        <ToolTip>
-                            <TextBlock Text="Run the search" FontWeight="Normal"></TextBlock>
-                        </ToolTip>
-                    </Button.ToolTip>
-                </Button>
-            </Grid>
-
-            <Grid Name="GridProgress" Grid.Row="12" Margin="0,15,0,0" Height="Auto">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="22" />
-                    <RowDefinition Height="24" />
-                </Grid.RowDefinitions>
-
-                <Grid Name="GridProcessStatus" Grid.Row="0" Visibility="{Binding IsProcessing}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="22" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <controls:CircularAnimationControl
-                        Grid.Column="0"
-                        Foreground="{DynamicResource Esri_BorderSelectedBrush }"
-                        SpeedRatio="0.5"
-                        Width="22"
-                        Height="22"
-                        Visibility="{Binding IsProcessing}" />
-                    <TextBlock Name="TextBlockProcess"
-                               Grid.Column="1"
-                               Margin="5,0,0,0"
-                               VerticalAlignment="Center"
-                               Text="{Binding ProcessStatus}" />
-                </Grid>
-
-                <Grid Name="GridProgressAnimation" Grid.Row="1" Margin="0,5,0,0" Visibility="{Binding ProgressAnimating}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="48" />
-                    </Grid.ColumnDefinitions>
-                    <ProgressBar x:Name="ProgressBar"
-                                 Grid.Column="0"
-                                 Height="22"
-                                 Margin="0,0,6,0"
-                                 HorizontalAlignment="Stretch"
-                                 Minimum="0"
-                                 Maximum="{Binding Path=MaxProgressValue, Mode=OneWay}"
-                                 Value="{Binding Path=ProgressValue, Mode=OneWay}" />
-                    <TextBlock Text="{Binding ProgressText}"
-                               Grid.Column="0"
-                               Margin="0,0,6,0"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
-                    <Button Name="ButtonCancel"
-                            Grid.Column="1"
-                            Margin="0,0,0,0"
-                            Padding="0"
-                            MinWidth="0"
-                            MinHeight="0"
-                            Command="{Binding Path=CancelCommand}"
-                            IsCancel="False"
-                            IsDefault="False"
-                            IsEnabled="{Binding Path=CancelButtonEnabled}"
-                            TabIndex="1"
-                            Style="{DynamicResource Esri_SimpleButton}"
-                            Content="Cancel"
-                            ToolTip="Cancel the process" />
-                </Grid>
-            </Grid>
         </Grid>
     </DockPanel>
 </UserControl>
