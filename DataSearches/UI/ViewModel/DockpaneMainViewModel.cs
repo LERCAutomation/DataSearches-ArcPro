@@ -23,7 +23,6 @@ using ArcGIS.Desktop.Core.Events;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Controls;
-using ArcGIS.Desktop.Internal.Framework.Controls;
 using ArcGIS.Desktop.Mapping;
 using ArcGIS.Desktop.Mapping.Events;
 using System;
@@ -196,6 +195,12 @@ namespace DataSearches.UI
             }
         }
 
+        /// <summary>
+        /// Can the Run button be pressed?
+        /// </summary>
+        /// <value></value>
+        /// <returns></returns>
+        /// <remarks></remarks>
         public bool RunButtonEnabled
         {
             get

@@ -352,9 +352,9 @@ namespace DataSearches.UI
         {
             get
             {
-                return ((!string.IsNullOrEmpty(SelectedXMLProfile)
+                return ((!string.IsNullOrEmpty(SelectedXMLProfile))
                     && (!_dockPane.SearchRunning)
-                    && (!_dockPane.LayersListLoading)));
+                    && (!_dockPane.LayersListLoading));
             }
         }
 
