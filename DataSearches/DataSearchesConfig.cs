@@ -819,9 +819,8 @@ namespace DataSearches
                         try
                         {
                             string statsColumns = node["StatisticsColumns"].InnerText;
-                            // Format the string
-                            if (statsColumns != null)
-                                statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
+                            //// Format the string
+                            //statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
 
                             layer.StatisticsColumns = statsColumns;
                         }
@@ -1092,8 +1091,8 @@ namespace DataSearches
                             try
                             {
                                 string statsColumns = node["CombinedSitesStatisticsColumns"].InnerText;
-                                // Format the string
-                                statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
+                                //// Format the string
+                                //statsColumns = StringFunctions.GetStatsColumnsFormatted(statsColumns);
 
                                 layer.CombinedSitesStatisticsColumns = statsColumns;
                             }

@@ -1885,7 +1885,7 @@ namespace DataSearches.UI
 
             // Count the number of layers to process and add 2
             // to account for the start and finish steps.
-            int stepsMax = SelectedLayers.Count + 3;
+            int stepsMax = SelectedLayers.Count + 2;
             int stepNum = 0;
 
             // Stop if the user cancelled the process.
@@ -2214,9 +2214,9 @@ namespace DataSearches.UI
             // Remove all temporary feature classes and tables.
             await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
             await _mapFunctions.RemoveLayerAsync(_tempFCLayerName);
+            await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName);
+            await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName);
             await _mapFunctions.RemoveTableAsync(_tempTableLayerName);
-            await _mapFunctions.RemoveTableAsync(_tempFCPointsLayerName);
-            await _mapFunctions.RemoveTableAsync(_tempSearchPointsLayerName);
 
             // Delete the temporary feature classes and tables.
             if (await ArcGISFunctions.FeatureClassExistsAsync(_tempMasterOutputFile))
@@ -2225,14 +2225,14 @@ namespace DataSearches.UI
             if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutputFile))
                 await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCLayerName);
 
+            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCPointsOutputFile))
+                await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCPointsLayerName);
+
+            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempSearchPointsOutputFile))
+                await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempSearchPointsLayerName);
+
             if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
                 await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
-
-            if (await ArcGISFunctions.TableExistsAsync(_tempFCPointsOutputFile))
-                await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempFCPointsLayerName);
-
-            if (await ArcGISFunctions.TableExistsAsync(_tempSearchPointsOutputFile))
-                await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempSearchPointsLayerName);
 
             // Clear the search features selection.
             await _mapFunctions.ClearLayerSelectionAsync(_inputLayerName);
@@ -2461,6 +2461,8 @@ namespace DataSearches.UI
                 }
 
                 FileFunctions.WriteLine(_logFile, "Temporary geodatabase created");
+
+                return true;
             }
 
             // Delete the temporary master feature class if it still exists.
@@ -2483,16 +2485,6 @@ namespace DataSearches.UI
                 //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
             }
 
-            // Delete the temporary output table if it still exists.
-            _tempTableLayerName = "TempTable_" + _userID;
-            _tempTableOutputFile = _tempGDBName + @"\" + _tempTableLayerName;
-            await _mapFunctions.RemoveLayerAsync(_tempTableLayerName);
-            if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
-            {
-                await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
-                //FileFunctions.WriteLine(_logFile, "Temporary output table deleted");
-            }
-
             // Delete the temporary output points feature class if it still exists.
             _tempFCPointsLayerName = "TempOutputPoints_" + _userID;
             _tempFCPointsOutputFile = _tempGDBName + @"\" + _tempFCPointsLayerName;
@@ -2511,6 +2503,16 @@ namespace DataSearches.UI
             {
                 await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempSearchPointsLayerName);
                 //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
+            }
+
+            // Delete the temporary output table if it still exists.
+            _tempTableLayerName = "TempTable_" + _userID;
+            _tempTableOutputFile = _tempGDBName + @"\" + _tempTableLayerName;
+            await _mapFunctions.RemoveTableAsync(_tempTableLayerName);
+            if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
+            {
+                await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
+                //FileFunctions.WriteLine(_logFile, "Temporary output table deleted");
             }
 
             return true;
@@ -2620,8 +2622,8 @@ namespace DataSearches.UI
             {
                 if (!await _mapFunctions.MoveToGroupLayerAsync(_mapFunctions.FindLayer(layerName), _groupLayerName, position))
                 {
-                    //MessageBox.Show("Error moving layer to '" + layerName + "'");
-                    FileFunctions.WriteLine(_logFile, "Error moving layer to '" + layerName + "'");
+                    //MessageBox.Show("Error moving layer to '" + _groupLayerName + "'");
+                    FileFunctions.WriteLine(_logFile, "Error moving layer to '" + _groupLayerName + "'");
                     _SearchErrors = true;
 
                     return false;
@@ -2694,8 +2696,11 @@ namespace DataSearches.UI
             mapOutputName = StringFunctions.StripIllegals(mapOutputName, _repChar);
             mapTableOutputName = StringFunctions.StripIllegals(mapTableOutputName, _repChar);
 
-            mapStatsColumns = StringFunctions.AlignStatsColumns(mapColumns, mapStatsColumns, mapGroupColumns);
-            mapCombinedSitesStatsColumns = StringFunctions.AlignStatsColumns(mapCombinedSitesColumns, mapCombinedSitesStatsColumns, mapCombinedSitesGroupColumns);
+            // Set the statistics columns if they haven't been supplied.
+            if (String.IsNullOrEmpty(mapStatsColumns) && !String.IsNullOrEmpty(mapGroupColumns))
+                mapStatsColumns = StringFunctions.AlignStatsColumns(mapColumns, mapStatsColumns, mapGroupColumns);
+            if (String.IsNullOrEmpty(mapCombinedSitesStatsColumns) && !String.IsNullOrEmpty(mapCombinedSitesGroupColumns))
+                mapCombinedSitesStatsColumns = StringFunctions.AlignStatsColumns(mapCombinedSitesColumns, mapCombinedSitesStatsColumns, mapCombinedSitesGroupColumns);
 
             // Get the full layer path (in case it's nested in one or more groups).
             string mapLayerPath = _mapFunctions.GetLayerPath(mapLayerName);
@@ -2884,10 +2889,11 @@ namespace DataSearches.UI
                 return false;
 
             // If the input layer should be clipped to the buffer layer, do so now.
-            if (mapOutputType == "CLIP")
+            if (mapOutputType.Equals("CLIP", StringComparison.OrdinalIgnoreCase))
             {
-                if (mapLayerFCType == "polygon" & bufferFCType == "polygon" ||
-                    mapLayerFCType == "line" & (bufferFCType == "line" || bufferFCType == "polygon"))
+                if (mapLayerFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase) && bufferFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase) ||
+                    mapLayerFCType.Equals("line", StringComparison.OrdinalIgnoreCase) &&
+                    (bufferFCType.Equals("line", StringComparison.OrdinalIgnoreCase) || bufferFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase)))
                 {
                     // Clip
                     FileFunctions.WriteLine(_logFile, "Clipping selected features ...");
@@ -2901,10 +2907,11 @@ namespace DataSearches.UI
                 }
             }
             // If the buffer layer should be clipped to the input layer, do so now.
-            else if (mapOutputType == "OVERLAY")
+            else if (mapOutputType.Equals("OVERLAY", StringComparison.OrdinalIgnoreCase))
             {
-                if (bufferFCType == "polygon" & mapLayerFCType == "polygon" ||
-                    bufferFCType == "line" & (mapLayerFCType == "line" || mapLayerFCType == "polygon"))
+                if (bufferFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase) && mapLayerFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase) ||
+                    bufferFCType.Equals("line", StringComparison.OrdinalIgnoreCase) &&
+                    (mapLayerFCType.Equals("line", StringComparison.OrdinalIgnoreCase) || mapLayerFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase)))
                 {
                     // Clip
                     FileFunctions.WriteLine(_logFile, "Overlaying selected features ...");
@@ -2947,10 +2954,11 @@ namespace DataSearches.UI
                 }
             }
             // If the input layer should be intersected with the buffer layer, do so now.
-            else if (mapOutputType == "INTERSECT")
+            else if (mapOutputType.Equals("INTERSECT", StringComparison.OrdinalIgnoreCase))
             {
-                if (mapLayerFCType == "polygon" & bufferFCType == "polygon" ||
-                    mapLayerFCType == "line" & bufferFCType == "line")
+                if (mapLayerFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase) && bufferFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase) ||
+                    mapLayerFCType.Equals("line", StringComparison.OrdinalIgnoreCase) &&
+                    (bufferFCType.Equals("line", StringComparison.OrdinalIgnoreCase) || bufferFCType.Equals("polygon", StringComparison.OrdinalIgnoreCase)))
                 {
                     string[] features = ["'" + mapLayerPath + "' #", "'" + bufferLayerPath + "' #"];
                     string inFeatures = string.Join(";", features);
@@ -3114,12 +3122,14 @@ namespace DataSearches.UI
                 return -1;
 
             // Calculate the area field if required.
-            if (!string.IsNullOrEmpty(areaUnit) && inputFeatureType == "polygon")
+            string areaColumnName = "";
+            if (!string.IsNullOrEmpty(areaUnit) && inputFeatureType.Equals("polygon", StringComparison.OrdinalIgnoreCase))
             {
+                areaColumnName = "Area" + areaUnit;
                 // Does the area field already exist? If not, add it.
-                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Area"))
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, areaColumnName))
                 {
-                    if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, "Area", "DOUBLE", 20))
+                    if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, areaColumnName, "DOUBLE", 20))
                     {
                         //MessageBox.Show("Error adding area field to " + _tempMasterOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error adding area field to " + _tempMasterOutputFile);
@@ -3127,27 +3137,56 @@ namespace DataSearches.UI
 
                         return -1;
                     }
+
+                    string geometryProperty = areaColumnName + " AREA";
+                    if (areaUnit.Equals("ha", StringComparison.OrdinalIgnoreCase))
+                    {
+                        areaUnit = "HECTARES";
+                    }
+                    else if (areaUnit.Equals("m2", StringComparison.OrdinalIgnoreCase))
+                    {
+                        areaUnit = "SQUARE_METERS";
+                    }
+                    else if (areaUnit.Equals("km2", StringComparison.OrdinalIgnoreCase))
+                    {
+                        areaUnit = "SQUARE_KILOMETERS";
+                    }
+
+                    // Calculate the area field.
+                    if (!await ArcGISFunctions.CalculateGeometryAsync(_tempMasterOutputFile, geometryProperty, "", areaUnit))
+                    {
+                        //MessageBox.Show("Error calculating area field in " + _tempMasterOutputFile + ".");
+                        FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
+                        _SearchErrors = true;
+
+                        return -1;
+                    }
+                }
+            }
+
+            // Include radius if requested
+            if (radiusText != "none")
+            {
+                FileFunctions.WriteLine(_logFile, "Including radius column ...");
+
+                // Does the radius field already exist? If not, add it.
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Radius"))
+                {
+                    if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, "Radius", "TEXT", fieldLength: 25))
+                    {
+                        //MessageBox.Show("Error adding radius field to " + _tempMasterOutputFile + ".");
+                        FileFunctions.WriteLine(_logFile, "Error adding radius field to " + _tempMasterOutputFile);
+                        _SearchErrors = true;
+
+                        return -1;
+                    }
                 }
 
-                string geometryProperty = "Area AREA";
-                if (areaUnit.Equals("ha", StringComparison.OrdinalIgnoreCase))
+                // Calculate the radius field.
+                if (!await ArcGISFunctions.CalculateFieldAsync(_tempMasterOutputFile, "Radius", '"' + radiusText + '"'))
                 {
-                    areaUnit = "HECTARES";
-                }
-                else if (areaUnit.Equals("m2", StringComparison.OrdinalIgnoreCase))
-                {
-                    areaUnit = "SQUARE_METERS";
-                }
-                else if (areaUnit.Equals("km2", StringComparison.OrdinalIgnoreCase))
-                {
-                    areaUnit = "SQUARE_KILOMETERS";
-                }
-
-                // Calculate the area field.
-                if (!await ArcGISFunctions.CalculateGeometryAsync(_tempMasterOutputFile, geometryProperty, "", areaUnit))
-                {
-                    //MessageBox.Show("Error calculating area field in " + _tempMasterOutputFile + ".");
-                    FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
+                    //MessageBox.Show("Error calculating radius field in " + _tempMasterOutputFile + ".");
+                    FileFunctions.WriteLine(_logFile, "Error calculating radius field in " + _tempMasterOutputFile);
                     _SearchErrors = true;
 
                     return -1;
@@ -3164,8 +3203,13 @@ namespace DataSearches.UI
                 return -1;
             }
 
+            //-------------------------------------------------------------
+            // After this the input to the remainder of the function
+            // should be reading from _tempFCOutputFile (_tempFCLayerName).
+            //-------------------------------------------------------------
+
             // Calculate the boundary distance and bearing if required.
-            if (includeNearFields == "BOUNDARY")
+            if (includeNearFields.Equals("BOUNDARY", StringComparison.OrdinalIgnoreCase))
             {
                 // Calculate the distance and additional proximity fields.
                 if (!await ArcGISFunctions.NearAnalysisAsync(_tempFCOutputFile, _searchLayerName,
@@ -3179,7 +3223,7 @@ namespace DataSearches.UI
                 }
             }
             // Calculate the centroid distance and bearing if required.
-            else if (includeNearFields == "CENTROID")
+            else if (includeNearFields.Equals("CENTROID", StringComparison.OrdinalIgnoreCase))
             {
                 // Convert the output features to points.
                 if (!await ArcGISFunctions.FeatureToPointAsync(_tempFCOutputFile, _tempFCPointsOutputFile,
@@ -3228,44 +3272,10 @@ namespace DataSearches.UI
                 }
             }
 
-            //-------------------------------------------------------------
-            // After this the input to the remainder of the function
-            // should be reading from _tempFCOutputFile (_tempFCLayerName).
-            //-------------------------------------------------------------
-
             // Check the output feature layer exists.
             FeatureLayer outputFeatureLayer = _mapFunctions.FindLayer(_tempFCLayerName);
             if (outputFeatureLayer == null)
                 return -1;
-
-            // Include radius if requested
-            if (radiusText != "none")
-            {
-                FileFunctions.WriteLine(_logFile, "Including radius column ...");
-
-                // Does the radius field already exist? If not, add it.
-                if (!await _mapFunctions.FieldExistsAsync(_tempFCLayerName, "Radius"))
-                {
-                    if (!await ArcGISFunctions.AddFieldAsync(_tempFCOutputFile, "Radius", "TEXT", fieldLength: 25))
-                    {
-                        //MessageBox.Show("Error adding radius field to " + _tempFCOutputFile + ".");
-                        FileFunctions.WriteLine(_logFile, "Error adding radius field to " + _tempFCOutputFile);
-                        _SearchErrors = true;
-
-                        return -1;
-                    }
-                }
-
-                // Calculate the radius field.
-                if (!await ArcGISFunctions.CalculateFieldAsync(_tempFCOutputFile, "Radius", '"' + radiusText + '"'))
-                {
-                    //MessageBox.Show("Error calculating radius field in " + _tempFCOutputFile + ".");
-                    FileFunctions.WriteLine(_logFile, "Error calculating radius field in " + _tempFCOutputFile);
-                    _SearchErrors = true;
-
-                    return -1;
-                }
-            }
 
             // Check all the requested group by fields exist.
             // Only pass those that do.
@@ -3325,8 +3335,15 @@ namespace DataSearches.UI
                 // Add the radius column to the stats columns if it's not already there.
                 if (radiusText != "none")
                 {
-                    if (!statisticsFields.Contains("Radius", StringComparison.OrdinalIgnoreCase))
+                    if (!statisticsFields.Contains("Radius FIRST", StringComparison.OrdinalIgnoreCase))
                         statisticsFields += ";Radius FIRST";
+                }
+
+                // Add the area column to the stats columns if it's not already there.
+                if (!string.IsNullOrEmpty(areaColumnName))
+                {
+                    if (!statisticsFields.Contains(areaColumnName + " FIRST", StringComparison.OrdinalIgnoreCase))
+                        statisticsFields += ";" + areaColumnName + " FIRST";
                 }
 
                 // Calculate the summary statistics.
@@ -3339,28 +3356,22 @@ namespace DataSearches.UI
                     return -1;
                 }
 
+                // Get the list of fields for the input table.
+                IReadOnlyList<Field> inputFields;
+                inputFields = await _mapFunctions.GetTableFieldsAsync(_tempTableLayerName);
+
+                // Check a list of fields is returned.
+                if (inputFields == null || inputFields.Count == 0)
+                    return -1;
+
                 // Now rename the radius field.
                 if (radiusText != "none")
                 {
-                    // Get the list of fields for the input table.
-                    IReadOnlyList<Field> inputFields;
-                    inputFields = await _mapFunctions.GetTableFieldsAsync(_tempTableLayerName);
-
-                    // Check a list of fields is returned.
-                    if (inputFields == null || inputFields.Count == 0)
-                        return -1;
-
-                    //// Find out what the new field is called - could be anything.
-                    //int intNewIndex = 2; // OBJECTID = 0; Frequency = 1.
-                    //if (!string.IsNullOrEmpty(mapGroupColumns))
-                    //    intNewIndex += mapGroupColumns.Split(';').ToList().Count; // Add the number of columns used for grouping
-
                     string oldFieldName;
-
                     // Check the radius field by name.
                     try
                     {
-                        oldFieldName = inputFields.Where(f => f.Name == "FIRST_Radius").First().Name;
+                        oldFieldName = inputFields.Where(f => f.Name.Equals("FIRST_Radius", StringComparison.OrdinalIgnoreCase)).First().Name;
                     }
                     catch
                     {
@@ -3373,6 +3384,32 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error renaming radius field in " + _tempFCOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error renaming radius field in " + _tempTableLayerName);
+                        _SearchErrors = true;
+
+                        return -1;
+                    }
+                }
+
+                // Now rename the area field.
+                if (!string.IsNullOrEmpty(areaColumnName))
+                {
+                    string oldFieldName;
+                    // Check the area field by name.
+                    try
+                    {
+                        oldFieldName = inputFields.Where(f => f.Name.Equals("FIRST_" + areaColumnName, StringComparison.OrdinalIgnoreCase)).First().Name;
+                    }
+                    catch
+                    {
+                        // If not found then use the last field.
+                        int intNewIndex = inputFields.Count - 1;
+                        oldFieldName = inputFields[intNewIndex].Name;
+                    }
+
+                    if (!await ArcGISFunctions.RenameFieldAsync(_tempTableOutputFile, oldFieldName, areaColumnName))
+                    {
+                        //MessageBox.Show("Error renaming Area field in " + _tempFCOutputFile + ".");
+                        FileFunctions.WriteLine(_logFile, "Error renaming Area field in " + _tempTableLayerName);
                         _SearchErrors = true;
 
                         return -1;
@@ -3457,7 +3494,7 @@ namespace DataSearches.UI
                                 _ => false,
                             };
 
-                            if (await _mapFunctions.LabelLayerAsync(layerName, "[" + labelColumn + "]", labelFont, labelSize, "Normal",
+                            if (await _mapFunctions.LabelLayerAsync(layerName, labelColumn, labelFont, labelSize, "Normal",
                                 labelRed, labelGreen, labelBlue, allowOverlap))
                                 FileFunctions.WriteLine(_logFile, "Labels added to output " + layerName);
                         }
@@ -3473,7 +3510,7 @@ namespace DataSearches.UI
                     else if (!string.IsNullOrEmpty(labelColumn) && string.IsNullOrEmpty(layerFileName))
                     {
                         // Set simple labels.
-                        if (await _mapFunctions.LabelLayerAsync(layerName, "[" + labelColumn + "]"))
+                        if (await _mapFunctions.LabelLayerAsync(layerName, labelColumn))
                             FileFunctions.WriteLine(_logFile, "Labels added to output " + layerName);
                     }
                 }

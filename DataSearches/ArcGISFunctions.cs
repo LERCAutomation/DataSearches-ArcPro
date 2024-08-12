@@ -424,7 +424,7 @@ namespace DataTools
 
                     // Get the key field from the feature class definition.
                     ArcGIS.Core.Data.Field keyField = featureClassDefinition.GetFields()
-                      .First(x => x.Name.Equals(keyFieldName));
+                      .First(x => x.Name.Equals(keyFieldName, StringComparison.OrdinalIgnoreCase));
 
                     // Create a SortDescription for the key field.
                     ArcGIS.Core.Data.SortDescription keySortDescription = new(keyField)
@@ -453,7 +453,7 @@ namespace DataTools
                             labelVal = labelMax;
                         }
 
-                        //editOperation.Modify(record, labelFieldName, labelVal); //TODO: Temporarily commented out.
+                        editOperation.Modify(record, labelFieldName, labelVal);
 
                         lastKeyValue = keyValue;
                     }
@@ -538,21 +538,21 @@ namespace DataTools
                     if (!string.IsNullOrEmpty(siteColumn))
                     {
                         // Double check that attribute exists.
-                        if (insp.FirstOrDefault(a => a.FieldName == siteColumn) != null)
+                        if (insp.FirstOrDefault(a => a.FieldName.Equals(siteColumn, StringComparison.OrdinalIgnoreCase)) != null)
                             insp[siteColumn] = siteName;
                     }
 
                     if (!string.IsNullOrEmpty(orgColumn))
                     {
                         // Double check that attribute exists.
-                        if (insp.FirstOrDefault(a => a.FieldName == orgColumn) != null)
+                        if (insp.FirstOrDefault(a => a.FieldName.Equals(orgColumn, StringComparison.OrdinalIgnoreCase)) != null)
                             insp[orgColumn] = orgName;
                     }
 
                     if (!string.IsNullOrEmpty(radiusColumn))
                     {
                         // Double check that attribute exists.
-                        if (insp.FirstOrDefault(a => a.FieldName == radiusColumn) != null)
+                        if (insp.FirstOrDefault(a => a.FieldName.Equals(radiusColumn, StringComparison.OrdinalIgnoreCase)) != null)
                             insp[radiusColumn] = radiusText;
                     }
 
@@ -771,7 +771,8 @@ namespace DataTools
 
             foreach (ArcGIS.Core.Data.Field fld in fields)
             {
-                if (fld.Name == fieldName || fld.AliasName == fieldName)
+                if (fld.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase) ||
+                    fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
                 {
                     fldFound = true;
                     break;
@@ -805,8 +806,6 @@ namespace DataTools
                 if (featurelayer == null)
                     return false;
 
-                IReadOnlyList<ArcGIS.Core.Data.Field> fields = null;
-
                 bool fldFound = false;
 
                 await QueuedTask.Run(() =>
@@ -819,12 +818,13 @@ namespace DataTools
                         TableDefinition tableDef = table.GetDefinition();
 
                         // Get the fields in the table.
-                        fields = tableDef.GetFields();
+                        IReadOnlyList<ArcGIS.Core.Data.Field> fields = tableDef.GetFields();
 
                         // Loop through all fields looking for a name match.
                         foreach (ArcGIS.Core.Data.Field fld in fields)
                         {
-                            if (fld.Name == fieldName || fld.AliasName == fieldName)
+                            if (fld.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase) ||
+                                fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
                             {
                                 fldFound = true;
                                 break;
@@ -888,7 +888,8 @@ namespace DataTools
                         // Loop through all fields looking for a name match.
                         foreach (ArcGIS.Core.Data.Field fld in fields)
                         {
-                            if (fld.Name == fieldName || fld.AliasName == fieldName)
+                            if (fld.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase) ||
+                                fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
                             {
                                 fldIsNumeric = fld.FieldType switch
                                 {
@@ -1273,8 +1274,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Remove the table.
-                    if (table != null)
-                        _activeMap.RemoveStandaloneTable(table);
+                    _activeMap.RemoveStandaloneTable(table);
                 });
             }
             catch
@@ -1387,6 +1387,9 @@ namespace DataTools
 
                     // Set the label text symbol.
                     labelClass.TextSymbol.Symbol = textSymbol;
+
+                    // Set the label expression.
+                    labelClass.Expression = "$feature." + labelColumn;
 
                     // Check if the label engine is Maplex or standard.
                     CIMGeneralPlacementProperties labelEngine =
@@ -1557,7 +1560,7 @@ namespace DataTools
                         {
                             // Get the column name (ignoring any trailing ASC/DESC sort order).
                             string columnName = column.Trim();
-                            if (columnName.Contains(' ', StringComparison.CurrentCulture))
+                            if (columnName.Contains(' '))
                                 columnName = columnName.Split(" ")[0].Trim();
 
                             // Set the sort order to ascending or descending.
@@ -1571,7 +1574,7 @@ namespace DataTools
                             {
                                 // Get the field from the feature class definition.
                                 ArcGIS.Core.Data.Field field = featureClassDefinition.GetFields()
-                                  .First(x => x.Name.Equals(columnName));
+                                  .First(x => x.Name.Equals(columnName, StringComparison.OrdinalIgnoreCase));
 
                                 // Create a SortDescription for the field.
                                 ArcGIS.Core.Data.SortDescription sortDescription = new(field)
@@ -1616,14 +1619,6 @@ namespace DataTools
                                 // Wrap value if quotes if it is a string that contains a comma
                                 if ((columnValue is string) && (columnValue.ToString().Contains(',')))
                                     columnValue = "\"" + columnValue.ToString() + "\"";
-
-                                // Format distance to the nearest metre
-                                if (columnValue is double && columnName == "Distance")
-                                {
-                                    double dblValue = double.Parse(columnValue.ToString());
-                                    int intValue = Convert.ToInt32(dblValue);
-                                    columnValue = intValue;
-                                }
 
                                 // Append the column value to the new row.
                                 newRow = newRow + columnValue.ToString() + ",";
@@ -1770,7 +1765,7 @@ namespace DataTools
                         foreach (string column in orderByColumnsList)
                         {
                             // Get the column name (ignoring any possible ASC/DESC sort order.
-                            string columnName = column.Split(" ")[0].Trim();
+                            string columnName = column.Split(' ')[0].Trim();
 
                             // Set the sort order to ascending or descending.
                             ArcGIS.Core.Data.SortOrder sortOrder = ArcGIS.Core.Data.SortOrder.Ascending;
@@ -1782,7 +1777,7 @@ namespace DataTools
                             {
                                 // Get the field from the feature class definition.
                                 ArcGIS.Core.Data.Field field = tableDefinition.GetFields()
-                                  .First(x => x.Name.Equals(columnName));
+                                  .First(x => x.Name.Equals(columnName, StringComparison.OrdinalIgnoreCase));
 
                                 // Create a SortDescription for the field.
                                 ArcGIS.Core.Data.SortDescription sortDescription = new(field)
@@ -1827,14 +1822,6 @@ namespace DataTools
                                 // Wrap value if quotes if it is a string that contains a comma
                                 if ((columnValue is string) && (columnValue.ToString().Contains(',')))
                                     columnValue = "\"" + columnValue.ToString() + "\"";
-
-                                // Format distance to the nearest metre
-                                if (columnValue is double && columnName == "Distance")
-                                {
-                                    double dblValue = double.Parse(columnValue.ToString());
-                                    int intValue = Convert.ToInt32(dblValue);
-                                    columnValue = intValue;
-                                }
 
                                 // Append the column value to the new row.
                                 newRow = newRow + columnValue.ToString() + ",";
@@ -1910,7 +1897,7 @@ namespace DataTools
                 else
                     return false;
             }
-            else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
+            else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
             {
                 // It's an SDE class.
                 // Not handled. We know the layer exists.
@@ -3075,7 +3062,7 @@ namespace DataTools
                 else
                     return false;
             }
-            else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
+            else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
             {
                 // It's an SDE class
                 // Not handled. We know the layer exists.
@@ -3135,7 +3122,7 @@ namespace DataTools
                 else
                     return false;
             }
-            else if (filePath.Substring(filePath.Length - 3, 3) == "sde")
+            else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
             {
                 // It's an SDE class.
                 // Not handled. We know the layer exists.
