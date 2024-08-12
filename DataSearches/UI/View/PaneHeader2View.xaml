@@ -17,7 +17,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition MinHeight="150" Height="*" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -27,7 +27,7 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,8" HorizontalAlignment="Stretch">
+            <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,4,0,4" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -44,7 +44,7 @@
                 <Label Name="LabelSearchRef"
                        Content="Search Reference:"
                        Grid.Column="1"
-                       Margin="0,0,4,2"
+                       Margin="0,0,4,0"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextSearchRef"
@@ -57,7 +57,7 @@
                          ToolTip="Enter a search reference" />
             </Grid>
 
-            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=SiteNameTextVisibility}">
+            <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=SiteNameTextVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -74,7 +74,7 @@
                 <Label Name="LabelSiteName"
                        Content="Site Name:"
                        Grid.Column="1"
-                       Margin="0,0,4,2"
+                       Margin="0,0,4,0"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextSiteName"
@@ -86,7 +86,7 @@
                          ToolTip="{Binding SiteNameTooltip}" />
             </Grid>
 
-            <Grid Name="GridOrganisation" Grid.Row="2" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OrganisationTextVisibility}">
+            <Grid Name="GridOrganisation" Grid.Row="2" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=OrganisationTextVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -103,7 +103,7 @@
                 <Label Name="LabelOrganisation"
                        Content="Organisation:"
                        Grid.Column="1"
-                       Margin="0,0,4,2"
+                       Margin="0,0,4,0"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextOrganisation"
@@ -115,10 +115,10 @@
                          ToolTip="{Binding OrganisationTooltip}" />
             </Grid>
 
-            <Grid Name="GridLayers" Grid.Row="3" Margin="0,4,0,8">
+            <Grid Name="GridLayers" Grid.Row="3" Margin="0,4,0,4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="300" />
+                    <RowDefinition Height="280" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
@@ -192,7 +192,7 @@
                 </ListView>
             </Grid>
 
-            <Grid Name="GridBuffer" Grid.Row="4" Margin="0,4,0,8" HorizontalAlignment="Stretch">
+            <Grid Name="GridBuffer" Grid.Row="4" Margin="0,4,0,4" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -213,7 +213,7 @@
                 <Label Name="LabelBufferSize"
                        Content="Buffer Size:"
                        Grid.Column="1"
-                       Margin="0,0,4,2"
+                       Margin="0,0,4,0"
                        Padding="0"
                        VerticalAlignment="Center" />
                 <TextBox Name="TextBufferSize"
@@ -250,7 +250,7 @@
                         SelectedIndex="{Binding Path=SelectedBufferUnitsIndex}" />
             </Grid>
 
-            <Grid Name="GridKeepLayers" Grid.Row="5" Margin="0,4,0,8" HorizontalAlignment="Right" Visibility="{Binding Path=KeepLayersVisibility}">
+            <Grid Name="GridKeepLayers" Grid.Row="5" Margin="0,4,0,4" HorizontalAlignment="Right" Visibility="{Binding Path=KeepLayersVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -276,7 +276,7 @@
                        VerticalAlignment="Center" />
             </Grid>
 
-            <Grid Name="GridAddToMap" Grid.Row="6" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
+            <Grid Name="GridAddToMap" Grid.Row="6" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=AddToMapListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -309,7 +309,7 @@
                         SelectedValue="{Binding Path=SelectedAddToMap}" />
             </Grid>
 
-            <Grid Name="GridOverwriteLabels" Grid.Row="7" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
+            <Grid Name="GridOverwriteLabels" Grid.Row="7" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=OverwriteLabelsListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />
@@ -342,7 +342,7 @@
                         SelectedValue="{Binding Path=SelectedOverwriteLabels}" />
             </Grid>
 
-            <Grid Name="GridCombinedSites" Grid.Row="8" Margin="0,4,0,8" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
+            <Grid Name="GridCombinedSites" Grid.Row="8" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=CombinedSitesListVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="Auto" />

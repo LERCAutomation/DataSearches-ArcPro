@@ -282,8 +282,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _openLayersList != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_openLayersList != null));
             }
         }
 
@@ -294,8 +294,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _bufferUnitsList != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_bufferUnitsList != null));
             }
         }
 
@@ -306,8 +306,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _defaultKeepSelectedLayers != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_defaultKeepSelectedLayers != null));
             }
         }
 
@@ -318,8 +318,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _addToMapList != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_addToMapList != null));
             }
         }
 
@@ -330,8 +330,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _overwriteLabelsList != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_overwriteLabelsList != null));
             }
         }
 
@@ -342,8 +342,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _combinedSitesList != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_combinedSitesList != null));
             }
         }
 
@@ -354,17 +354,17 @@ namespace DataSearches.UI
         {
             get
             {
-                return (_dockPane.ProcessStatus == null
-                    && _openLayersList != null
-                    && _openLayersList.Where(p => p.IsSelected).Any()
-                    && !string.IsNullOrEmpty(_searchRefText)
-                    && !_requireSiteName || !string.IsNullOrEmpty(_siteNameText)
-                    && !_requireOrganisation || !string.IsNullOrEmpty(_organisationText)
-                    && !string.IsNullOrEmpty(_bufferSizeText)
-                    && _selectedBufferUnitsIndex >= 0
-                    && _defaultAddSelectedLayers <= 0 || _selectedAddToMap != null
-                    && _defaultOverwriteLabels <= 0 || _selectedOverwriteLabels != null
-                    && _defaultCombinedSitesTable <= 0 || _selectedCombinedSites != null);
+                return ((_dockPane.ProcessStatus == null)
+                    && (_openLayersList != null)
+                    && (_openLayersList.Where(p => p.IsSelected).Any())
+                    && (!string.IsNullOrEmpty(_searchRefText))
+                    && (!_requireSiteName || !string.IsNullOrEmpty(_siteNameText))
+                    && (!_requireOrganisation || !string.IsNullOrEmpty(_organisationText))
+                    && (!string.IsNullOrEmpty(_bufferSizeText))
+                    && (_selectedBufferUnitsIndex >= 0)
+                    && (_defaultAddSelectedLayers <= 0 || _selectedAddToMap != null)
+                    && (_defaultOverwriteLabels <= 0 || _selectedOverwriteLabels != null)
+                    && (_defaultCombinedSitesTable <= 0 || _selectedCombinedSites != null));
             }
         }
 
@@ -563,6 +563,9 @@ namespace DataSearches.UI
         /// </summary>
         public async void RunSearch()
         {
+            // Reset the cancel flag.
+            _dockPane.SearchCancelled = false;
+
             // Validate the parameters.
             if (!ValidateParameters())
                 return;
@@ -613,6 +616,9 @@ namespace DataSearches.UI
             }
 
             StopSearch(searchRef, message, image);
+
+            // Reset the cancel flag.
+            _dockPane.SearchCancelled = false;
 
             // Update the fields and buttons in the form.
             UpdateFormControls();
@@ -762,8 +768,8 @@ namespace DataSearches.UI
                 //    }
                 //}
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -782,8 +788,8 @@ namespace DataSearches.UI
             {
                 _siteNameText = value;
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -817,8 +823,8 @@ namespace DataSearches.UI
             {
                 _organisationText = value;
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -857,7 +863,8 @@ namespace DataSearches.UI
         {
             set
             {
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -893,8 +900,8 @@ namespace DataSearches.UI
             {
                 _bufferSizeText = value;
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -933,8 +940,8 @@ namespace DataSearches.UI
             {
                 _selectedBufferUnitsIndex = value;
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -999,7 +1006,9 @@ namespace DataSearches.UI
 
                 // Update the fields and buttons in the form.
                 OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -1038,8 +1047,8 @@ namespace DataSearches.UI
             {
                 _selectedOverwriteLabels = value;
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -1078,8 +1087,8 @@ namespace DataSearches.UI
             {
                 _selectedCombinedSites = value;
 
-                // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
+                // Check if the run button is now enabled/disabled.
+                _dockPane.CheckRunButton();
             }
         }
 
@@ -1144,7 +1153,9 @@ namespace DataSearches.UI
         private void UpdateFormControls()
         {
             UpdateFormFields();
-            UpdateFormButtons();
+
+            // Check if the run button is now enabled/disabled.
+            _dockPane.CheckRunButton();
         }
 
         /// <summary>
@@ -1174,14 +1185,6 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(CombinedSitesList));
             OnPropertyChanged(nameof(SelectedCombinedSites));
             OnPropertyChanged(nameof(CombinedSitesListVisibility));
-        }
-
-        /// <summary>
-        /// Update the buttons in the form.
-        /// </summary>
-        private void UpdateFormButtons()
-        {
-            OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
         }
 
         /// <summary>
@@ -2149,6 +2152,7 @@ namespace DataSearches.UI
             // Create the temporary file geodatabase if it doesn't exist.
             _tempGDBName = tempFolder + @"Temp.gdb";
             _tempGDB = null;
+            bool tempGDBFound = true;
             if (!FileFunctions.DirExists(_tempGDBName))
             {
                 _tempGDB = ArcGISFunctions.CreateFileGeodatabase(_tempGDBName);
@@ -2161,59 +2165,64 @@ namespace DataSearches.UI
                     return false;
                 }
 
+                tempGDBFound = false;
                 FileFunctions.WriteLine(_logFile, "Temporary geodatabase created");
-
-                return true;
             }
 
-            // Delete the temporary master feature class if it still exists.
+            // Set the temporary layer and file names.
             _tempMasterLayerName = "TempMaster_" + _userID;
             _tempMasterOutputFile = _tempGDBName + @"\" + _tempMasterLayerName;
-            await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
-            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempMasterOutputFile))
-            {
-                await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempMasterLayerName);
-                //FileFunctions.WriteLine(_logFile, "Temporary master feature class deleted");
-            }
-
-            // Delete the temporary output feature class if it still exists.
             _tempFCLayerName = "TempOutput_" + _userID;
             _tempFCOutputFile = _tempGDBName + @"\" + _tempFCLayerName;
-            await _mapFunctions.RemoveLayerAsync(_tempFCLayerName);
-            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutputFile))
-            {
-                await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCLayerName);
-                //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
-            }
-
-            // Delete the temporary output points feature class if it still exists.
             _tempFCPointsLayerName = "TempOutputPoints_" + _userID;
             _tempFCPointsOutputFile = _tempGDBName + @"\" + _tempFCPointsLayerName;
-            await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName);
-            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCPointsOutputFile))
-            {
-                await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCPointsLayerName);
-                //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
-            }
-
-            // Delete the temporary search points feature class if it still exists.
             _tempSearchPointsLayerName = "TempSearchPoints_" + _userID;
             _tempSearchPointsOutputFile = _tempGDBName + @"\" + _tempSearchPointsLayerName;
-            await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName);
-            if (await ArcGISFunctions.FeatureClassExistsAsync(_tempSearchPointsOutputFile))
-            {
-                await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempSearchPointsLayerName);
-                //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
-            }
-
-            // Delete the temporary output table if it still exists.
             _tempTableLayerName = "TempTable_" + _userID;
             _tempTableOutputFile = _tempGDBName + @"\" + _tempTableLayerName;
-            await _mapFunctions.RemoveTableAsync(_tempTableLayerName);
-            if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
+
+            // If the GDB already existed clean it up.
+            if (tempGDBFound)
             {
-                await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
-                //FileFunctions.WriteLine(_logFile, "Temporary output table deleted");
+                // Delete the temporary master feature class if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
+                if (await ArcGISFunctions.FeatureClassExistsAsync(_tempMasterOutputFile))
+                {
+                    await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempMasterLayerName);
+                    //FileFunctions.WriteLine(_logFile, "Temporary master feature class deleted");
+                }
+
+                // Delete the temporary output feature class if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempFCLayerName);
+                if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutputFile))
+                {
+                    await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCLayerName);
+                    //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
+                }
+
+                // Delete the temporary output points feature class if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName);
+                if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCPointsOutputFile))
+                {
+                    await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCPointsLayerName);
+                    //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
+                }
+
+                // Delete the temporary search points feature class if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName);
+                if (await ArcGISFunctions.FeatureClassExistsAsync(_tempSearchPointsOutputFile))
+                {
+                    await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempSearchPointsLayerName);
+                    //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
+                }
+
+                // Delete the temporary output table if it still exists.
+                await _mapFunctions.RemoveTableAsync(_tempTableLayerName);
+                if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
+                {
+                    await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
+                    //FileFunctions.WriteLine(_logFile, "Temporary output table deleted");
+                }
             }
 
             return true;
@@ -2325,7 +2334,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error moving layer to '" + _groupLayerName + "'");
                     FileFunctions.WriteLine(_logFile, "Error moving layer to '" + _groupLayerName + "'");
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2858,7 +2867,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error calculating area field in " + _tempMasterOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return -1;
                     }
@@ -2877,7 +2886,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error adding radius field to " + _tempMasterOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error adding radius field to " + _tempMasterOutputFile);
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return -1;
                     }
@@ -2888,7 +2897,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating radius field in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating radius field in " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3111,7 +3120,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error renaming Area field in " + _tempFCOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error renaming Area field in " + _tempTableLayerName);
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return -1;
                     }

@@ -200,18 +200,26 @@ namespace DataSearches.UI
         {
             get
             {
+                if (_paneH2VM == null)
+                    return false;
+
                 return (_paneH2VM.RunButtonEnabled);
             }
         }
 
-        #endregion Controls Enabled
+        public void CheckRunButton()
+        {
+            OnPropertyChanged(nameof(RunButtonEnabled));
+        }
 
-            #region Properties
+    #endregion Controls Enabled
 
-            /// <summary>
-            /// ID of the DockPane.
-            /// </summary>
-        private const string _dockPaneID = "DataSearches_UI_DockpaneMain";
+    #region Properties
+
+    /// <summary>
+    /// ID of the DockPane.
+    /// </summary>
+    private const string _dockPaneID = "DataSearches_UI_DockpaneMain";
 
         public static string DockPaneID
         {

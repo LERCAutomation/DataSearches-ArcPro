@@ -224,8 +224,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return (!_dockPane.SearchRunning)
-                    && (!_dockPane.LayersListLoading);
+                return ((!_dockPane.SearchRunning)
+                    && (!_dockPane.LayersListLoading));
             }
         }
 
