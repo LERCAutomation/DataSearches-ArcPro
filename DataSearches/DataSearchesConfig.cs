@@ -865,7 +865,7 @@ namespace DataSearches
 
                         try
                         {
-                            rawText = node["IncudeNearFields"].InnerText;
+                            rawText = node["IncludeNearFields"].InnerText;
                             string includeNear = (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture)) switch
                             {
                                 "centroid" => "CENTROID",
@@ -877,7 +877,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'IncudeNearFields' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate the item 'IncludeNearFields' for map layer " + nodeName + " in the XML file");
                         }
 
                         try

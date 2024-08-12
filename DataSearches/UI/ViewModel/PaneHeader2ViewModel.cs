@@ -91,8 +91,7 @@ namespace DataSearches.UI
         private string _userID;
         private string _tempGDBName;
 
-        private bool _searchCancelled;
-        private bool _SearchErrors;
+        private bool _searchErrors;
 
         private bool _updateTable;
 
@@ -283,8 +282,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
-                    && _openLayersList != null;
+                return (_dockPane.ProcessStatus == null
+                    && _openLayersList != null);
             }
         }
 
@@ -295,8 +294,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
-                    && _bufferUnitsList != null;
+                return (_dockPane.ProcessStatus == null
+                    && _bufferUnitsList != null);
             }
         }
 
@@ -307,8 +306,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
-                    && _defaultKeepSelectedLayers != null;
+                return (_dockPane.ProcessStatus == null
+                    && _defaultKeepSelectedLayers != null);
             }
         }
 
@@ -319,8 +318,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
-                    && _addToMapList != null;
+                return (_dockPane.ProcessStatus == null
+                    && _addToMapList != null);
             }
         }
 
@@ -331,8 +330,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
-                    && _overwriteLabelsList != null;
+                return (_dockPane.ProcessStatus == null
+                    && _overwriteLabelsList != null);
             }
         }
 
@@ -343,22 +342,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
-                    && _combinedSitesList != null;
-            }
-        }
-
-        /// <summary>
-        /// Can the Reset button be pressed?
-        /// </summary>
-        /// <value></value>
-        /// <returns></returns>
-        /// <remarks></remarks>
-        public bool ResetButtonEnabled
-        {
-            get
-            {
-                return _processStatus == null;
+                return (_dockPane.ProcessStatus == null
+                    && _combinedSitesList != null);
             }
         }
 
@@ -369,32 +354,17 @@ namespace DataSearches.UI
         {
             get
             {
-                return _processStatus == null
+                return (_dockPane.ProcessStatus == null
                     && _openLayersList != null
                     && _openLayersList.Where(p => p.IsSelected).Any()
                     && !string.IsNullOrEmpty(_searchRefText)
-                    && (!_requireSiteName || !string.IsNullOrEmpty(_siteNameText))
-                    && (!_requireOrganisation || !string.IsNullOrEmpty(_organisationText))
+                    && !_requireSiteName || !string.IsNullOrEmpty(_siteNameText)
+                    && !_requireOrganisation || !string.IsNullOrEmpty(_organisationText)
                     && !string.IsNullOrEmpty(_bufferSizeText)
                     && _selectedBufferUnitsIndex >= 0
-                    && (_defaultAddSelectedLayers <= 0 || _selectedAddToMap != null)
-                    && (_defaultOverwriteLabels <= 0 || _selectedOverwriteLabels != null)
-                    && (_defaultCombinedSitesTable <= 0 || _selectedCombinedSites != null);
-            }
-        }
-
-        /// <summary>
-        /// Can the Cancel button be pressed?
-        /// </summary>
-        /// <value></value>
-        /// <returns></returns>
-        /// <remarks></remarks>
-        public bool CancelButtonEnabled
-        {
-            get
-            {
-                return !_searchCancelled
-                    && _processStatus != null;
+                    && _defaultAddSelectedLayers <= 0 || _selectedAddToMap != null
+                    && _defaultOverwriteLabels <= 0 || _selectedOverwriteLabels != null
+                    && _defaultCombinedSitesTable <= 0 || _selectedCombinedSites != null);
             }
         }
 
@@ -557,7 +527,7 @@ namespace DataSearches.UI
         {
             get
             {
-                if (_processStatus != null
+                if (_dockPane.ProcessStatus != null
                 || string.IsNullOrEmpty(_message))
                     return Visibility.Collapsed;
                 else
@@ -586,230 +556,12 @@ namespace DataSearches.UI
 
         #endregion Message
 
-        #region Processing
-
-        /// <summary>
-        /// Is the form processing?
-        /// </summary>
-        public Visibility IsProcessing
-        {
-            get
-            {
-                if (_processStatus != null)
-                    return Visibility.Visible;
-                else
-                    return Visibility.Collapsed;
-            }
-        }
-
-        private double _progressValue;
-
-        /// <summary>
-        /// Gets the value to set on the progress
-        /// </summary>
-        public double ProgressValue
-        {
-            get
-            {
-                return _progressValue;
-            }
-            set
-            {
-                _progressValue = value;
-
-                OnPropertyChanged(nameof(ProgressValue));
-            }
-        }
-
-        private double _maxProgressValue;
-
-        /// <summary>
-        /// Gets the max value to set on the progress
-        /// </summary>
-        public double MaxProgressValue
-        {
-            get
-            {
-                return _maxProgressValue;
-            }
-            set
-            {
-                _maxProgressValue = value;
-
-                OnPropertyChanged(nameof(MaxProgressValue));
-            }
-        }
-
-        private string _processStatus;
-
-        /// <summary>
-        /// ProgressStatus Text
-        /// </summary>
-        public string ProcessStatus
-        {
-            get
-            {
-                return _processStatus;
-            }
-            set
-            {
-                _processStatus = value;
-
-                OnPropertyChanged(nameof(ProcessStatus));
-                OnPropertyChanged(nameof(IsProcessing));
-                OnPropertyChanged(nameof(ProgressText));
-                OnPropertyChanged(nameof(ProgressAnimating));
-                OnPropertyChanged(nameof(CancelButtonEnabled));
-            }
-        }
-
-        private string _progressText;
-
-        /// <summary>
-        /// Progress bar Text
-        /// </summary>
-        public string ProgressText
-        {
-            get
-            {
-                return _progressText;
-            }
-            set
-            {
-                _progressText = value;
-
-                OnPropertyChanged(nameof(ProgressText));
-            }
-        }
-
-        /// <summary>
-        /// Is the progress wheel animating?
-        /// </summary>
-        public Visibility ProgressAnimating
-        {
-            get
-            {
-                if (_progressText != null)
-                    return Visibility.Visible;
-                else
-                    return Visibility.Collapsed;
-            }
-        }
-
-        /// <summary>
-        /// Update the progress bar.
-        /// </summary>
-        /// <param name="processText"></param>
-        /// <param name="progressValue"></param>
-        /// <param name="maxProgressValue"></param>
-        private void ProgressUpdate(string processText = null, int progressValue = -1, int maxProgressValue = -1)
-        {
-            if (Application.Current.Dispatcher.CheckAccess())
-            {
-                // Check if the values have changed and update them if they have.
-                if (progressValue >= 0)
-                    ProgressValue = progressValue;
-
-                if (maxProgressValue != 0)
-                    MaxProgressValue = maxProgressValue;
-
-                if (_maxProgressValue > 0)
-                    ProgressText = _progressValue == _maxProgressValue ? "Done" : $@"{_progressValue * 100 / _maxProgressValue:0}%";
-                else
-                    ProgressText = null;
-
-                ProcessStatus = processText;
-            }
-            else
-            {
-                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background,
-                  () =>
-                  {
-                      // Check if the values have changed and update them if they have.
-                      if (progressValue >= 0)
-                          ProgressValue = progressValue;
-
-                      if (maxProgressValue != 0)
-                          MaxProgressValue = maxProgressValue;
-
-                      if (_maxProgressValue > 0)
-                          ProgressText = _progressValue == _maxProgressValue ? "Done" : $@"{_progressValue * 100 / _maxProgressValue:0}%";
-                      else
-                          ProgressText = null;
-
-                      ProcessStatus = processText;
-                  });
-            }
-        }
-
-        #endregion Processing
-
-        #region Reset Command
-
-        private ICommand _resetCommand;
-
-        /// <summary>
-        /// Create Reset button command.
-        /// </summary>
-        /// <value></value>
-        /// <returns></returns>
-        /// <remarks></remarks>
-        public ICommand ResetCommand
-        {
-            get
-            {
-                if (_resetCommand == null)
-                {
-                    Action<object> clearAction = new(ResetCommandClick);
-                    _resetCommand = new RelayCommand(clearAction, param => ResetButtonEnabled);
-                }
-                return _resetCommand;
-            }
-        }
-
-        /// <summary>
-        /// Handles event when Reset button is clicked.
-        /// </summary>
-        /// <param name="param"></param>
-        /// <remarks></remarks>
-        private void ResetCommandClick(object param)
-        {
-            // Load the form (don't wait for the response).
-            Task.Run(() => ResetForm(true));
-        }
-
-        #endregion Reset Command
-
         #region Run Command
 
-        private ICommand _runCommand;
-
         /// <summary>
-        /// Create Run button command.
+        /// Validates and executes the search.
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
-        /// <remarks></remarks>
-        public ICommand RunCommand
-        {
-            get
-            {
-                if (_runCommand == null)
-                {
-                    Action<object> runAction = new(RunCommandClick);
-                    _runCommand = new RelayCommand(runAction, param => RunButtonEnabled);
-                }
-
-                return _runCommand;
-            }
-        }
-
-        /// <summary>
-        /// Handles event when Run button is clicked.
-        /// </summary>
-        /// <param name="param"></param>
-        /// <remarks></remarks>
-        private async void RunCommandClick(object param)
+        public async void RunSearch()
         {
             // Validate the parameters.
             if (!ValidateParameters())
@@ -844,12 +596,12 @@ namespace DataSearches.UI
                 message = "Search '{0}' complete!";
                 image = "Success";
             }
-            else if (_SearchErrors)
+            else if (_searchErrors)
             {
                 message = "Search '{0}' ended with errors!";
                 image = "Error";
             }
-            else if (_searchCancelled)
+            else if (_dockPane.SearchCancelled)
             {
                 message = "Search '{0}' cancelled!";
                 image = "Warning";
@@ -959,44 +711,6 @@ namespace DataSearches.UI
 
         #endregion Run Command
 
-        #region Cancel Command
-
-        private ICommand _cancelCommand;
-
-        /// <summary>
-        /// Create Reset button command.
-        /// </summary>
-        /// <value></value>
-        /// <returns></returns>
-        /// <remarks></remarks>
-        public ICommand CancelCommand
-        {
-            get
-            {
-                if (_cancelCommand == null)
-                {
-                    Action<object> clearAction = new(CancelCommandClick);
-                    _cancelCommand = new RelayCommand(clearAction, param => CancelButtonEnabled);
-                }
-                return _cancelCommand;
-            }
-        }
-
-        /// <summary>
-        /// Handles event when Cancel button is .
-        /// </summary>
-        /// <param name="param"></param>
-        /// <remarks></remarks>
-        private void CancelCommandClick(object param)
-        {
-            // Cancel the search.
-            _searchCancelled = true;
-
-            OnPropertyChanged(nameof(CancelButtonEnabled));
-        }
-
-        #endregion Cancel Command
-
         #region Properties
 
         private string _searchRefText;
@@ -1049,7 +763,7 @@ namespace DataSearches.UI
                 //}
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1069,7 +783,7 @@ namespace DataSearches.UI
                 _siteNameText = value;
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1104,7 +818,7 @@ namespace DataSearches.UI
                 _organisationText = value;
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1143,7 +857,7 @@ namespace DataSearches.UI
         {
             set
             {
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1180,7 +894,7 @@ namespace DataSearches.UI
                 _bufferSizeText = value;
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1220,7 +934,7 @@ namespace DataSearches.UI
                 _selectedBufferUnitsIndex = value;
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1285,7 +999,7 @@ namespace DataSearches.UI
 
                 // Update the fields and buttons in the form.
                 OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1325,7 +1039,7 @@ namespace DataSearches.UI
                 _selectedOverwriteLabels = value;
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1365,7 +1079,7 @@ namespace DataSearches.UI
                 _selectedCombinedSites = value;
 
                 // Update the fields and buttons in the form.
-                OnPropertyChanged(nameof(RunButtonEnabled));
+                OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
             }
         }
 
@@ -1420,18 +1134,6 @@ namespace DataSearches.UI
             }
         }
 
-        /// <summary>
-        /// Get the image for the Run button.
-        /// </summary>
-        public static ImageSource ButtonRunImg
-        {
-            get
-            {
-                var imageSource = Application.Current.Resources["GenericRun16"] as ImageSource;
-                return imageSource;
-            }
-        }
-
         #endregion Properties
 
         #region Methods
@@ -1479,8 +1181,7 @@ namespace DataSearches.UI
         /// </summary>
         private void UpdateFormButtons()
         {
-            OnPropertyChanged(nameof(ResetButtonEnabled));
-            OnPropertyChanged(nameof(RunButtonEnabled));
+            OnPropertyChanged(nameof(_dockPane.RunButtonEnabled));
         }
 
         /// <summary>
@@ -1632,13 +1333,13 @@ namespace DataSearches.UI
         public async Task LoadLayersAsync(bool reset, bool message)
         {
             // If not already processing.
-            if (_processStatus == null)
+            if (_dockPane.ProcessStatus == null)
             {
                 _dockPane.LayersListLoading = true;
                 if (reset)
-                    ProgressUpdate("Resetting form...");
+                    _dockPane.ProgressUpdate("Resetting form...");
                 else
-                    ProgressUpdate("Loading form...");
+                    _dockPane.ProgressUpdate("Loading form...");
 
                 // Clear any messages.
                 ClearMessage();
@@ -1692,7 +1393,7 @@ namespace DataSearches.UI
                 });
 
                 // Hide progress update.
-                ProgressUpdate(null, -1, -1);
+                _dockPane.ProgressUpdate(null, -1, -1);
 
                 // Show a message if there are no open layers.
                 if (!_openLayersList.Any())
@@ -1751,7 +1452,7 @@ namespace DataSearches.UI
             }
 
             // Reset search errors flag.
-            _SearchErrors = false;
+            _searchErrors = false;
 
             // Save the parameters.
             string searchRef = SearchRefText;
@@ -1885,15 +1586,15 @@ namespace DataSearches.UI
 
             // Count the number of layers to process and add 2
             // to account for the start and finish steps.
-            int stepsMax = SelectedLayers.Count + 3;
+            int stepsMax = SelectedLayers.Count + 2;
             int stepNum = 0;
 
             // Stop if the user cancelled the process.
-            if (_searchCancelled)
+            if (_dockPane.SearchCancelled)
                 return false;
 
             // Indicate the search has started.
-            _searchCancelled = false;
+            _dockPane.SearchCancelled = false;
             _dockPane.SearchRunning = true;
 
             // Write the first line to the log file.
@@ -1910,20 +1611,20 @@ namespace DataSearches.UI
             // Create the search query.
             string searchClause = _searchColumn + " = '" + searchRef + "'";
 
-            ProgressUpdate("Selecting feature(s)...", stepNum, stepsMax);
+            _dockPane.ProgressUpdate("Selecting feature(s)...", stepNum, stepsMax);
             stepNum += 1;
 
             // Count the features matching the search reference.
             if (await CountSearchFeaturesAsync(searchClause) == 0)
             {
-                _SearchErrors = true;
+                _searchErrors = true;
                 return false;
             }
 
             // Prepare the temporary geodatabase
             if (!await PrepareTemporaryGDBAsync())
             {
-                _SearchErrors = true;
+                _searchErrors = true;
                 return false;
             }
 
@@ -1934,7 +1635,7 @@ namespace DataSearches.UI
             // Select the feature matching the search reference in the map.
             if (!await _mapFunctions.SelectLayerByAttributesAsync(_inputLayerName, searchClause, SelectionCombinationMethod.New))
             {
-                _SearchErrors = true;
+                _searchErrors = true;
                 return false;
             }
 
@@ -1945,7 +1646,7 @@ namespace DataSearches.UI
 
                 if (!await _mapFunctions.UpdateFeaturesAsync(_inputLayerName, _siteColumn, siteName, _orgColumn, organisation, _radiusColumn, radius))
                 {
-                    _SearchErrors = true;
+                    _searchErrors = true;
                     return false;
                 }
             }
@@ -1960,15 +1661,15 @@ namespace DataSearches.UI
             // Save the selected feature(s).
             if (!await SaveSearchFeaturesAsync())
             {
-                _SearchErrors = true;
+                _searchErrors = true;
                 return false;
             }
 
             // Stop if the user cancelled the process.
-            if (_searchCancelled)
+            if (_dockPane.SearchCancelled)
                 return false;
 
-            ProgressUpdate("Buffering feature(s)...", stepNum, stepsMax);
+            _dockPane.ProgressUpdate("Buffering feature(s)...", stepNum, stepsMax);
             stepNum += 1;
 
             // Set the buffer layer name by appending the radius.
@@ -1986,7 +1687,7 @@ namespace DataSearches.UI
             // Buffer search feature(s).
             if (!await BufferSearchFeaturesAsync(bufferSize, bufferUnitProcess, bufferUnitShort))
             {
-                _SearchErrors = true;
+                _searchErrors = true;
                 return false;
             }
 
@@ -2006,7 +1707,7 @@ namespace DataSearches.UI
             _combinedSitesOutputFile = _outputFolder + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
             if (!CreateCombinedSitesTable(_combinedSitesOutputFile, combinedSitesTableOption))
             {
-                _SearchErrors = true;
+                _searchErrors = true;
                 return false;
             }
 
@@ -2033,14 +1734,14 @@ namespace DataSearches.UI
             foreach (MapLayer selectedLayer in SelectedLayers)
             {
                 // Stop if the user cancelled the process.
-                if (_searchCancelled)
+                if (_dockPane.SearchCancelled)
                     break;
 
                 // Get the layer name.
                 string mapNodeGroup = selectedLayer.NodeGroup;
                 string mapNodeLayer = selectedLayer.NodeLayer;
 
-                ProgressUpdate("Processing '" + mapNodeGroup + " - " + mapNodeLayer + "'...", stepNum, 0);
+                _dockPane.ProgressUpdate("Processing '" + mapNodeGroup + " - " + mapNodeLayer + "'...", stepNum, 0);
                 stepNum += 1;
 
                 layerNum += 1;
@@ -2052,21 +1753,21 @@ namespace DataSearches.UI
 
                 // Keep track of any errors.
                 if (!success)
-                    _SearchErrors = true;
+                    _searchErrors = true;
             }
 
             // Increment the progress value to the last step.
-            ProgressUpdate("Cleaning up...", stepNum, 0);
+            _dockPane.ProgressUpdate("Cleaning up...", stepNum, 0);
 
             // If there were errors then exit before cleaning up.
-            if (_SearchErrors)
+            if (_searchErrors)
                 return false;
 
             // Clean up after the search.
             await CleanUpSearchAsync(addSelectedLayersOption);
 
             // If the process was cancelled when exit.
-            if (_searchCancelled)
+            if (_dockPane.SearchCancelled)
                 return false;
 
             // Zoom to the buffer layer extent.
@@ -2093,7 +1794,7 @@ namespace DataSearches.UI
 
             // Indicate search has finished.
             _dockPane.SearchRunning = false;
-            ProgressUpdate(null, -1, -1);
+            _dockPane.ProgressUpdate(null, -1, -1);
 
             string imageSource = string.Format("pack://application:,,,/DataSelector;component/Images/{0}32.png", image);
 
@@ -2108,7 +1809,7 @@ namespace DataSearches.UI
             FrameworkApplication.AddNotification(notification);
 
             // Open the log file (if required).
-            if (OpenLogFile || _SearchErrors)
+            if (OpenLogFile || _searchErrors)
                 Process.Start("notepad.exe", _logFile);
         }
 
@@ -2134,7 +1835,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error setting buffer layer in the map.");
                         FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
-                        _SearchErrors = true;
+                        _searchErrors = true;
                     }
 
                     FileFunctions.WriteLine(_logFile, "Buffer layer added to display");
@@ -2161,7 +1862,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error deleting the buffer layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     FileFunctions.WriteLine(_logFile, "Error deleting the buffer layer");
-                    _SearchErrors = true;
+                    _searchErrors = true;
                 }
             }
 
@@ -2179,7 +1880,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error setting search feature layer in the map.");
                         FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the map");
-                        _SearchErrors = true;
+                        _searchErrors = true;
                     }
 
                     FileFunctions.WriteLine(_logFile, "Search feature layer added to display");
@@ -2207,7 +1908,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error deleting the search feature layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     FileFunctions.WriteLine(_logFile, "Error deleting the search feature layer");
-                    _SearchErrors = true;
+                    _searchErrors = true;
                 }
             }
 
@@ -2320,7 +2021,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error writing to combined sites table.");
                     FileFunctions.WriteLine(_logFile, "Error writing to combined sites table");
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2455,7 +2156,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error creating temporary geodatabase" + _tempGDBName);
                     FileFunctions.WriteLine(_logFile, "Error creating temporary geodatabase " + _tempGDBName);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2532,7 +2233,7 @@ namespace DataSearches.UI
             {
                 //MessageBox.Show("Error saving search feature(s)");
                 FileFunctions.WriteLine(_logFile, "Error saving search feature(s)");
-                _SearchErrors = true;
+                _searchErrors = true;
 
                 return false;
             }
@@ -2582,7 +2283,7 @@ namespace DataSearches.UI
             {
                 //MessageBox.Show("Error during feature buffering.");
                 FileFunctions.WriteLine(_logFile, "Error during feature buffering");
-                _SearchErrors = true;
+                _searchErrors = true;
 
                 return false;
             }
@@ -2608,7 +2309,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error applying symbology to '" + layerName + "'");
                         FileFunctions.WriteLine(_logFile, "Error applying symbology to '" + layerName + "'");
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return false;
                     }
@@ -2622,7 +2323,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error moving layer to '" + layerName + "'");
                     FileFunctions.WriteLine(_logFile, "Error moving layer to '" + layerName + "'");
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2706,7 +2407,7 @@ namespace DataSearches.UI
             {
                 //MessageBox.Show("Error selecting layer " + mapLayerName + " by location.");
                 FileFunctions.WriteLine(_logFile, "Error selecting layer " + mapLayerName + " by location");
-                _SearchErrors = true;
+                _searchErrors = true;
 
                 return false;
             }
@@ -2726,7 +2427,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error selecting layer " + mapLayerName + " with criteria " + mapCriteria + ". Please check syntax and column names (case sensitive).");
                     FileFunctions.WriteLine(_logFile, "Error refining selection on layer " + mapLayerName + " with criteria " + mapCriteria + ". Please check syntax and column names (case sensitive)");
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2760,7 +2461,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2795,7 +2496,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error extracting summary from " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error extracting summary from " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2809,7 +2510,7 @@ namespace DataSearches.UI
             {
                 if (!await KeepLayerAsync(mapOutputName, mapOutputFile, addSelectedLayersOption, mapLayerFileName, mapDisplayLabels, mapLabelClause, mapLabelColumn))
                 {
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2828,7 +2529,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error extracting summary for combined sites table from " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error extracting summary for combined sites table from " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2854,7 +2555,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error executing vbscript macro " + mapMacroName + ".");
                     FileFunctions.WriteLine(_logFile, "Error executing vbscript macro " + mapMacroName);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -2995,7 +2696,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error adding map label field '" + mapLabelColumn + "' to " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error adding map label field '" + mapLabelColumn + "' to " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -3013,7 +2714,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error setting map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error setting map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -3044,7 +2745,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating map label field '" + mapLabelColumn + "' in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating map label field '" + mapLabelColumn + "' in " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -3123,7 +2824,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error adding area field to " + _tempMasterOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error adding area field to " + _tempMasterOutputFile);
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return -1;
                     }
@@ -3148,7 +2849,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating area field in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3159,7 +2860,7 @@ namespace DataSearches.UI
             {
                 //MessageBox.Show("Error copying output file to " + _tempFCOutputFile + ".");
                 FileFunctions.WriteLine(_logFile, "Error copying output file to " + _tempFCOutputFile);
-                _SearchErrors = true;
+                _searchErrors = true;
 
                 return -1;
             }
@@ -3173,7 +2874,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating nearest distance from " + _tempFCPointsOutputFile + " to " + _tempSearchPointsOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating nearest distance from " + _tempFCOutputFile + " to " + _searchLayerName);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3187,7 +2888,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error converting " + _tempFCOutputFile + " features to points into " + _tempFCPointsOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error converting " + _tempFCOutputFile + " features to points into " + _tempFCPointsOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3198,7 +2899,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error converting " + _searchLayerName + " features to points into " + _tempSearchPointsOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error converting " + _searchLayerName + " features to points into " + _tempSearchPointsOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3209,7 +2910,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating nearest distance from " + _tempFCPointsOutputFile + " to " + _tempSearchPointsOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating nearest distance from " + _tempFCPointsOutputFile + " to " + _tempSearchPointsOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3222,7 +2923,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error joining fields to " + _tempFCLayerName + " from " + _tempFCPointsOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error joining fields to " + _tempFCLayerName + " from " + _tempFCPointsOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3250,7 +2951,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error adding radius field to " + _tempFCOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error adding radius field to " + _tempFCOutputFile);
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return -1;
                     }
@@ -3261,7 +2962,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating radius field in " + _tempFCOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating radius field in " + _tempFCOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3334,7 +3035,7 @@ namespace DataSearches.UI
                 {
                     //MessageBox.Show("Error calculating summary statistics for '" + _tempFCOutputFile + "' into " + _tempTableOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating summary statistics for '" + _tempFCOutputFile + "' into " + _tempTableOutputFile);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return -1;
                 }
@@ -3373,7 +3074,7 @@ namespace DataSearches.UI
                     {
                         //MessageBox.Show("Error renaming radius field in " + _tempFCOutputFile + ".");
                         FileFunctions.WriteLine(_logFile, "Error renaming radius field in " + _tempTableLayerName);
-                        _SearchErrors = true;
+                        _searchErrors = true;
 
                         return -1;
                     }
@@ -3431,7 +3132,7 @@ namespace DataSearches.UI
                 // Apply layer symbology and move to group layer.
                 if (!await SetLayerInMapAsync(layerName, symbologyFile, -1))
                 {
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }
@@ -3465,7 +3166,7 @@ namespace DataSearches.UI
                         {
                             //MessageBox.Show("Error adding labels to '" + layerName + "'");
                             FileFunctions.WriteLine(_logFile, "Error adding labels to '" + layerName + "'");
-                            _SearchErrors = true;
+                            _searchErrors = true;
 
                             return false;
                         }
@@ -3520,7 +3221,7 @@ namespace DataSearches.UI
                 if (exitcode != 0)
                 {
                     FileFunctions.WriteLine(_logFile, "Error executing vbscript macro. Exit code : " + exitcode);
-                    _SearchErrors = true;
+                    _searchErrors = true;
 
                     return false;
                 }

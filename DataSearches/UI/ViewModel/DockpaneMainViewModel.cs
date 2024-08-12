@@ -23,13 +23,18 @@ using ArcGIS.Desktop.Core.Events;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Controls;
+using ArcGIS.Desktop.Internal.Framework.Controls;
 using ArcGIS.Desktop.Mapping;
 using ArcGIS.Desktop.Mapping.Events;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace DataSearches.UI
 {
@@ -174,11 +179,38 @@ namespace DataSearches.UI
 
         #endregion ViewModelBase Members
 
-        #region Properties
+        #region Controls Enabled
 
         /// <summary>
-        /// ID of the DockPane.
+        /// Can the Cancel button be pressed?
         /// </summary>
+        /// <value></value>
+        /// <returns></returns>
+        /// <remarks></remarks>
+        public bool CancelButtonEnabled
+        {
+            get
+            {
+                return !_searchCancelled
+                    && _processStatus != null;
+            }
+        }
+
+        public bool RunButtonEnabled
+        {
+            get
+            {
+                return (_paneH2VM.RunButtonEnabled);
+            }
+        }
+
+        #endregion Controls Enabled
+
+            #region Properties
+
+            /// <summary>
+            /// ID of the DockPane.
+            /// </summary>
         private const string _dockPaneID = "DataSearches_UI_DockpaneMain";
 
         public static string DockPaneID
@@ -297,6 +329,20 @@ namespace DataSearches.UI
             set { _searchRunning = value; }
         }
 
+        private bool _searchCancelled = false;
+
+        /// <summary>
+        /// Has the search been cancelled?
+        /// </summary>
+        public bool SearchCancelled
+        {
+            get { return _searchCancelled; }
+            set
+            {
+                _searchCancelled = value;
+            }
+        }
+
         private string _helpURL;
 
         /// <summary>
@@ -306,6 +352,18 @@ namespace DataSearches.UI
         {
             get { return _helpURL; }
             set { _helpURL = value; }
+        }
+
+        /// <summary>
+        /// Get the image for the Run button.
+        /// </summary>
+        public static ImageSource ButtonRunImg
+        {
+            get
+            {
+                var imageSource = Application.Current.Resources["GenericRun16"] as ImageSource;
+                return imageSource;
+            }
         }
 
         #endregion Properties
@@ -402,6 +460,238 @@ namespace DataSearches.UI
         }
 
         #endregion Methods
+
+        #region Processing
+
+        /// <summary>
+        /// Is the form processing?
+        /// </summary>
+        public Visibility IsProcessing
+        {
+            get
+            {
+                if (_processStatus != null)
+                    return Visibility.Visible;
+                else
+                    return Visibility.Collapsed;
+            }
+        }
+
+        private double _progressValue;
+
+        /// <summary>
+        /// Gets the value to set on the progress
+        /// </summary>
+        public double ProgressValue
+        {
+            get
+            {
+                return _progressValue;
+            }
+            set
+            {
+                _progressValue = value;
+
+                OnPropertyChanged(nameof(ProgressValue));
+            }
+        }
+
+        private double _maxProgressValue;
+
+        /// <summary>
+        /// Gets the max value to set on the progress
+        /// </summary>
+        public double MaxProgressValue
+        {
+            get
+            {
+                return _maxProgressValue;
+            }
+            set
+            {
+                _maxProgressValue = value;
+
+                OnPropertyChanged(nameof(MaxProgressValue));
+            }
+        }
+
+        private string _processStatus;
+
+        /// <summary>
+        /// ProgressStatus Text
+        /// </summary>
+        public string ProcessStatus
+        {
+            get
+            {
+                return _processStatus;
+            }
+            set
+            {
+                _processStatus = value;
+
+                OnPropertyChanged(nameof(ProcessStatus));
+                OnPropertyChanged(nameof(IsProcessing));
+                OnPropertyChanged(nameof(ProgressText));
+                OnPropertyChanged(nameof(ProgressAnimating));
+                OnPropertyChanged(nameof(CancelButtonEnabled));
+            }
+        }
+
+        private string _progressText;
+
+        /// <summary>
+        /// Progress bar Text
+        /// </summary>
+        public string ProgressText
+        {
+            get
+            {
+                return _progressText;
+            }
+            set
+            {
+                _progressText = value;
+
+                OnPropertyChanged(nameof(ProgressText));
+            }
+        }
+
+        /// <summary>
+        /// Is the progress wheel animating?
+        /// </summary>
+        public Visibility ProgressAnimating
+        {
+            get
+            {
+                if (_progressText != null)
+                    return Visibility.Visible;
+                else
+                    return Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// Update the progress bar.
+        /// </summary>
+        /// <param name="processText"></param>
+        /// <param name="progressValue"></param>
+        /// <param name="maxProgressValue"></param>
+        public void ProgressUpdate(string processText = null, int progressValue = -1, int maxProgressValue = -1)
+        {
+            if (Application.Current.Dispatcher.CheckAccess())
+            {
+                // Check if the values have changed and update them if they have.
+                if (progressValue >= 0)
+                    ProgressValue = progressValue;
+
+                if (maxProgressValue != 0)
+                    MaxProgressValue = maxProgressValue;
+
+                if (_maxProgressValue > 0)
+                    ProgressText = _progressValue == _maxProgressValue ? "Done" : $@"{_progressValue * 100 / _maxProgressValue:0}%";
+                else
+                    ProgressText = null;
+
+                ProcessStatus = processText;
+            }
+            else
+            {
+                Application.Current.Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                  () =>
+                  {
+                      // Check if the values have changed and update them if they have.
+                      if (progressValue >= 0)
+                          ProgressValue = progressValue;
+
+                      if (maxProgressValue != 0)
+                          MaxProgressValue = maxProgressValue;
+
+                      if (_maxProgressValue > 0)
+                          ProgressText = _progressValue == _maxProgressValue ? "Done" : $@"{_progressValue * 100 / _maxProgressValue:0}%";
+                      else
+                          ProgressText = null;
+
+                      ProcessStatus = processText;
+                  });
+            }
+        }
+
+        #endregion Processing
+
+        #region Run Command
+
+        private ICommand _runCommand;
+
+        /// <summary>
+        /// Create Run button command.
+        /// </summary>
+        /// <value></value>
+        /// <returns></returns>
+        /// <remarks></remarks>
+        public ICommand RunCommand
+        {
+            get
+            {
+                if (_runCommand == null)
+                {
+                    Action<object> runAction = new(RunCommandClick);
+                    _runCommand = new RelayCommand(runAction, param => RunButtonEnabled);
+                }
+
+                return _runCommand;
+            }
+        }
+
+        /// <summary>
+        /// Handles event when Run button is clicked.
+        /// </summary>
+        /// <param name="param"></param>
+        /// <remarks></remarks>
+        private async void RunCommandClick(object param)
+        {
+            _paneH2VM.RunSearch();
+        }
+
+        #endregion Run Command
+
+        #region Cancel Command
+
+        private ICommand _cancelCommand;
+
+        /// <summary>
+        /// Create Cancel button command.
+        /// </summary>
+        /// <value></value>
+        /// <returns></returns>
+        /// <remarks></remarks>
+        public ICommand CancelCommand
+        {
+            get
+            {
+                if (_cancelCommand == null)
+                {
+                    Action<object> clearAction = new(CancelCommandClick);
+                    _cancelCommand = new RelayCommand(clearAction, param => CancelButtonEnabled);
+                }
+                return _cancelCommand;
+            }
+        }
+
+        /// <summary>
+        /// Handles event when Cancel button is .
+        /// </summary>
+        /// <param name="param"></param>
+        /// <remarks></remarks>
+        private void CancelCommandClick(object param)
+        {
+            // Cancel the search.
+            _searchCancelled = true;
+
+            OnPropertyChanged(nameof(CancelButtonEnabled));
+        }
+
+        #endregion Cancel Command
 
         #region Debugging Aides
 
