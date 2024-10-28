@@ -350,10 +350,7 @@ namespace DataSearches.UI
         public bool SearchCancelled
         {
             get { return _searchCancelled; }
-            set
-            {
-                _searchCancelled = value;
-            }
+            set { _searchCancelled = value; }
         }
 
         private string _helpURL;
