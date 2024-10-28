@@ -217,14 +217,14 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(RunButtonEnabled));
         }
 
-    #endregion Controls Enabled
+        #endregion Controls Enabled
 
-    #region Properties
+        #region Properties
 
-    /// <summary>
-    /// ID of the DockPane.
-    /// </summary>
-    private const string _dockPaneID = "DataSearches_UI_DockpaneMain";
+        /// <summary>
+        /// ID of the DockPane.
+        /// </summary>
+        private const string _dockPaneID = "DataSearches_UI_DockpaneMain";
 
         public static string DockPaneID
         {
@@ -437,7 +437,8 @@ namespace DataSearches.UI
             _paneH2VM = new PaneHeader2ViewModel(_dockPane, _paneH1VM.ToolConfig);
 
             // Load the form (don't wait for the response).
-            Task.Run(() => _paneH2VM.ResetForm(false));
+            //Task.Run(() => _paneH2VM.ResetFormAsync(false));
+            _paneH2VM.ResetFormAsync(false);
 
             return true;
         }
@@ -663,7 +664,8 @@ namespace DataSearches.UI
         /// <remarks></remarks>
         private async void RunCommandClick(object param)
         {
-            _paneH2VM.RunSearch();
+            // Run the search (but don't wait).
+            _paneH2VM.ProcessSearchAsync();
         }
 
         #endregion Run Command
@@ -692,7 +694,7 @@ namespace DataSearches.UI
         }
 
         /// <summary>
-        /// Handles event when Cancel button is .
+        /// Handles event when Cancel button is pressed.
         /// </summary>
         /// <param name="param"></param>
         /// <remarks></remarks>

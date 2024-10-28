@@ -318,7 +318,7 @@ namespace DataSearches.UI
             // Check the file (still) exists.
             if (!FileFunctions.FileExists(xmlConfigFile))
             {
-                MessageBox.Show("The selected XML file '" + SelectedXMLProfile + "' was not found in the XML directory.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("The selected XML file '" + SelectedXMLProfile + "' was not found in the XML directory.", _displayName, MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -334,8 +334,7 @@ namespace DataSearches.UI
             }
 
             // Initialise the search pane.
-            bool initialised = await _dockPane.InitialiseSearchPaneAsync();
-            if (initialised)
+            if (await _dockPane.InitialiseSearchPaneAsync())
             {
                 // Select the search pane.
                 _dockPane.SelectedPanelHeaderIndex = 1;
@@ -481,7 +480,7 @@ namespace DataSearches.UI
                 // If no valid files were found.
                 if (xmlFilesList is null || xmlFilesList.Count == 0)
                 {
-                    MessageBox.Show("No valid XML files found in the XML directory.", "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("No valid XML files found in the XML directory.", _displayName, MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
             }
@@ -585,7 +584,7 @@ namespace DataSearches.UI
             if (!_xmlConfig.XMLFound)
             {
                 if (msgErrors)
-                    MessageBox.Show(string.Format("XML file '{0}' not found.", xmlConfigPath), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(string.Format("XML file '{0}' not found.", xmlConfigPath), _displayName, MessageBoxButton.OK, MessageBoxImage.Error);
 
                 _xmlLoaded = false;
                 return;
@@ -594,7 +593,6 @@ namespace DataSearches.UI
             // If the XML config file can't be loaded.
             if (!_xmlConfig.XMLLoaded)
             {
-                //MessageBox.Show(string.Format("Error loading XML File '{0}'.", _xmlConfigPath), "Data Searches", MessageBoxButton.OK, MessageBoxImage.Error);
                 _xmlLoaded = false;
                 return;
             }

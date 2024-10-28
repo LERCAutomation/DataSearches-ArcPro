@@ -39,7 +39,6 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 
 namespace DataSearches.UI
@@ -116,6 +115,9 @@ namespace DataSearches.UI
         private List<string> _bufferUnitOptionsShort;
 
         private List<MapLayer> _mapLayers;
+
+        private List<MapLayer> _openMapLayersList;
+        private List<string> _closedMapLayersList;
 
         private string _saveRootDir;
         private string _saveFolder;
@@ -266,9 +268,6 @@ namespace DataSearches.UI
 
             _bufferFields = _toolConfig.AggregateColumns;
             _keepBuffer = _toolConfig.KeepBufferArea;
-
-            // Get all of the map layer details.
-            _mapLayers = _toolConfig.MapLayers;
         }
 
         #endregion Creator
@@ -283,7 +282,7 @@ namespace DataSearches.UI
             get
             {
                 return ((_dockPane.ProcessStatus == null)
-                    && (_openLayersList != null));
+                    && (_mapLayersList != null));
             }
         }
 
@@ -355,8 +354,8 @@ namespace DataSearches.UI
             get
             {
                 return ((_dockPane.ProcessStatus == null)
-                    && (_openLayersList != null)
-                    && (_openLayersList.Where(p => p.IsSelected).Any())
+                    && (_mapLayersList != null)
+                    && (_mapLayersList.Where(p => p.IsSelected).Any())
                     && (!string.IsNullOrEmpty(_searchRefText))
                     && (!_requireSiteName || !string.IsNullOrEmpty(_siteNameText))
                     && (!_requireOrganisation || !string.IsNullOrEmpty(_organisationText))
@@ -395,6 +394,20 @@ namespace DataSearches.UI
             {
                 if (!_requireOrganisation)
                     return Visibility.Collapsed;
+                else
+                    return Visibility.Visible;
+            }
+        }
+
+        /// <summary>
+        /// Is the LayersList expand button visible.
+        /// </summary>
+        public Visibility MapLayersListExpandButtonVisibility
+        {
+            get
+            {
+                if ((_mapLayersList == null) || (_mapLayersList.Count < 9))
+                    return Visibility.Hidden;
                 else
                     return Visibility.Visible;
             }
@@ -561,7 +574,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Validates and executes the search.
         /// </summary>
-        public async void RunSearch()
+        public async void ProcessSearchAsync()
         {
             // Reset the cancel flag.
             _dockPane.SearchCancelled = false;
@@ -588,7 +601,7 @@ namespace DataSearches.UI
             UpdateFormControls();
             _dockPane.RefreshPanel1Buttons();
 
-            // Run the search.
+            // Process the search.
             bool success = await RunSearchAsync();
 
             // Indicate that the search process has completed (successfully or not).
@@ -653,7 +666,7 @@ namespace DataSearches.UI
             }
 
             // At least one layer must be selected,
-            if (!OpenLayersList.Where(p => p.IsSelected).Any())
+            if (!MapLayersList.Where(p => p.IsSelected).Any())
             {
                 ShowMessage("Please select at least one layer to search.", MessageType.Warning);
                 return false;
@@ -666,7 +679,7 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // The buffer suze must be numeric and positive.
+            // The buffer size must be numeric and positive.
             bool bufferNumeric = double.TryParse(BufferSizeText, out double bufferNumber);
             if (!bufferNumeric || bufferNumber < 0) // User either entered text or a negative number
             {
@@ -843,23 +856,52 @@ namespace DataSearches.UI
             }
         }
 
-        private ObservableCollection<MapLayer> _openLayersList;
+        private ObservableCollection<MapLayer> _mapLayersList;
 
         /// <summary>
         /// Get the list of loaded GIS layers.
         /// </summary>
-        public ObservableCollection<MapLayer> OpenLayersList
+        public ObservableCollection<MapLayer> MapLayersList
         {
             get
             {
-                return _openLayersList;
+                return _mapLayersList;
+            }
+            set
+            {
+                _mapLayersList = value;
+                OnPropertyChanged(nameof(MapLayersListExpandButtonVisibility));
+            }
+        }
+
+        private double? _mapLayersListHeight = null;
+
+        public double? MapLayersListHeight
+        {
+            get
+            {
+                if (_mapLayersList == null || _mapLayersList.Count == 0)
+                    return 20;
+                else
+                    return _mapLayersListHeight;
+            }
+        }
+
+        public string MapLayersListExpandButtonContent
+        {
+            get
+            {
+                if (_mapLayersListHeight == null)
+                    return "-";
+                else
+                    return "+";
             }
         }
 
         /// <summary>
-        /// Triggered  when the selection in the list of layers changes.
+        /// Triggered when the selection in the list of layers changes.
         /// </summary>
-        public int OpenLayersList_SelectedIndex
+        public int MapLayersList_SelectedIndex
         {
             set
             {
@@ -1168,7 +1210,7 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(SiteNameTextVisibility));
             OnPropertyChanged(nameof(OrganisationText));
             OnPropertyChanged(nameof(OrganisationTextVisibility));
-            OnPropertyChanged(nameof(OpenLayersList));
+            OnPropertyChanged(nameof(MapLayersList));
             OnPropertyChanged(nameof(LayersListEnabled));
             OnPropertyChanged(nameof(BufferSizeText));
             OnPropertyChanged(nameof(BufferUnitsList));
@@ -1185,6 +1227,7 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(CombinedSitesList));
             OnPropertyChanged(nameof(SelectedCombinedSites));
             OnPropertyChanged(nameof(CombinedSitesListVisibility));
+            OnPropertyChanged(nameof(Message));
         }
 
         /// <summary>
@@ -1193,7 +1236,7 @@ namespace DataSearches.UI
         /// <param name="searchRefText"></param>
         /// <param name="siteName"></param>
         /// <param name="organisation"></param>
-        /// <returns></returns>
+        /// <returns>bool</returns>
         public bool LookupSearchRef(string searchRefText, ref string siteName, ref string organisation)
         {
             // Use connection string for .accdb or .mdb as appropriate.
@@ -1280,12 +1323,14 @@ namespace DataSearches.UI
         /// <summary>
         /// Set all of the form fields to their default values.
         /// </summary>
-        public async Task ResetForm(bool reset)
+        /// <param name="reset"></param>
+        /// <returns></returns>
+        public async Task ResetFormAsync(bool reset)
         {
             // Clear the selections first (to avoid selections being retained).
-            if (_openLayersList != null)
+            if (_mapLayersList != null)
             {
-                foreach (MapLayer layer in _openLayersList)
+                foreach (MapLayer layer in _mapLayersList)
                 {
                     layer.IsSelected = false;
                 }
@@ -1324,109 +1369,162 @@ namespace DataSearches.UI
             // Pause map.
             PauseMap = _toolConfig.PauseMap;
 
-            // Reload the form layers (don't wait for the response).
+            // Reload the form layers.
             await LoadLayersAsync(reset, true);
         }
 
         /// <summary>
         /// Load the list of open GIS layers.
         /// </summary>
-        /// <param name="selectedTable"></param>
+        /// <param name="reset"></param>
+        /// <param name="message"></param>
         /// <returns></returns>
         public async Task LoadLayersAsync(bool reset, bool message)
         {
-            // If not already processing.
-            if (_dockPane.ProcessStatus == null)
+            // If already processing then exit.
+            if (_dockPane.ProcessStatus != null)
+                return;
+
+            // Expand the lists (ready to be resized later).
+            _mapLayersListHeight = null;
+
+            _dockPane.LayersListLoading = true;
+            if (reset)
+                _dockPane.ProgressUpdate("Resetting form...");
+            else
+                _dockPane.ProgressUpdate("Loading form...");
+
+            // Clear any messages.
+            ClearMessage();
+
+            // Update the fields and buttons in the form.
+            UpdateFormControls();
+
+            // Reload the list of GIS map layers (don't wait).
+            string loadMapResult = await LoadMapLayersAsync();
+
+            // Set the list of open layers.
+            MapLayersList = new ObservableCollection<MapLayer>(_openMapLayersList);
+
+            // Hide progress update.
+            _dockPane.ProgressUpdate(null, -1, -1);
+
+            // Show a message if there are no open layers.
+            if (!_mapLayersList.Any())
+                ShowMessage("No search layers in active map.", MessageType.Warning);
+
+            _dockPane.LayersListLoading = false;
+
+            // Update the fields and buttons in the form.
+            UpdateFormControls();
+
+            // Force list column widths to reset.
+            MapLayersListExpandCommandClick(null);
+
+            // Show any message from loading the map layers list.
+            if (loadMapResult != null!)
             {
-                _dockPane.LayersListLoading = true;
-                if (reset)
-                    _dockPane.ProgressUpdate("Resetting form...");
-                else
-                    _dockPane.ProgressUpdate("Loading form...");
+                ShowMessage(loadMapResult, MessageType.Warning);
+                if (message)
+                    MessageBox.Show(loadMapResult, _displayName, MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
 
-                // Clear any messages.
-                ClearMessage();
+        /// <summary>
+        /// Load the list of open GIS layers.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<string> LoadMapLayersAsync()
+        {
+            // Reset the list of open layers.
+            _openMapLayersList = [];
 
-                // Update the fields and buttons in the form.
-                UpdateFormControls();
+            // Reset the list of closed layers.
+            _closedMapLayersList = [];
 
-                List<string> closedLayers = []; // The closed layers by name.
-
+            // Load the map layer variables from the XML profile.
+            bool mapLayersloaded = false;
+            try
+            {
                 await Task.Run(() =>
                 {
-                    if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active.Map.Name != _mapFunctions.MapName)
+                    if (_toolConfig.GetMapVariables())
+                        mapLayersloaded = true;
+                });
+            }
+            catch (Exception ex)
+            {
+                // Only report message if user was prompted for the XML
+                // file (i.e. the user interface has already loaded).
+                return "Error loading XML file. " + ex.Message;
+            }
+
+            if (!mapLayersloaded)
+                return "Error loading Map variables from XML file.";
+
+            // Get all of the map layer details.
+            _mapLayers = _toolConfig.MapLayers;
+
+            await Task.Run(() =>
+            {
+                if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active.Map.Name != _mapFunctions.MapName)
+                {
+                    // Create a new map functions object.
+                    _mapFunctions = new();
+                }
+
+                // Check if there is an active map.
+                bool mapOpen = _mapFunctions.MapName != null;
+
+                if (mapOpen)
+                {
+                    List<MapLayer> allLayers = _mapLayers;
+
+                    // Loop through all of the layers to check if they are open
+                    // in the active map.
+                    foreach (MapLayer layer in allLayers)
                     {
-                        // Create a new map functions object.
-                        _mapFunctions = new();
-                    }
-
-                    // Check if there is an active map.
-                    bool mapOpen = _mapFunctions.MapName != null;
-
-                    // Reset the list of open layers.
-                    ObservableCollection<MapLayer> openLayersList = [];
-
-                    if (mapOpen)
-                    {
-                        List<MapLayer> allLayers = _mapLayers;
-
-                        // Loop through all of the layers to check if they are open
-                        // in the active map.
-                        foreach (MapLayer layer in allLayers)
+                        if (_mapFunctions.FindLayer(layer.LayerName) != null)
                         {
-                            if (_mapFunctions.FindLayer(layer.LayerName) != null)
-                            {
-                                // Preselect layer if required.
-                                layer.IsSelected = layer.PreselectLayer;
+                            // Preselect layer if required.
+                            layer.IsSelected = layer.PreselectLayer;
 
-                                // Add the open layers to the list.
-                                openLayersList.Add(layer);
-                            }
-                            else
-                            {
-                                // Only add if the user wants to be warned of this one.
-                                if (layer.LoadWarning)
-                                    closedLayers.Add(layer.LayerName);
-                            }
+                            // Add the open layers to the list.
+                            _openMapLayersList.Add(layer);
+                        }
+                        else
+                        {
+                            // Only add if the user wants to be warned of this one.
+                            if (layer.LoadWarning)
+                                _closedMapLayersList.Add(layer.LayerName);
                         }
                     }
-
-                    // Reset the list of open layers.
-                    _openLayersList = openLayersList;
-                });
-
-                // Hide progress update.
-                _dockPane.ProgressUpdate(null, -1, -1);
-
-                // Show a message if there are no open layers.
-                if (!_openLayersList.Any())
-                    ShowMessage("No search layers in active map.", MessageType.Warning);
-
-                _dockPane.LayersListLoading = false;
-
-                // Update the fields and buttons in the form.
-                UpdateFormControls();
-
-                // Warn the user of closed layers.
-                int closedLayerCount = closedLayers.Count;
-                if (closedLayerCount > 0)
-                {
-                    string closedLayerWarning = "";
-                    if (closedLayerCount == 1)
-                    {
-                        closedLayerWarning = "Layer '" + closedLayers[0] + "' is not loaded.";
-                    }
-                    else
-                    {
-                        closedLayerWarning = string.Format("{0} layers are not loaded.", closedLayerCount.ToString());
-                    }
-
-                    ShowMessage(closedLayerWarning, MessageType.Warning);
-
-                    if (message)
-                        MessageBox.Show(closedLayerWarning, "Data Searches", MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
+            });
+
+            // Show a message if there are no open map layers.
+            if (_openMapLayersList.Count == 0)
+                return "No map layers in active map.";
+
+            // Warn the user of any closed map layers.
+            int closedLayerCount = _closedMapLayersList.Count;
+            if (closedLayerCount > 0)
+            {
+                string closedLayerWarning = "";
+                if (closedLayerCount == 1)
+                {
+                    closedLayerWarning = "Layer '" + _closedMapLayersList[0] + "' is not loaded.";
+                }
+                else
+                {
+                    closedLayerWarning = string.Format("{0} map layers are not loaded.", closedLayerCount.ToString());
+                }
+
+                return closedLayerWarning;
             }
+
+            return null;
         }
 
         /// <summary>
@@ -1437,7 +1535,7 @@ namespace DataSearches.UI
         public void ClearLayers()
         {
             // Clear the list of open layers.
-            _openLayersList = [];
+            _mapLayersList = [];
 
             // Update the fields and buttons in the form.
             UpdateFormControls();
@@ -1448,7 +1546,7 @@ namespace DataSearches.UI
         /// </summary>
         private async Task<bool> RunSearchAsync()
         {
-            if (_mapFunctions == null || _mapFunctions.MapName == null)
+            if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active.Map.Name != _mapFunctions.MapName)
             {
                 // Create a new map functions object.
                 _mapFunctions = new();
@@ -1465,7 +1563,7 @@ namespace DataSearches.UI
             int bufferUnitIndex = SelectedBufferUnitsIndex;
 
             // Selected layers.
-            _selectedLayers = OpenLayersList.Where(p => p.IsSelected).ToList();
+            _selectedLayers = MapLayersList.Where(p => p.IsSelected).ToList();
 
             // What is the selected buffer unit?
             string bufferUnitText = _bufferUnitOptionsDisplay[bufferUnitIndex]; // Unit to be used in reporting.
@@ -1799,7 +1897,7 @@ namespace DataSearches.UI
             _dockPane.SearchRunning = false;
             _dockPane.ProgressUpdate(null, -1, -1);
 
-            string imageSource = string.Format("pack://application:,,,/DataSelector;component/Images/{0}32.png", image);
+            string imageSource = string.Format("pack://application:,,,/DataSearches;component/Images/{0}32.png", image);
 
             // Notify user of completion.
             Notification notification = new()
@@ -2127,7 +2225,7 @@ namespace DataSearches.UI
             if (totalFeatureCount > 1)
             {
                 // Ask the user if they want to continue
-                MessageBoxResult response = MessageBox.Show(totalFeatureCount.ToString() + " features found in " + _inputLayerName + " matching those criteria. Do you wish to continue?", "Data Searches", MessageBoxButton.YesNo);
+                MessageBoxResult response = MessageBox.Show(totalFeatureCount.ToString() + " features found in " + _inputLayerName + " matching those criteria. Do you wish to continue?", _displayName, MessageBoxButton.YesNo);
                 if (response == MessageBoxResult.No)
                 {
                     FileFunctions.WriteLine(_logFile, totalFeatureCount.ToString() + " features found in the search layers");
@@ -2417,7 +2515,7 @@ namespace DataSearches.UI
 
             // Select by location.
             FileFunctions.WriteLine(_logFile, "Selecting features using selected feature(s) from layer " + _bufferLayerName + " ...");
-            if (!await ArcGISFunctions.SelectLayerByLocationAsync(mapLayerPath, _bufferLayerPath, "INTERSECT", "", "NEW_SELECTION"))
+            if (!await MapFunctions.SelectLayerByLocationAsync(mapLayerPath, _bufferLayerPath, "INTERSECT", "", "NEW_SELECTION"))
             {
                 //MessageBox.Show("Error selecting layer " + mapLayerName + " by location.");
                 FileFunctions.WriteLine(_logFile, "Error selecting layer " + mapLayerName + " by location");
@@ -2567,8 +2665,7 @@ namespace DataSearches.UI
 
                 if (!StartProcess(mapMacroName, mapTableOutputName, mapFormat))
                 {
-                    //MessageBox.Show("Error executing vbscript macro " + mapMacroName + ".");
-                    FileFunctions.WriteLine(_logFile, "Error executing vbscript macro " + mapMacroName);
+                    FileFunctions.WriteLine(_logFile, "Error executing vbscript macro '" + mapMacroName + "'.");
                     _searchErrors = true;
 
                     return false;
@@ -2631,7 +2728,7 @@ namespace DataSearches.UI
                 {
                     // Select from the buffer layer.
                     FileFunctions.WriteLine(_logFile, "Selecting features  ...");
-                    await ArcGISFunctions.SelectLayerByLocationAsync(bufferLayerPath, mapLayerPath);
+                    await MapFunctions.SelectLayerByLocationAsync(bufferLayerPath, mapLayerPath);
 
                     // Find the buffer layer by name.
                     FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName);
@@ -3128,13 +3225,19 @@ namespace DataSearches.UI
 
                 // Now export the output table.
                 FileFunctions.WriteLine(_logFile, "Exporting to " + outputFormat.ToUpper() + " ...");
-                intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, append, includeHeaders);
+                if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
+                    intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
+                else
+                    intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
             }
             else
             {
                 // Do straight copy of the feature class.
                 FileFunctions.WriteLine(_logFile, "Exporting to " + outputFormat.ToUpper() + " ...");
-                intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, append, includeHeaders);
+                if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
+                    intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
+                else
+                    intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
             }
 
             return intLineCount;
@@ -3252,11 +3355,12 @@ namespace DataSearches.UI
         {
             using Process scriptProc = new();
 
-            scriptProc.StartInfo.FileName = @"cscript.exe";
-            scriptProc.StartInfo.WorkingDirectory = FileFunctions.GetDirectoryName(macroName); //<---very important
+            // Set the process parameters.
+            scriptProc.StartInfo.FileName = @"wscript.exe";
+            scriptProc.StartInfo.WorkingDirectory = FileFunctions.GetDirectoryName(macroName);
             scriptProc.StartInfo.UseShellExecute = true;
-            scriptProc.StartInfo.Arguments = string.Format(@"//B //Nologo {0} {1} {2} {3}", "\"" + macroName + "\"", "\"" + _outputFolder + "\"", "\"" + mapTableOutputName + "." + mapFormat.ToLower() + "\"", "\"" + mapTableOutputName + ".xlsx" + "\"");
-            scriptProc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden; //prevent console window from popping up
+            scriptProc.StartInfo.Arguments = string.Format("//B //Nologo \"{0}\" \"{1}\" \"{2}\" \"{3}\"", macroName, _outputFolder, mapTableOutputName + "." + mapFormat.ToLower(), mapTableOutputName + ".xlsx");
+            scriptProc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 
             try
             {
@@ -3285,6 +3389,47 @@ namespace DataSearches.UI
         }
 
         #endregion Methods
+
+        #region LayersListExpand Command
+
+        private ICommand _mapLayersListExpandCommand;
+
+        /// <summary>
+        /// Create LayersList Expand button command.
+        /// </summary>
+        /// <value></value>
+        /// <returns></returns>
+        /// <remarks></remarks>
+        public ICommand MapLayersListExpandCommand
+        {
+            get
+            {
+                if (_mapLayersListExpandCommand == null)
+                {
+                    Action<object> expandMapLayersListAction = new(MapLayersListExpandCommandClick);
+                    _mapLayersListExpandCommand = new RelayCommand(expandMapLayersListAction, param => true);
+                }
+                return _mapLayersListExpandCommand;
+            }
+        }
+
+        /// <summary>
+        /// Handles event when LayersListExpand button is pressed.
+        /// </summary>
+        /// <param name="param"></param>
+        /// <remarks></remarks>
+        private void MapLayersListExpandCommandClick(object param)
+        {
+            if (_mapLayersListHeight == null)
+                _mapLayersListHeight = 179;
+            else
+                _mapLayersListHeight = null;
+
+            OnPropertyChanged(nameof(MapLayersListHeight));
+            OnPropertyChanged(nameof(MapLayersListExpandButtonContent));
+        }
+
+        #endregion LayersListExpand Command
 
         #region Debugging Aides
 

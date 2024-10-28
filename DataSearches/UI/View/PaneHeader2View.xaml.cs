@@ -21,7 +21,9 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace DataSearches.UI
 {
@@ -35,24 +37,72 @@ namespace DataSearches.UI
             InitializeComponent();
         }
 
+        /// <summary>
+        /// Ensure any removed map layers are actually unselected.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ListViewLayers_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            List<MapLayer> added = e.AddedItems.OfType<MapLayer>().ToList();
+            // Get the list of removed items.
             List<MapLayer> removed = e.RemovedItems.OfType<MapLayer>().ToList();
-
-            var listView = sender as ListView;
-            var itemsSelected = listView.Items.OfType<MapLayer>().ToList().Where(s => s.IsSelected == true).ToList();
-            var itemsUnselected = listView.Items.OfType<MapLayer>().Where(p => p.IsSelected == false).ToList();
-            var selectedItems = listView.SelectedItems.OfType<MapLayer>().ToList();
 
             // Ensure any removed items are actually unselected.
             if (removed.Count > 1)
             {
+                // Unselect the removed items.
                 e.RemovedItems.OfType<MapLayer>().ToList().ForEach(p => p.IsSelected = false);
+
+                // Get the list of currently selected items.
+                var listView = sender as ListView;
+                var selectedItems = listView.SelectedItems.OfType<MapLayer>().ToList();
 
                 if (selectedItems.Count == 1)
                     listView.Items.OfType<MapLayer>().ToList().Where(s => selectedItems.All(s2 => s2.NodeName != s.NodeName)).ToList().ForEach(p => p.IsSelected = false);
             }
+        }
+
+        /// <summary>
+        /// Reset the width of the map layer column to match the width of the list view.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void ListViewLayers_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            var listView = sender as System.Windows.Controls.ListView;
+
+            ScrollViewer sv = FindVisualChild<ScrollViewer>(listView);
+            Visibility vsVisibility = sv.ComputedVerticalScrollBarVisibility;
+            double vsWidth = ((vsVisibility == Visibility.Visible) ? SystemParameters.VerticalScrollBarWidth : 0);
+
+            var gridView = listView.View as GridView;
+            gridView.Columns[0].Width = listView.ActualWidth - vsWidth - 10;
+        }
+
+        /// <summary>
+        /// Return the first visual child object of the required type
+        /// for the specified object.
+        /// </summary>
+        /// <typeparam name="childItem"></typeparam>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        private static childItem FindVisualChild<childItem>(DependencyObject obj)
+               where childItem : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(obj, i);
+                if (child != null && child is childItem item)
+                    return item;
+                else
+                {
+                    childItem childOfChild = FindVisualChild<childItem>(child);
+                    if (childOfChild != null)
+                        return childOfChild;
+                }
+            }
+
+            return null;
         }
     }
 }

@@ -99,23 +99,11 @@ namespace DataSearches
                 _xmlLoaded = false;
                 return;
             }
-
-            // Get the map variables.
-            try
-            {
-                if (!GetMapVariables())
-                    return;
-            }
-            catch (Exception ex)
-            {
-                // Only report message if user was prompted for the XML
-                // file (i.e. the user interface has already loaded).
-                if (msgErrors)
-                    MessageBox.Show("Error loading XML file. " + ex.Message, _toolName, MessageBoxButton.OK, MessageBoxImage.Error);
-                _xmlLoaded = false;
-                return;
-            }
         }
+
+        #endregion Constructor
+
+        #region Get Mandatory Variables
 
         /// <summary>
         /// Get the mandatory variables from the XML file.
@@ -132,7 +120,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'DatabasePath' in the XML profile.");
+                throw new("Could not locate 'DatabasePath' in the XML profile.");
             }
 
             // Only get the other database details if there is a path.
@@ -145,7 +133,7 @@ namespace DataSearches
                 }
                 catch
                 {
-                    throw new("Could not locate item 'DatabaseTable' in the XML profile.");
+                    throw new("Could not locate 'DatabaseTable' in the XML profile.");
                 }
 
                 // The column name of the search reference unique value in the database table.
@@ -155,7 +143,7 @@ namespace DataSearches
                 }
                 catch
                 {
-                    throw new("Could not locate item 'DatabaseRefColumn' in the XML profile.");
+                    throw new("Could not locate 'DatabaseRefColumn' in the XML profile.");
                 }
 
                 // The column name of the site name in the database table.
@@ -165,7 +153,7 @@ namespace DataSearches
                 }
                 catch
                 {
-                    throw new("Could not locate item 'DatabaseSiteColumn' in the XML profile.");
+                    throw new("Could not locate 'DatabaseSiteColumn' in the XML profile.");
                 }
 
                 // The column name of the organisation in the database table.
@@ -175,7 +163,7 @@ namespace DataSearches
                 }
                 catch
                 {
-                    throw new("Could not locate item 'DatabaseOrgColumn' in the XML profile.");
+                    throw new("Could not locate 'DatabaseOrgColumn' in the XML profile.");
                 }
             }
             else
@@ -196,7 +184,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'RequireSiteName' in the XML profile.");
+                throw new("Could not locate 'RequireSiteName' in the XML profile.");
             }
 
             // Is the organisation required?
@@ -209,7 +197,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'RequireOrganisation' in the XML profile.");
+                throw new("Could not locate 'RequireOrganisation' in the XML profile.");
             }
 
             // The character(s) used to replace any special characters in folder names. Space is allowed.
@@ -219,7 +207,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'RepChar' in the XML profile.");
+                throw new("Could not locate 'RepChar' in the XML profile.");
             }
 
             // The folder where the layer files are stored.
@@ -229,7 +217,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'LayerFolder' in the XML profile.");
+                throw new("Could not locate 'LayerFolder' in the XML profile.");
             }
 
             // The file location where all data search folders are stored.
@@ -239,7 +227,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SaveRootDir' in the XML profile.");
+                throw new("Could not locate 'SaveRootDir' in the XML profile.");
             }
 
             // The folder where the report will be saved.
@@ -249,7 +237,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SaveFolder' in the XML profile.");
+                throw new("Could not locate 'SaveFolder' in the XML profile.");
             }
 
             // The sub-folder where all data search extracts will be written to.
@@ -259,7 +247,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'GISFolder' in the XML profile.");
+                throw new("Could not locate 'GISFolder' in the XML profile.");
             }
 
             // The log file name created by the tool to output messages.
@@ -269,7 +257,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'LogFileName' in the XML profile.");
+                throw new("Could not locate 'LogFileName' in the XML profile.");
             }
 
             // Whether the map processing should be paused during processing?
@@ -323,7 +311,7 @@ namespace DataSearches
                     _defaultBufferSize = (int)i;
                 else
                 {
-                    throw new("The entry for 'DefaultBufferSize' in the XML document is not a number.");
+                    throw new("The entry for 'DefaultBufferSize' in the XML profile is not a number.");
                 }
             }
             catch
@@ -339,7 +327,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'BufferUnitOptions' in the XML profile.");
+                throw new("Could not locate 'BufferUnitOptions' in the XML profile.");
             }
             try
             {
@@ -357,7 +345,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Error parsing 'BufferUnitOptions' string. Check for correct string formatting and placement of delimiters.");
+                throw new("Error parsing 'BufferUnitOptions' string. Check for correct format.");
             }
 
             // The default option (position in the list) to use for the buffer units.
@@ -369,7 +357,7 @@ namespace DataSearches
                     _defaultBufferUnit = (int)i;
                 else
                 {
-                    throw new("The entry for 'DefaultBufferUnit' in the XML document is not a number.");
+                    throw new("The entry for 'DefaultBufferUnit' in the XML profile is not a number.");
                 }
             }
             catch
@@ -388,7 +376,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'UpdateTable' in the XML profile.");
+                throw new("Could not locate 'UpdateTable' in the XML profile.");
             }
 
             // Are we keeping the buffer GIS file? Yes/No.
@@ -401,7 +389,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'KeepBufferArea' in the XML profile.");
+                throw new("Could not locate 'KeepBufferArea' in the XML profile.");
             }
 
             // The prefix output name for the buffer GIS file. The size of the buffer will be added automatically.
@@ -411,7 +399,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'BufferPrefix' in the XML profile.");
+                throw new("Could not locate 'BufferPrefix' in the XML profile.");
             }
 
             // The name of the buffer symbology layer file.
@@ -421,7 +409,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'BufferLayerFile' in the XML profile.");
+                throw new("Could not locate 'BufferLayerFile' in the XML profile.");
             }
 
             // The base name of the layer to use as the search area.
@@ -431,7 +419,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SearchLayer' in the XML profile.");
+                throw new("Could not locate 'SearchLayer' in the XML profile.");
             }
 
             // The extension names for point, polygon and line search area layers.
@@ -441,7 +429,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SearchLayerExtensions' in the XML profile.");
+                throw new("Could not locate 'SearchLayerExtensions' in the XML profile.");
             }
             try
             {
@@ -454,7 +442,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Error parsing 'SearchLayerExtensions' string. Check for correct string formatting and placement of delimiters");
+                throw new("Error parsing 'SearchLayerExtensions' string. Check for correct format.");
             }
 
             // The column name in the search area layer used to store the search reference.
@@ -464,7 +452,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SearchColumn' in the XML profile.");
+                throw new("Could not locate 'SearchColumn' in the XML profile.");
             }
 
             // The column name in the search area layer used to store the site name.
@@ -474,7 +462,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SiteColumn' in the XML profile.");
+                throw new("Could not locate 'SiteColumn' in the XML profile.");
             }
 
             // The column name in the search area layer used to store the organisation.
@@ -484,7 +472,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'OrgColumn' in the XML profile.");
+                throw new("Could not locate 'OrgColumn' in the XML profile.");
             }
 
             // The column name in the search area layer used to store the radius.
@@ -494,7 +482,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'RadiusColumn' in the XML profile.");
+                throw new("Could not locate 'RadiusColumn' in the XML profile.");
             }
 
             // Are we keeping the search feature as a layer? Yes/No.
@@ -507,7 +495,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'KeepSearchFeature' in the XML profile.");
+                throw new("Could not locate 'KeepSearchFeature' in the XML profile.");
             }
 
             // The name of the search feature output layer.
@@ -517,7 +505,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SearchOutputName' in the XML profile.");
+                throw new("Could not locate 'SearchOutputName' in the XML profile.");
             }
 
             // The base name of the search layer symbology file (without the .lyr).
@@ -527,7 +515,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'SearchSymbologyBase' in the XML profile.");
+                throw new("Could not locate 'SearchSymbologyBase' in the XML profile.");
             }
 
             // The buffer aggregate column values. Delimited with semicolons.
@@ -537,7 +525,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'AggregateColumns' in the XML profile.");
+                throw new("Could not locate 'AggregateColumns' in the XML profile.");
             }
 
             // The options for showing the selected tables.
@@ -547,7 +535,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'AddSelectedLayersOptions' in the XML profile.");
+                throw new("Could not locate 'AddSelectedLayersOptions' in the XML profile.");
             }
             try
             {
@@ -556,7 +544,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Error parsing 'AddSelectedLayersOptions' string. Check for correct string formatting and placement of delimiters");
+                throw new("Error parsing 'AddSelectedLayersOptions' string. Check for correct format.");
             }
 
             // The default option for whether selected map layers should be kept.
@@ -584,7 +572,7 @@ namespace DataSearches
                     _defaultAddSelectedLayers = (int)i;
                 else
                 {
-                    throw new("The entry for 'DefaultAddSelectedLayers' in the XML document is not a number.");
+                    throw new("The entry for 'DefaultAddSelectedLayers' in the XML profile is not a number.");
                 }
             }
             catch
@@ -600,7 +588,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'GroupLayerName' in the XML profile.");
+                throw new("Could not locate 'GroupLayerName' in the XML profile.");
             }
 
             // The options for overwritting the map labels.
@@ -610,7 +598,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'OverwriteLabelOptions' in the XML profile.");
+                throw new("Could not locate 'OverwriteLabelOptions' in the XML profile.");
             }
             try
             {
@@ -619,7 +607,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Error parsing 'OverwriteLabelOptions' string. Check for correct string formatting and placement of delimiters");
+                throw new("Error parsing 'OverwriteLabelOptions' string. Check for correct format.");
             }
 
             // Whether any map label columns should be overwritten (default setting).
@@ -631,7 +619,7 @@ namespace DataSearches
                     _defaultOverwriteLabels = (int)i;
                 else
                 {
-                    throw new("The entry for 'DefaultOverwriteLabels' in the XML document is not a number.");
+                    throw new("The entry for 'DefaultOverwriteLabels' in the XML profile is not a number.");
                 }
             }
             catch
@@ -647,7 +635,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'AreaMeasurementUnit' in the XML profile.");
+                throw new("Could not locate 'AreaMeasurementUnit' in the XML profile.");
             }
 
             // Options for filling out the Combined Sites table dropdown (do not change).
@@ -657,7 +645,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate item 'CombinedSitesTableOptions' in the XML profile.");
+                throw new("Could not locate 'CombinedSitesTableOptions' in the XML profile.");
             }
             try
             {
@@ -666,7 +654,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Error parsing 'CombinedSitesTableOptions' string. Check for correct string formatting and placement of delimiters");
+                throw new("Error parsing 'CombinedSitesTableOptions' string. Check for correct format.");
             }
 
             // Whether a combined sites table should be created by default.
@@ -678,7 +666,7 @@ namespace DataSearches
                     _defaultCombinedSitesTable = (int)i;
                 else
                 {
-                    throw new("The entry for 'DefaultCombinedSitesTable' in the XML document is not a number.");
+                    throw new("The entry for 'DefaultCombinedSitesTable' in the XML profile is not a number.");
                 }
             }
             catch
@@ -694,7 +682,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate the item 'Name' for entry 'CombinedSitesTable' in the XML profile.");
+                throw new("Could not locate 'Name' for entry 'CombinedSitesTable' in the XML profile.");
             }
 
             // The columns of the combined sites table.
@@ -704,7 +692,7 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate the item 'Columns' for entry 'CombinedSitesTable' in the XML profile.");
+                throw new("Could not locate 'Columns' for entry 'CombinedSitesTable' in the XML profile.");
             }
 
             // The format of the combined sites table.
@@ -714,12 +702,16 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate the item 'Format' for entry 'CombinedSitesTable' in the XML profile.");
+                throw new("Could not locate 'Format' for entry 'CombinedSitesTable' in the XML profile.");
             }
 
             // All mandatory variables were loaded successfully.
             return true;
         }
+
+        #endregion Get Mandatory Variables
+
+        #region Get Map Variables
 
         /// <summary>
         /// Get the map variables from the XML file.
@@ -736,8 +728,11 @@ namespace DataSearches
             }
             catch
             {
-                throw new("Could not locate the item 'MapLayers' in the XML profile");
+                throw new("Could not locate 'MapLayers' in the XML profile");
             }
+
+            // Reset the map layers list.
+            _mapLayers = [];
 
             // Now cycle through all of the maps.
             if (MapLayerCollection != null)
@@ -748,7 +743,9 @@ namespace DataSearches
                     if (node.NodeType != XmlNodeType.Comment)
                     {
                         string nodeName = node.Name;
-                        nodeName = nodeName.Replace("_", " "); // Replace any underscores with spaces for better display.
+
+                        // Replace any underscores with spaces for better display.
+                        nodeName = nodeName.Replace("_", " ");
 
                         // Create a new layer for this node.
                         MapLayer layer = new(nodeName);
@@ -764,7 +761,7 @@ namespace DataSearches
                         {
                             // This is an optional node
                             layer.NodeGroup = null;
-                            layer.NodeLayer = null;
+                            layer.NodeLayer = nodeName;
                         }
 
                         try
@@ -773,7 +770,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'LayerName' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'LayerName' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -782,7 +779,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'GISOutputName' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'GISOutputName' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -791,7 +788,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'TableOutputName' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'TableOutputName' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -800,7 +797,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'Columns' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'Columns' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -813,7 +810,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'GroupColumns' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'GroupColumns' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -826,7 +823,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'StatisticsColumns' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'StatisticsColumns' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -835,7 +832,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'OrderColumns' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'OrderColumns' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -844,7 +841,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'Criteria' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'Criteria' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -876,7 +873,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'IncludeNearFields' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'IncludeNearFields' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -900,7 +897,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'KeyColumn' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'KeyColumn' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -909,7 +906,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'Format' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'Format' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -943,7 +940,7 @@ namespace DataSearches
                         }
                         catch
                         {
-                            throw new("Could not locate the item 'OutputType' for map layer " + nodeName + " in the XML file");
+                            throw new("Could not locate 'OutputType' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -1085,7 +1082,7 @@ namespace DataSearches
                             }
                             catch
                             {
-                                throw new("Could not locate the item 'CombinedSitesGroupColumns' for map layer " + nodeName + " in the XML file");
+                                throw new("Could not locate 'CombinedSitesGroupColumns' for map layer '" + nodeName + "'.");
                             }
 
                             try
@@ -1098,7 +1095,7 @@ namespace DataSearches
                             }
                             catch
                             {
-                                throw new("Could not locate the item 'CombinedSitesStatisticsColumns' for map layer " + nodeName + " in the XML file");
+                                throw new("Could not locate 'CombinedSitesStatisticsColumns' for map layer '" + nodeName + "'.");
                             }
 
                             try
@@ -1107,7 +1104,7 @@ namespace DataSearches
                             }
                             catch
                             {
-                                throw new("Could not locate the item 'CombinedSitesOrderByColumns' for map layer " + nodeName + " in the XML file");
+                                throw new("Could not locate 'CombinedSitesOrderByColumns' for map layer '" + nodeName + "'.");
                             }
                         }
 
@@ -1121,7 +1118,7 @@ namespace DataSearches
             return true;
         }
 
-        #endregion Constructor
+        #endregion Get Map Variables
 
         #region Members
 
@@ -1488,7 +1485,7 @@ namespace DataSearches
 
         #region Map Variables
 
-        private readonly List<MapLayer> _mapLayers = [];
+        private List<MapLayer> _mapLayers = [];
 
         public List<MapLayer> MapLayers
         {
