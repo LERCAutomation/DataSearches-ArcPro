@@ -406,7 +406,7 @@ namespace DataSearches.UI
         {
             get
             {
-                if ((_mapLayersList == null) || (_mapLayersList.Count < 9))
+                if ((_mapLayersList == null) || (_mapLayersList.Count < 20))
                     return Visibility.Hidden;
                 else
                     return Visibility.Visible;
@@ -881,7 +881,7 @@ namespace DataSearches.UI
             get
             {
                 if (_mapLayersList == null || _mapLayersList.Count == 0)
-                    return 20;
+                    return 382;
                 else
                     return _mapLayersListHeight;
             }
@@ -1225,6 +1225,7 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(SelectedOverwriteLabels));
             OnPropertyChanged(nameof(OverwriteLabelsListVisibility));
             OnPropertyChanged(nameof(CombinedSitesList));
+            OnPropertyChanged(nameof(CombinedSitesListEnabled));
             OnPropertyChanged(nameof(SelectedCombinedSites));
             OnPropertyChanged(nameof(CombinedSitesListVisibility));
             OnPropertyChanged(nameof(Message));
@@ -3421,7 +3422,7 @@ namespace DataSearches.UI
         private void MapLayersListExpandCommandClick(object param)
         {
             if (_mapLayersListHeight == null)
-                _mapLayersListHeight = 179;
+                _mapLayersListHeight = 382;
             else
                 _mapLayersListHeight = null;
 

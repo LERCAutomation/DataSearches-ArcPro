@@ -30,7 +30,7 @@
             <Grid Name="GridSearchRef" Grid.Row="0" Margin="0,0,0,4" HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="75" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -42,7 +42,7 @@
                        Foreground="Red"
                        VerticalAlignment="Top" />
                 <Label Name="LabelSearchRef"
-                       Content="Search Reference:"
+                       Content="Search Ref:"
                        Grid.Column="1"
                        Margin="0,0,4,0"
                        Padding="0"
@@ -60,7 +60,7 @@
             <Grid Name="GridSiteName" Grid.Row="1" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=SiteNameTextVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="75" />
                     <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
 
@@ -89,7 +89,7 @@
             <Grid Name="GridOrganisation" Grid.Row="2" Margin="0,4,0,4" HorizontalAlignment="Stretch" Visibility="{Binding Path=OrganisationTextVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="75" />
                     <ColumnDefinition Width ="*" />
                 </Grid.ColumnDefinitions>
 
@@ -197,7 +197,7 @@
                         VerticalAlignment="Bottom"
                         HorizontalAlignment="Right"
                         BorderBrush="LightBlue"
-                        Command="{Binding Path=LayersListExpandCommand}"
+                        Command="{Binding Path=MapLayersListExpandCommand}"
                         IsCancel="False"
                         IsDefault="False"
                         Focusable="False"
@@ -206,7 +206,7 @@
                         IsTabStop="False"
                         Style="{DynamicResource Esri_SimpleButton}"
                         Content="{Binding Path=MapLayersListExpandButtonContent}"
-                        ToolTip="Expand/Collapse the layers list" />
+                        ToolTip="Expand/Collapse the map layers list" />
             </Grid>
 
             <Grid Name="GridBuffer" Grid.Row="4" Margin="0,4,0,4" HorizontalAlignment="Stretch">

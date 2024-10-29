@@ -73,10 +73,10 @@ namespace DataSearches.UI
 
             ScrollViewer sv = FindVisualChild<ScrollViewer>(listView);
             Visibility vsVisibility = sv.ComputedVerticalScrollBarVisibility;
-            double vsWidth = ((vsVisibility == Visibility.Visible) ? SystemParameters.VerticalScrollBarWidth : 0);
+            double vsWidth = (((vsVisibility == Visibility.Visible) || (sv.ViewportWidth > 0)) ? SystemParameters.VerticalScrollBarWidth : 0);
 
             var gridView = listView.View as GridView;
-            gridView.Columns[0].Width = listView.ActualWidth - vsWidth - 10;
+            gridView.Columns[0].Width = listView.ActualWidth - vsWidth - 20;
         }
 
         /// <summary>
