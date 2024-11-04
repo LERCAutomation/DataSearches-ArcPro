@@ -553,7 +553,7 @@ namespace DataSearches
                 _defaultKeepSelectedLayers = false;
                 rawText = _xmlDataSearches["DefaultKeepSelectedLayers"].InnerText;
                 if (string.IsNullOrEmpty(rawText))
-                    _defaultKeepSelectedLayers = null;
+                    _defaultKeepSelectedLayers = false;
                 else if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _defaultKeepSelectedLayers = true;
             }
@@ -1404,9 +1404,9 @@ namespace DataSearches
             get { return _addSelectedLayersOptions; }
         }
 
-        private bool? _defaultKeepSelectedLayers;
+        private bool _defaultKeepSelectedLayers;
 
-        public bool? DefaultKeepSelectedLayers
+        public bool DefaultKeepSelectedLayers
         {
             get { return _defaultKeepSelectedLayers; }
         }

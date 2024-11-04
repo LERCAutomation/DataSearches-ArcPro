@@ -1348,6 +1348,9 @@ namespace DataSearches.UI
             if (_toolConfig.DefaultBufferUnit > 0)
                 SelectedBufferUnitsIndex = _toolConfig.DefaultBufferUnit - 1;
 
+            // Keep selected map layers.
+            KeepSelectedLayers = _toolConfig.DefaultKeepSelectedLayers;
+
             // Add layers to map.
             AddToMapList = _toolConfig.AddSelectedLayersOptions;
             if (_toolConfig.DefaultAddSelectedLayers > 0)
@@ -1469,7 +1472,7 @@ namespace DataSearches.UI
 
             await Task.Run(() =>
             {
-                if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active.Map.Name != _mapFunctions.MapName)
+                if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active is null || MapView.Active.Map.Name != _mapFunctions.MapName)
                 {
                     // Create a new map functions object.
                     _mapFunctions = new();
