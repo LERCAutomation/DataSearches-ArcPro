@@ -168,7 +168,7 @@ namespace DataTools
                 {
                     Uri uri = new(url);
 
-                    // Check if the layer is already loaded (unlikely as the map is new)
+                    // Check if the layer is already loaded.
                     Layer findLayer = _activeMap.Layers.FirstOrDefault(t => t.Name == uri.Segments.Last());
 
                     // If the layer is not loaded, add it.
@@ -1637,11 +1637,49 @@ namespace DataTools
 
                         // Get the renderer from the layer definition.
                         //CIMSimpleRenderer rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer as CIMSimpleRenderer;
-                        var lryxRenderer = lyrxLayerDefn.Renderer;
+                        CIMRenderer lryxRenderer = lyrxLayerDefn.Renderer;
 
                         // Apply the renderer to the feature layer.
                         if (featureLayer.CanSetRenderer(lryxRenderer))
                             featureLayer.SetRenderer(lryxRenderer);
+
+                        //Get the label classes from the lyrx layer definition - we need the first one.
+                        List<CIMLabelClass> lryxLabelClassesList = lyrxLayerDefn.LabelClasses.ToList();
+                        CIMLabelClass lyrxLabelClass = lryxLabelClassesList.FirstOrDefault();
+
+                        // Get the standard properties of the label class.
+                        //CIMStandardLabelPlacementProperties lyrxLabelProperties = lyrxLabelClass.StandardLabelPlacementProperties;
+
+                        // Get the label text symbol.
+                        //CIMSymbol lyrxTextSymbol = lyrxLabelClass.TextSymbol.Symbol;
+
+                        // Get the label expression.
+                        //string lyrxLabelColumn = lyrxLabelClass.Expression;
+
+                        // Get the input layer definition.
+                        CIMFeatureLayer lyrDefn = featureLayer.GetDefinition() as CIMFeatureLayer;
+
+                        // Get the label classes from the input layer definition - we need the first one.
+                        List<CIMLabelClass> labelClassesList = lyrDefn.LabelClasses.ToList();
+                        CIMLabelClass labelClass = labelClassesList.FirstOrDefault();
+
+                        // Set the label text symbol.
+                        //labelClass.TextSymbol.Symbol = lyrxTextSymbol;
+
+                        // Set the label expression.
+                        //labelClass.Expression = lyrxLabelColumn;
+
+                        // Copy the lyrx label class to the input layer class.
+                        labelClass.CopyFrom(lyrxLabelClass);
+
+                        // Set the label definition back to the input feeature layer.
+                        featureLayer.SetDefinition(lyrDefn);
+
+                        // Get the lyrx label visibility.
+                        bool lyrxLabelVisible = lyrxLabelClass.Visibility;
+
+                        // Set the label visibilty.
+                        featureLayer.SetLabelVisibility(lyrxLabelVisible);
                     });
                 }
                 catch

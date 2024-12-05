@@ -2417,6 +2417,8 @@ namespace DataSearches.UI
             {
                 if (FileFunctions.FileExists(symbologyFile) && symbologyFile.Substring(symbologyFile.Length - 4, 4).Equals("lyrx", StringComparison.OrdinalIgnoreCase))
                 {
+                    FileFunctions.WriteLine(_logFile, "Applying symbology to '" + layerName + "'");
+
                     if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(layerName, symbologyFile))
                     {
                         //MessageBox.Show("Error applying symbology to '" + layerName + "'");
@@ -2655,10 +2657,6 @@ namespace DataSearches.UI
 
                 FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", intLineCount) + " row(s) added to combined sites table");
             }
-
-            // Cleanup the temporary master layer.
-            //await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
-            //await ArcGISFunctions.DeleteFeatureClassAsync(_tempMasterOutputFile);
 
             // Clear the selection in the input layer.
             await _mapFunctions.ClearLayerSelectionAsync(mapLayerName);
