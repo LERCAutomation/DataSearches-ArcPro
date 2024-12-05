@@ -52,6 +52,8 @@ namespace DataSearches.UI
         private bool _mapEventsSubscribed;
         private bool _projectClosedEventsSubscribed;
 
+        private MapView _activeMapView;
+
         #endregion Fields
 
         #region ViewModelBase Members
@@ -387,14 +389,18 @@ namespace DataSearches.UI
                 DockpaneVisibility = Visibility.Hidden;
 
                 // Clear the form layers.
-                _paneH2VM?.ClearLayers();
+                //_paneH2VM?.ClearLayers();
             }
             else
             {
                 DockpaneVisibility = Visibility.Visible;
 
-                // Reload the form layers (don't wait for the response).
-                _paneH2VM?.LoadLayersAsync(false, false);
+                // Reload the form layers (don't wait).
+                if (MapView.Active != _activeMapView)
+                    _paneH2VM?.LoadLayersAsync(false, false);
+
+                // Save the active map view.
+                _activeMapView = MapView.Active;
             }
         }
 

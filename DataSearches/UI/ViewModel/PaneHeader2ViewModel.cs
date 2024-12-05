@@ -590,7 +590,7 @@ namespace DataSearches.UI
             // Find the features matching the search reference.
             if (!await FindSearchFeaturesAsync(searchClause))
             {
-                ShowMessage("Search ref not found in any of the search layers.", MessageType.Warning);
+                ShowMessage("Search ref not found in search layer(s).", MessageType.Warning);
                 return;
             }
 
@@ -757,7 +757,7 @@ namespace DataSearches.UI
                     QueuedTask.Run(() =>
                     {
                         if (!FindSearchFeaturesAsync(searchClause).Result)
-                            ShowMessage("Search ref not found in the search layers.", MessageType.Warning);
+                            ShowMessage("Search ref not found in search layer(s).", MessageType.Warning);
                         else
                             ClearMessage();
                     });
@@ -1689,9 +1689,8 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "User ID not found. User ID used will be 'Temp'");
             }
 
-            // Count the number of layers to process and add 2
-            // to account for the start and finish steps.
-            int stepsMax = SelectedLayers.Count + 2;
+            // Count the number of layers to process.
+            int stepsMax = SelectedLayers.Count;
             int stepNum = 0;
 
             // Stop if the user cancelled the process.
@@ -1716,8 +1715,8 @@ namespace DataSearches.UI
             // Create the search query.
             string searchClause = _searchColumn + " = '" + searchRef + "'";
 
-            _dockPane.ProgressUpdate("Selecting feature(s)...", stepNum, stepsMax);
-            stepNum += 1;
+            _dockPane.ProgressUpdate("Selecting feature(s)...", 0);
+            //stepNum += 1;
 
             // Count the features matching the search reference.
             if (await CountSearchFeaturesAsync(searchClause) == 0)
@@ -1774,8 +1773,8 @@ namespace DataSearches.UI
             if (_dockPane.SearchCancelled)
                 return false;
 
-            _dockPane.ProgressUpdate("Buffering feature(s)...", stepNum, stepsMax);
-            stepNum += 1;
+            _dockPane.ProgressUpdate("Buffering feature(s)...", 0);
+            //stepNum += 1;
 
             // Set the buffer layer name by appending the radius.
             _bufferLayerName = _bufferPrefix + "_" + radius;
@@ -1800,9 +1799,9 @@ namespace DataSearches.UI
             if (!_pauseMap)
             {
                 if (bufferSize == "0")
-                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, 1, 10000);
+                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000);
                 else
-                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, 1.05);
+                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05);
             }
 
             // Get the full layer path (in case it's nested in one or more groups).
@@ -1846,7 +1845,7 @@ namespace DataSearches.UI
                 string mapNodeGroup = selectedLayer.NodeGroup;
                 string mapNodeLayer = selectedLayer.NodeLayer;
 
-                _dockPane.ProgressUpdate("Processing '" + mapNodeGroup + " - " + mapNodeLayer + "'...", stepNum, 0);
+                _dockPane.ProgressUpdate("Processing '" + mapNodeGroup + " - " + mapNodeLayer + "'...", stepNum, stepsMax);
                 stepNum += 1;
 
                 layerNum += 1;
@@ -1877,7 +1876,7 @@ namespace DataSearches.UI
 
             // Zoom to the buffer layer extent.
             if (bufferSize != "0" && _keepBuffer)
-                await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, 1.05);
+                await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05);
 
             return true;
         }
@@ -2414,9 +2413,9 @@ namespace DataSearches.UI
         private async Task<bool> SetLayerInMapAsync(string layerName, string symbologyFile, int position = -1)
         {
             // Apply layer symbology.
-            if (!string.IsNullOrEmpty(symbologyFile) && symbologyFile.Substring(symbologyFile.Length - 4, 4).Equals("lyrx", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(symbologyFile))
             {
-                if (FileFunctions.FileExists(symbologyFile))
+                if (FileFunctions.FileExists(symbologyFile) && symbologyFile.Substring(symbologyFile.Length - 4, 4).Equals("lyrx", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(layerName, symbologyFile))
                     {
@@ -2426,6 +2425,10 @@ namespace DataSearches.UI
 
                         return false;
                     }
+                }
+                else
+                {
+                    FileFunctions.WriteLine(_logFile, "Error layer file '" + symbologyFile + "' not found or valid");
                 }
             }
 
@@ -3294,7 +3297,7 @@ namespace DataSearches.UI
                 if (addSelectedLayersOption == AddSelectedLayersOptions.WithLabels && displayLabels)
                 {
                     // Translate the label string.
-                    if (!string.IsNullOrEmpty(labelClause) && string.IsNullOrEmpty(layerFileName)) // Only if we don't have a layer file.
+                    if (!string.IsNullOrEmpty(labelClause))
                     {
                         try
                         {

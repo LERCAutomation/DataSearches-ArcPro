@@ -29,6 +29,7 @@ using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Editing;
 using ArcGIS.Desktop.Editing.Attributes;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
+using ArcGIS.Desktop.Internal.Layouts.Utilities;
 using ArcGIS.Desktop.Mapping;
 using System;
 using System.Collections.Generic;
@@ -155,7 +156,7 @@ namespace DataTools
         /// </summary>
         /// <param name="url"></param>
         /// <returns>bool</returns>
-        public async Task<bool> AddLayerToMap(string url)
+        public async Task<bool> AddLayerToMapAsync(string url, int index = 0, string layerName = "")
         {
             // If no url is supplied.
             if (url == null)
@@ -173,7 +174,7 @@ namespace DataTools
                     // If the layer is not loaded, add it.
                     if (findLayer == null)
                     {
-                        Layer layer = LayerFactory.Instance.CreateLayer(uri, _activeMap);
+                        Layer layer = LayerFactory.Instance.CreateLayer(uri, _activeMap, index, layerName);
                     }
                 });
             }
@@ -191,7 +192,7 @@ namespace DataTools
         /// </summary>
         /// <param name="url"></param>
         /// <returns>bool</returns>
-        public async Task<bool> AddTableToMap(string url)
+        public async Task<bool> AddTableToMapAsync(string url)
         {
             // If no url is supplied.
             if (url == null)
@@ -223,13 +224,81 @@ namespace DataTools
         }
 
         /// <summary>
+        /// Zoom to a an object for a given ratio or scale.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="objectID"></param>
+        /// <param name="factor"></param>
+        /// <param name="mapScaleOrDistance"></param>
+        /// <returns>bool</returns>
+        public async Task<bool> ZoomToLayerAsync(string layerName, long objectID, double? factor, double? mapScaleOrDistance)
+        {
+            // Check there is an input feature layer name.
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            // Check if the layer is already loaded.
+            BasicFeatureLayer findLayer = FindLayer(layerName);
+
+            // If the layer is not loaded.
+            if (findLayer == null)
+                return false;
+
+            try
+            {
+                // Zoom to the extent of the object.
+                await _activeMapView.ZoomToAsync(findLayer, objectID, null, true, factor, mapScaleOrDistance);
+            }
+            catch
+            {
+                // Handle exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Zoom to a list of objects.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="objectIDs"></param>
+        /// <returns>bool</returns>
+        public async Task<bool> ZoomToLayerAsync(string layerName, IEnumerable<long> objectIDs)
+        {
+            // Check there is an input feature layer name.
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            // Check if the layer is already loaded.
+            BasicFeatureLayer findLayer = FindLayer(layerName);
+
+            // If the layer is not loaded.
+            if (findLayer == null)
+                return false;
+
+            try
+            {
+                // Zoom to the extent of all of the objects.
+                await _activeMapView.ZoomToAsync(findLayer, objectIDs, null, true);
+            }
+            catch
+            {
+                // Handle exception.
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Zoom to a layer for a given ratio or scale.
         /// </summary>
         /// <param name="layerName"></param>
         /// <param name="ratio"></param>
         /// <param name="scale"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, double ratio = 1, double scale = 10000)
+        public async Task<bool> ZoomToLayerAsync(string layerName, bool selectedOnly, double ratio = 1, double scale = 10000)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -245,7 +314,7 @@ namespace DataTools
             try
             {
                 // Zoom to the layer extent.
-                await _activeMapView.ZoomToAsync(findLayer, false);
+                await _activeMapView.ZoomToAsync(findLayer, selectedOnly);
 
                 // Get the camera for the active view.
                 var camera = _activeMapView.Camera;
@@ -309,6 +378,42 @@ namespace DataTools
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Find the position index for a feature layer by name in the active map.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <returns>int</returns>
+        internal int FindLayerIndex(string layerName)
+        {
+            // Check there is an input feature layer name.
+            if (String.IsNullOrEmpty(layerName))
+                return 0;
+
+            // Finds layers by name and returns a read only list of feature layers.
+            IEnumerable<FeatureLayer> layers = _activeMap.FindLayers(layerName, true).OfType<FeatureLayer>();
+
+            // If no layers are loaded.
+            if (layers == null)
+                return 0;
+
+            try
+            {
+                for (int index = 0; index < _activeMap.Layers.Count; index++)
+                {
+                    // Get the index of the first feature layer found by name.
+                    if (_activeMap.Layers[index].Name == layerName)
+                        return index;
+                }
+            }
+            catch
+            {
+                // Handle exception.
+                return 0;
+            }
+
+            return 0;
         }
 
         /// <summary>
@@ -514,9 +619,9 @@ namespace DataTools
                 return false;
 
             // Get the feature layer.
-            FeatureLayer featurelayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName);
 
-            if (featurelayer == null)
+            if (featureLayer == null)
                 return false;
 
             // Create an edit operation.
@@ -527,12 +632,12 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Get the oids for the selected features.
-                    var gsSelection = featurelayer.GetSelection();
+                    var gsSelection = featureLayer.GetSelection();
                     IReadOnlyList<long> selectedOIDs = gsSelection.GetObjectIDs();
 
                     // Update the attributes of the selected features.
                     var insp = new Inspector();
-                    insp.Load(featurelayer, selectedOIDs);
+                    insp.Load(featureLayer, selectedOIDs);
 
                     if (!string.IsNullOrEmpty(siteColumn))
                     {
@@ -654,9 +759,9 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName);
 
-                if (featurelayer == null)
+                if (featureLayer == null)
                     return false;
 
                 // Create a query filter using the where clause.
@@ -668,7 +773,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Select the features matching the search clause.
-                    featurelayer.Select(queryFilter, selectionMethod);
+                    featureLayer.Select(queryFilter, selectionMethod);
                 });
             }
             catch
@@ -694,15 +799,15 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName);
 
-                if (featurelayer == null)
+                if (featureLayer == null)
                     return false;
 
                 await QueuedTask.Run(() =>
                 {
                     // Clear the feature selection.
-                    featurelayer.ClearSelection();
+                    featureLayer.ClearSelection();
                 });
             }
             catch
@@ -728,9 +833,9 @@ namespace DataTools
             try
             {
                 // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerPath);
+                FeatureLayer featureLayer = FindLayer(layerPath);
 
-                if (featurelayer == null)
+                if (featureLayer == null)
                     return null;
 
                 IReadOnlyList<ArcGIS.Core.Data.Field> fields = null;
@@ -739,7 +844,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Get the underlying feature class as a table.
-                    ArcGIS.Core.Data.Table table = featurelayer.GetTable();
+                    ArcGIS.Core.Data.Table table = featureLayer.GetTable();
                     if (table != null)
                     {
                         // Get the table definition of the table.
@@ -854,9 +959,9 @@ namespace DataTools
             try
             {
                 // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerPath);
+                FeatureLayer featureLayer = FindLayer(layerPath);
 
-                if (featurelayer == null)
+                if (featureLayer == null)
                     return false;
 
                 bool fldFound = false;
@@ -864,7 +969,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Get the underlying feature class as a table.
-                    ArcGIS.Core.Data.Table table = featurelayer.GetTable();
+                    ArcGIS.Core.Data.Table table = featureLayer.GetTable();
                     if (table != null)
                     {
                         // Get the table definition of the table.
@@ -935,9 +1040,9 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName);
 
-                if (featurelayer == null)
+                if (featureLayer == null)
                     return false;
 
                 IReadOnlyList<ArcGIS.Core.Data.Field> fields = null;
@@ -947,7 +1052,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Get the underlying feature class as a table.
-                    ArcGIS.Core.Data.Table table = featurelayer.GetTable();
+                    ArcGIS.Core.Data.Table table = featureLayer.GetTable();
                     if (table != null)
                     {
                         // Get the table definition of the table.
@@ -992,7 +1097,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>bool</returns>
-        public async Task<int> GetFCRowLength(string layerName)
+        public async Task<int> GetFCRowLengthAsync(string layerName)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -1001,9 +1106,9 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featurelayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName);
 
-                if (featurelayer == null)
+                if (featureLayer == null)
                     return 0;
 
                 IReadOnlyList<ArcGIS.Core.Data.Field> fields = null;
@@ -1014,7 +1119,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Get the underlying feature class as a table.
-                    ArcGIS.Core.Data.Table table = featurelayer.GetTable();
+                    ArcGIS.Core.Data.Table table = featureLayer.GetTable();
                     if (table != null)
                     {
                         // Get the table definition of the table.
@@ -1521,18 +1626,22 @@ namespace DataTools
                 {
                     await QueuedTask.Run(() =>
                     {
-                        // Get the Layer Document from the lyrx file.
-                        LayerDocument lyrDocFromLyrxFile = new(layerFile);
+                        // Get the layer document from the lyrx file.
+                        LayerDocument lyrxLayerDocument = new(layerFile);
 
-                        CIMLayerDocument cimLyrDoc = lyrDocFromLyrxFile.GetCIMLayerDocument();
+                        // Get the CIM layer document from the lyrx layer document.
+                        CIMLayerDocument lyrxCIMLyrDoc = lyrxLayerDocument.GetCIMLayerDocument();
 
-                        // Get the renderer from the layer file.
+                        // Get the layer definition from the CIM layer document.
+                        CIMFeatureLayer lyrxLayerDefn = (CIMFeatureLayer)lyrxCIMLyrDoc.LayerDefinitions[0];
+
+                        // Get the renderer from the layer definition.
                         //CIMSimpleRenderer rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer as CIMSimpleRenderer;
-                        var rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer;
+                        var lryxRenderer = lyrxLayerDefn.Renderer;
 
                         // Apply the renderer to the feature layer.
-                        if (featureLayer.CanSetRenderer(rendererFromLayerFile))
-                            featureLayer.SetRenderer(rendererFromLayerFile);
+                        if (featureLayer.CanSetRenderer(lryxRenderer))
+                            featureLayer.SetRenderer(lryxRenderer);
                     });
                 }
                 catch
@@ -1570,9 +1679,9 @@ namespace DataTools
                 return false;
 
             // Get the input feature layer.
-            FeatureLayer featurelayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName);
 
-            if (featurelayer == null)
+            if (featureLayer == null)
                 return false;
 
             try
@@ -1584,7 +1693,7 @@ namespace DataTools
                     CIMTextSymbol textSymbol = SymbolFactory.Instance.ConstructTextSymbol(textColor, labelSize, labelFont, labelStyle);
 
                     // Get the layer definition.
-                    CIMFeatureLayer lyrDefn = featurelayer.GetDefinition() as CIMFeatureLayer;
+                    CIMFeatureLayer lyrDefn = featureLayer.GetDefinition() as CIMFeatureLayer;
 
                     // Get the label classes - we need the first one.
                     var listLabelClasses = lyrDefn.LabelClasses.ToList();
@@ -1605,10 +1714,10 @@ namespace DataTools
                         labelClass.StandardLabelPlacementProperties.AllowOverlappingLabels = allowOverlap;
 
                     // Set the label definition back to the layer.
-                    featurelayer.SetDefinition(lyrDefn);
+                    featureLayer.SetDefinition(lyrDefn);
 
                     // Set the label visibilty.
-                    featurelayer.SetLabelVisibility(displayLabels);
+                    featureLayer.SetLabelVisibility(displayLabels);
                 });
             }
             catch
@@ -1633,9 +1742,9 @@ namespace DataTools
                 return false;
 
             // Get the input feature layer.
-            FeatureLayer featurelayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName);
 
-            if (featurelayer == null)
+            if (featureLayer == null)
                 return false;
 
             try
@@ -1643,7 +1752,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Set the label visibilty.
-                    featurelayer.SetLabelVisibility(displayLabels);
+                    featureLayer.SetLabelVisibility(displayLabels);
                 });
             }
             catch
@@ -2333,9 +2442,8 @@ namespace DataTools
             }
             else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
             {
-                // It's an SDE class.
-                // Not handled. We know the layer exists.
-                return true;
+                // It's an SDE class. Not handled (use SQL Server Functions).
+                return false;
             }
             else // It is a geodatabase class.
             {
@@ -2363,108 +2471,6 @@ namespace DataTools
                 return false;
 
             return await FeatureClassExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
-        }
-
-        /// <summary>
-        /// Delete a feature class from a geodatabase.
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="fileName"></param>
-        /// <returns>bool</returns>
-        public static async Task<bool> DeleteGeodatabaseFCAsync(string filePath, string fileName)
-        {
-            // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
-                return false;
-
-            // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
-                return false;
-
-            bool success = false;
-
-            try
-            {
-                await QueuedTask.Run(() =>
-                {
-                    // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
-                    using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
-
-                    // Create a SchemaBuilder object
-                    SchemaBuilder schemaBuilder = new(geodatabase);
-
-                    // Create a FeatureClassDescription object.
-                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
-
-                    // Create a FeatureClassDescription object
-                    FeatureClassDescription featureClassDescription = new(featureClassDefinition);
-
-                    // Add the deletion for the feature class to the list of DDL tasks
-                    schemaBuilder.Delete(featureClassDescription);
-
-                    // Execute the DDL
-                    success = schemaBuilder.Build();
-                });
-            }
-            catch (GeodatabaseNotFoundOrOpenedException)
-            {
-                // Handle Exception.
-                return false;
-            }
-            catch (GeodatabaseTableException)
-            {
-                // Handle Exception.
-                return false;
-            }
-
-            return success;
-        }
-
-        /// <summary>
-        /// Delete a feature class from a geodatabase.
-        /// </summary>
-        /// <param name="geodatabase"></param>
-        /// <param name="featureClassName"></param>
-        /// <returns>bool</returns>
-        public static async Task<bool> DeleteGeodatabaseFCAsync(Geodatabase geodatabase, string featureClassName)
-        {
-            // Check there is an input geodatabase.
-            if (geodatabase == null)
-                return false;
-
-            // Check there is an input feature class name.
-            if (String.IsNullOrEmpty(featureClassName))
-                return false;
-
-            bool success = false;
-
-            try
-            {
-                await QueuedTask.Run(() =>
-                {
-                    // Create a SchemaBuilder object
-                    SchemaBuilder schemaBuilder = new(geodatabase);
-
-                    // Create a FeatureClassDescription object.
-                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(featureClassName);
-
-                    // Create a FeatureClassDescription object
-                    FeatureClassDescription featureClassDescription = new(featureClassDefinition);
-
-                    // Add the deletion for the feature class to the list of DDL tasks
-                    schemaBuilder.Delete(featureClassDescription);
-
-                    // Execute the DDL
-                    success = schemaBuilder.Build();
-                });
-            }
-            catch
-            {
-                // Handle exception.
-                return false;
-            }
-
-            return success;
         }
 
         /// <summary>
@@ -2775,10 +2781,10 @@ namespace DataTools
             try
             {
                 // Create a query filter using the where clause.
-                QueryFilter queryFilter = new()
-                {
-                    WhereClause = whereClause
-                };
+                QueryFilter queryFilter = new();
+
+                if (whereClause != null)
+                    queryFilter.WhereClause = whereClause;
 
                 featureCount = await QueuedTask.Run(() =>
                 {
@@ -3414,17 +3420,13 @@ namespace DataTools
             return exists;
         }
 
-        #endregion Geodatabase
-
-        #region Table
-
         /// <summary>
-        /// Check if a feature class exists in the file path.
+        /// Delete a feature class from a geodatabase.
         /// </summary>
         /// <param name="filePath"></param>
         /// <param name="fileName"></param>
         /// <returns>bool</returns>
-        public static async Task<bool> TableExistsAsync(string filePath, string fileName)
+        public static async Task<bool> DeleteGeodatabaseFCAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
             if (String.IsNullOrEmpty(filePath))
@@ -3434,104 +3436,90 @@ namespace DataTools
             if (String.IsNullOrEmpty(fileName))
                 return false;
 
-            if (fileName.Substring(fileName.Length - 4, 1) == ".")
+            bool success = false;
+
+            try
             {
-                // It's a file.
-                if (FileFunctions.FileExists(filePath + @"\" + fileName))
-                    return true;
-                else
-                    return false;
-            }
-            else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
-            {
-                // It's an SDE class
-                // Not handled. We know the layer exists.
-                return true;
-            }
-            else // it is a geodatabase class.
-            {
-                try
+                await QueuedTask.Run(() =>
                 {
-                    bool exists = await TableExistsGDBAsync(filePath, fileName);
+                    // Open the file geodatabase. This will open the geodatabase if the folder exists and contains a valid geodatabase.
+                    using Geodatabase geodatabase = new(new FileGeodatabaseConnectionPath(new Uri(filePath)));
 
-                    return exists;
-                }
-                catch
+                    // Create a SchemaBuilder object
+                    SchemaBuilder schemaBuilder = new(geodatabase);
+
+                    // Create a FeatureClassDescription object.
+                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(fileName);
+
+                    // Create a FeatureClassDescription object
+                    FeatureClassDescription featureClassDescription = new(featureClassDefinition);
+
+                    // Add the deletion for the feature class to the list of DDL tasks
+                    schemaBuilder.Delete(featureClassDescription);
+
+                    // Execute the DDL
+                    success = schemaBuilder.Build();
+                });
+            }
+            catch (GeodatabaseNotFoundOrOpenedException)
+            {
+                // Handle Exception.
+                return false;
+            }
+            catch (GeodatabaseTableException)
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return success;
+        }
+
+        /// <summary>
+        /// Delete a feature class from a geodatabase.
+        /// </summary>
+        /// <param name="geodatabase"></param>
+        /// <param name="featureClassName"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> DeleteGeodatabaseFCAsync(Geodatabase geodatabase, string featureClassName)
+        {
+            // Check there is an input geodatabase.
+            if (geodatabase == null)
+                return false;
+
+            // Check there is an input feature class name.
+            if (String.IsNullOrEmpty(featureClassName))
+                return false;
+
+            bool success = false;
+
+            try
+            {
+                await QueuedTask.Run(() =>
                 {
-                    // GetDefinition throws an exception if the definition doesn't exist.
-                    return false;
-                }
+                    // Create a SchemaBuilder object
+                    SchemaBuilder schemaBuilder = new(geodatabase);
+
+                    // Create a FeatureClassDescription object.
+                    using FeatureClassDefinition featureClassDefinition = geodatabase.GetDefinition<FeatureClassDefinition>(featureClassName);
+
+                    // Create a FeatureClassDescription object
+                    FeatureClassDescription featureClassDescription = new(featureClassDefinition);
+
+                    // Add the deletion for the feature class to the list of DDL tasks
+                    schemaBuilder.Delete(featureClassDescription);
+
+                    // Execute the DDL
+                    success = schemaBuilder.Build();
+                });
             }
-        }
-
-        /// <summary>
-        /// Check if a feature class exists.
-        /// </summary>
-        /// <param name="fullPath"></param>
-        /// <returns>bool</returns>
-        public static async Task<bool> TableExistsAsync(string fullPath)
-        {
-            // Check there is an input full path.
-            if (String.IsNullOrEmpty(fullPath))
-                return false;
-
-            return await TableExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
-        }
-
-        /// <summary>
-        /// Check a layer exists in the file path.
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="fileName"></param>
-        /// <returns>bool</returns>
-        public static bool TableExists(string filePath, string fileName)
-        {
-            // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
-                return false;
-
-            // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
-                return false;
-
-            if (fileName.Substring(fileName.Length - 4, 1) == ".")
+            catch
             {
-                // It's a file.
-                if (FileFunctions.FileExists(filePath + @"\" + fileName))
-                    return true;
-                else
-                    return false;
-            }
-            else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
-            {
-                // It's an SDE class.
-                // Not handled. We know the layer exists.
-                return true;
-            }
-            else // It is a geodatabase class.
-            {
-                //IWorkspaceFactory pWSF = GetWorkspaceFactory(filePath);
-                //IWorkspace2 pWS = (IWorkspace2)pWSF.OpenFromFile(filePath, 0);
-                //if (pWS.get_NameExists(ESRI.ArcGIS.Geodatabase.esriDatasetType.esriDTTable, tableName))
-                //    return true;
-                //else
-                //    return false;
+                // Handle exception.
                 return false;
             }
-        }
 
-        /// <summary>
-        /// Check if a layer exists.
-        /// </summary>
-        /// <param name="fullPath"></param>
-        /// <returns>bool</returns>
-        public static bool TableExists(string fullPath)
-        {
-            // Check there is an input full path.
-            if (String.IsNullOrEmpty(fullPath))
-                return false;
-
-            return TableExists(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
+            return success;
         }
 
         /// <summary>
@@ -3627,6 +3615,69 @@ namespace DataTools
             }
 
             return success;
+        }
+
+        #endregion Geodatabase
+
+        #region Table
+
+        /// <summary>
+        /// Check if a feature class exists in the file path.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="fileName"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> TableExistsAsync(string filePath, string fileName)
+        {
+            // Check there is an input file path.
+            if (String.IsNullOrEmpty(filePath))
+                return false;
+
+            // Check there is an input file name.
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
+            if (fileName.Substring(fileName.Length - 4, 1) == ".")
+            {
+                // It's a file.
+                if (FileFunctions.FileExists(filePath + @"\" + fileName))
+                    return true;
+                else
+                    return false;
+            }
+            else if (filePath.Substring(filePath.Length - 3, 3).Equals("sde", StringComparison.OrdinalIgnoreCase))
+            {
+                // It's an SDE class. Not handled (use SQL Server Functions).
+                return false;
+            }
+            else // it is a geodatabase class.
+            {
+                try
+                {
+                    bool exists = await TableExistsGDBAsync(filePath, fileName);
+
+                    return exists;
+                }
+                catch
+                {
+                    // GetDefinition throws an exception if the definition doesn't exist.
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Check if a feature class exists.
+        /// </summary>
+        /// <param name="fullPath"></param>
+        /// <returns>bool</returns>
+        public static async Task<bool> TableExistsAsync(string fullPath)
+        {
+            // Check there is an input full path.
+            if (String.IsNullOrEmpty(fullPath))
+                return false;
+
+            return await TableExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
         }
 
         #endregion Table
