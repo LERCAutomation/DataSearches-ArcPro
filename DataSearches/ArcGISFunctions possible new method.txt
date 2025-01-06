@@ -1,0 +1,95 @@
+        /// <summary>
+        /// Apply a label style to a label column of a layer by name.
+        /// </summary>
+        /// <param name="layerName"></param>
+        /// <param name="labelColumn"></param>
+        /// <param name="labelFont"></param>
+        /// <param name="labelSize"></param>
+        /// <param name="labelStyle"></param>
+        /// <param name="labelRed"></param>
+        /// <param name="labelGreen"></param>
+        /// <param name="labelBlue"></param>
+        /// <param name="allowOverlap"></param>
+        /// <param name="displayLabels"></param>
+        /// <returns>bool</returns>
+        public async Task<bool> LabelLayerAsync(string layerName, string labelColumn, string labelFont = "Arial", double labelSize = 10, string labelStyle = "Normal",
+                            int labelRed = 0, int labelGreen = 0, int labelBlue = 0, double angle = 90, double haloSize = 0, bool allowOverlap = true, bool displayLabels = true)
+        {
+            // Check there is an input layer.
+            if (String.IsNullOrEmpty(layerName))
+                return false;
+
+            // Check there is a label columns to set.
+            if (String.IsNullOrEmpty(labelColumn))
+                return false;
+
+            // Get the input feature layer.
+            FeatureLayer featureLayer = FindLayer(layerName);
+
+            if (featureLayer == null)
+                return false;
+
+            try
+            {
+                await QueuedTask.Run(() =>
+                {
+                    CIMColor textColor = ColorFactory.Instance.CreateRGBColor(labelRed, labelGreen, labelBlue);
+
+                    CIMPolygonSymbol polygonSymbol = new()
+                    {
+                        SymbolLayers = [new CIMSolidFill()
+                        {
+                            Color = textColor
+                        }],
+                        UseRealWorldSymbolSizes = true
+                    };
+
+                    //CIMTextSymbol textSymbol = SymbolFactory.Instance.ConstructTextSymbol(textColor, labelSize, labelFont, labelStyle);
+                    CIMTextSymbol textSymbol = new()
+                    {
+                        Angle = angle,
+                        FontType = FontType.Unspecified,
+                        FontFamilyName = labelFont,
+                        FontEffects = FontEffects.Normal,
+                        FontStyleName = labelStyle,
+                        HaloSize = haloSize,
+                        Symbol = polygonSymbol
+                    };
+
+                    // Get the layer definition.
+                    CIMFeatureLayer lyrDefn = featureLayer.GetDefinition() as CIMFeatureLayer;
+
+                    // Get the label classes - we need the first one.
+                    var listLabelClasses = lyrDefn.LabelClasses.ToList();
+                    var labelClass = listLabelClasses.FirstOrDefault();
+
+                    // Set the label text symbol.
+                    labelClass.TextSymbol.Symbol = textSymbol;
+
+                    // Set the label expression.
+                    labelClass.Expression = "$feature." + labelColumn;
+
+                    // Check if the label engine is Maplex or standard.
+                    CIMGeneralPlacementProperties labelEngine =
+                       MapView.Active.Map.GetDefinition().GeneralPlacementProperties;
+
+                    // Modify label placement (if standard label engine).
+                    if (labelEngine is CIMStandardGeneralPlacementProperties) //Current labeling engine is Standard labeling engine
+                        labelClass.StandardLabelPlacementProperties.AllowOverlappingLabels = allowOverlap;
+
+                    // Set the label definition back to the layer.
+                    featureLayer.SetDefinition(lyrDefn);
+
+                    // Set the label visibilty.
+                    featureLayer.SetLabelVisibility(displayLabels);
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
+            }
+
+            return true;
+        }
+

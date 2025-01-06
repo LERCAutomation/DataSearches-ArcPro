@@ -397,7 +397,7 @@ namespace DataSearches.UI
 
                 // Reload the form layers (don't wait).
                 if (MapView.Active != _activeMapView)
-                    _paneH2VM?.LoadLayersAsync(false, false);
+                    _paneH2VM?.LoadLayersAsync(false);
 
                 // Save the active map view.
                 _activeMapView = MapView.Active;
@@ -440,8 +440,7 @@ namespace DataSearches.UI
             _paneH2VM = new PaneHeader2ViewModel(_dockPane, _paneH1VM.ToolConfig);
 
             // Load the form (don't wait for the response).
-            //Task.Run(() => _paneH2VM.ResetFormAsync(false));
-            _paneH2VM.ResetFormAsync(false);
+            _paneH2VM.ResetFormAsync();
 
             return true;
         }

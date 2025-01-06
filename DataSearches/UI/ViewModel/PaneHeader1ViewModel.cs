@@ -100,6 +100,7 @@ namespace DataSearches.UI
                 OnPropertyChanged(nameof(AvailableXMLFiles));
                 OnPropertyChanged(nameof(SelectedXMLProfile));
                 OnPropertyChanged(nameof(CanSelectXMLPath));
+                OnPropertyChanged(nameof(CanSelectXMLProfile));
                 OnPropertyChanged(nameof(CanLoadProfile));
 
                 return;
@@ -167,6 +168,7 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(AvailableXMLFiles));
             OnPropertyChanged(nameof(SelectedXMLProfile));
             OnPropertyChanged(nameof(CanSelectXMLPath));
+            //OnPropertyChanged(nameof(CanSelectXMLProfile));
             OnPropertyChanged(nameof(CanLoadProfile));
 
             // If the XML config file has been set (and it exists) then load it.
@@ -446,6 +448,7 @@ namespace DataSearches.UI
                 OnPropertyChanged(nameof(AvailableXMLFiles));
                 OnPropertyChanged(nameof(SelectedXMLProfile));
                 OnPropertyChanged(nameof(CanSelectXMLPath));
+                OnPropertyChanged(nameof(CanSelectXMLProfile));
                 OnPropertyChanged(nameof(CanLoadProfile));
 
                 return;
@@ -486,7 +489,7 @@ namespace DataSearches.UI
             }
 
             // If the user is allowed to choose the XML profile and there are
-            // more then just the default profile in the folder, load the
+            // more than just the default profile in the folder, load the
             // list of files for the user to choose.
             if (toolConfig.ChooseConfig && !blOnlyDefault)
             {
@@ -504,6 +507,7 @@ namespace DataSearches.UI
                 {
                     // Set the list to just the default XML file
                     // and select it.
+                    xmlFilesList = [];
                     xmlFilesList.Add(defaultXML);
                     _availableXMLFiles = xmlFilesList;
                     _selectedXMLProfile = defaultXML;
@@ -522,6 +526,7 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(AvailableXMLFiles));
             OnPropertyChanged(nameof(SelectedXMLProfile));
             OnPropertyChanged(nameof(CanSelectXMLPath));
+            OnPropertyChanged(nameof(CanSelectXMLProfile));
             OnPropertyChanged(nameof(CanLoadProfile));
 
             // If the XML config file has been set (and it exists) then load it.

@@ -607,7 +607,7 @@ namespace DataSearches.UI
             // Indicate that the search process has completed (successfully or not).
             string message;
             string image;
-            if (success)
+            if (success && !_searchErrors)
             {
                 message = "Search '{0}' complete!";
                 image = "Success";
@@ -628,7 +628,8 @@ namespace DataSearches.UI
                 image = "Error";
             }
 
-            StopSearch(searchRef, message, image);
+            // Indicate that the search process has stopped.
+            StopSearch(string.Format(message, searchRef), image);
 
             // Reset the cancel flag.
             _dockPane.SearchCancelled = false;
@@ -1326,7 +1327,7 @@ namespace DataSearches.UI
         /// </summary>
         /// <param name="reset"></param>
         /// <returns></returns>
-        public async Task ResetFormAsync(bool reset)
+        public async Task ResetFormAsync()
         {
             // Clear the selections first (to avoid selections being retained).
             if (_mapLayersList != null)
@@ -1374,7 +1375,7 @@ namespace DataSearches.UI
             PauseMap = _toolConfig.PauseMap;
 
             // Reload the form layers.
-            await LoadLayersAsync(reset, true);
+            await LoadLayersAsync(false);
         }
 
         /// <summary>
@@ -1383,7 +1384,7 @@ namespace DataSearches.UI
         /// <param name="reset"></param>
         /// <param name="message"></param>
         /// <returns></returns>
-        public async Task LoadLayersAsync(bool reset, bool message)
+        public async Task LoadLayersAsync(bool message)
         {
             // If already processing then exit.
             if (_dockPane.ProcessStatus != null)
@@ -1392,11 +1393,7 @@ namespace DataSearches.UI
             // Expand the lists (ready to be resized later).
             _mapLayersListHeight = null;
 
-            _dockPane.LayersListLoading = true;
-            if (reset)
-                _dockPane.ProgressUpdate("Resetting form...");
-            else
-                _dockPane.ProgressUpdate("Loading form...");
+            _dockPane.ProgressUpdate("Loading form...");
 
             // Clear any messages.
             ClearMessage();
@@ -1681,6 +1678,8 @@ namespace DataSearches.UI
 
             // Replace any illegal characters in the user name string.
             _userID = StringFunctions.StripIllegals(Environment.UserName, "_", false);
+            // Replace hyphen with underscore.
+            _userID = _userID.Replace('-', '_');
 
             // User ID should be something at least.
             if (string.IsNullOrEmpty(_userID))
@@ -1750,6 +1749,7 @@ namespace DataSearches.UI
 
                 if (!await _mapFunctions.UpdateFeaturesAsync(_inputLayerName, _siteColumn, siteName, _orgColumn, organisation, _radiusColumn, radius))
                 {
+                    FileFunctions.WriteLine(_logFile, "Error updating attributes in search layer");
                     _searchErrors = true;
                     return false;
                 }
@@ -1860,18 +1860,24 @@ namespace DataSearches.UI
                     _searchErrors = true;
             }
 
-            // Increment the progress value to the last step.
             _dockPane.ProgressUpdate("Cleaning up...", stepNum, 0);
 
-            // If there were errors then exit before cleaning up.
+            // Clean up after the search.
+            await CleanUpSearchAsync();
+
+            // If there were errors then exit.
             if (_searchErrors)
                 return false;
 
-            // Clean up after the search.
-            await CleanUpSearchAsync(addSelectedLayersOption);
-
             // If the process was cancelled when exit.
             if (_dockPane.SearchCancelled)
+                return false;
+
+            // Add the search area and buffer to the map if required.
+            await AddSearchLayersToMapAsync(addSelectedLayersOption);
+
+            // If there were any more errors then exit.
+            if (_searchErrors)
                 return false;
 
             // Zoom to the buffer layer extent.
@@ -1887,10 +1893,10 @@ namespace DataSearches.UI
         /// </summary>
         /// <param name="searchRef"></param>
         /// <param name="success"></param>
-        private void StopSearch(string searchRef, string message, string image)
+        private void StopSearch(string message, string image)
         {
             FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
-            FileFunctions.WriteLine(_logFile, string.Format(message, searchRef));
+            FileFunctions.WriteLine(_logFile, message);
             FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
 
             // Resume the map redrawing.
@@ -1907,7 +1913,7 @@ namespace DataSearches.UI
             {
                 Title = "Data Searches",
                 Severity = Notification.SeverityLevel.High,
-                Message = string.Format(message, searchRef),
+                Message = message,
                 ImageSource = new BitmapImage(new Uri(imageSource)) as ImageSource
             };
             FrameworkApplication.AddNotification(notification);
@@ -1918,11 +1924,11 @@ namespace DataSearches.UI
         }
 
         /// <summary>
-        /// Clean up after the search has completed (successfully or not).
+        /// Add the search area and buffer to the map if required.
         /// </summary>
         /// <param name="addSelectedLayersOption"></param>
         /// <returns></returns>
-        private async Task CleanUpSearchAsync(AddSelectedLayersOptions addSelectedLayersOption)
+        private async Task AddSearchLayersToMapAsync(AddSelectedLayersOptions addSelectedLayersOption)
         {
             FileFunctions.WriteLine(_logFile, "");
 
@@ -1941,6 +1947,9 @@ namespace DataSearches.UI
                         FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
                         _searchErrors = true;
                     }
+
+                    // Turn labels off.
+                    await _mapFunctions.SwitchLabelsAsync(_bufferLayerName, false);
 
                     FileFunctions.WriteLine(_logFile, "Buffer layer added to display");
                 }
@@ -1987,6 +1996,9 @@ namespace DataSearches.UI
                         _searchErrors = true;
                     }
 
+                    // Turn labels off.
+                    await _mapFunctions.SwitchLabelsAsync(_searchLayerName, false);
+
                     FileFunctions.WriteLine(_logFile, "Search feature layer added to display");
                 }
                 else
@@ -2015,7 +2027,14 @@ namespace DataSearches.UI
                     _searchErrors = true;
                 }
             }
+        }
 
+        /// <summary>
+        /// Clean up after the search has completed (successfully or not).
+        /// </summary>
+        /// <returns></returns>
+        private async Task CleanUpSearchAsync()
+        {
             // Remove all temporary feature classes and tables.
             await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
             await _mapFunctions.RemoveLayerAsync(_tempFCLayerName);
@@ -3230,19 +3249,19 @@ namespace DataSearches.UI
 
                 // Now export the output table.
                 FileFunctions.WriteLine(_logFile, "Exporting to " + outputFormat.ToUpper() + " ...");
-                if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
+                //if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
                     intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
-                else
-                    intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
+                //else
+                //    intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
             }
             else
             {
                 // Do straight copy of the feature class.
                 FileFunctions.WriteLine(_logFile, "Exporting to " + outputFormat.ToUpper() + " ...");
-                if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
+                //if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
                     intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
-                else
-                    intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
+                //else
+                //    intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
             }
 
             return intLineCount;
