@@ -1,10 +1,10 @@
-﻿// The DataTools are a suite of ArcGIS Pro addins used to extract
+﻿// The DataTools are a suite of ArcGIS Pro addins used to extract, sync
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
-// Copyright © 2024 Andy Foy Consulting.
+// Copyright © 2024-25 Andy Foy Consulting.
 //
-// This file is part of DataTools suite of programs..
+// This file is part of DataTools suite of programs.
 //
 // DataTools are free software: you can redistribute it and/or modify
 // them under the terms of the GNU General Public License as published by
@@ -2173,7 +2173,7 @@ namespace DataSearches.UI
                 if (featureLayer != null)
                 {
                     // Count the required features in the layer.
-                    long featureCount = await ArcGISFunctions.CountFeaturesAsync(featureLayer, searchClause);
+                    long featureCount = await ArcGISFunctions.GetFeaturesCountAsync(featureLayer, searchClause);
 
                     if (featureCount > 0)
                         return true;
@@ -2205,7 +2205,7 @@ namespace DataSearches.UI
                 if (featureLayer != null)
                 {
                     // Count the required features in the layer.
-                    long featureCount = await ArcGISFunctions.CountFeaturesAsync(featureLayer, searchClause);
+                    long featureCount = await ArcGISFunctions.GetFeaturesCountAsync(featureLayer, searchClause);
 
                     if (featureCount == 0)
                         FileFunctions.WriteLine(_logFile, "No features found in " + searchLayer);

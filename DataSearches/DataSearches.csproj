@@ -19,6 +19,7 @@
     <Compile Remove="SQLServerFunctions_OLD.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="ArcGISFunctions possible new method.txt" />
     <None Remove="DarkImages\AddInDesktop16.png" />
     <None Remove="DarkImages\AddInDesktop32.png" />
     <None Remove="DarkImages\DataSearches16.png" />
