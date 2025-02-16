@@ -243,6 +243,16 @@ namespace DataSearches
             // The sub-folder where all data search extracts will be written to.
             try
             {
+                _extractFolder = _xmlDataSearches["ExtractFolder"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'ExtractFolder' in the XML profile.");
+            }
+
+            // The sub-folder where all data search GIS files will be written to.
+            try
+            {
                 _gisFolder = _xmlDataSearches["GISFolder"].InnerText;
             }
             catch
@@ -1227,6 +1237,13 @@ namespace DataSearches
         public string SaveFolder
         {
             get { return _saveFolder; }
+        }
+
+        private string _extractFolder;
+
+        public string ExtractFolder
+        {
+            get { return _extractFolder; }
         }
 
         private string _gisFolder;

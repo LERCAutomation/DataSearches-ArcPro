@@ -121,9 +121,11 @@ namespace DataSearches.UI
 
         private string _saveRootDir;
         private string _saveFolder;
+        private string _extractFolder;
         private string _gisFolder;
-        private string _outputFolder;
-        private string _layerFolder;
+        private string _outputPath;
+        private string _gisPath;
+        private string _layerPath;
 
         private string _logFileName;
         private string _combinedSitesTableName;
@@ -244,9 +246,10 @@ namespace DataSearches.UI
 
             _saveRootDir = _toolConfig.SaveRootDir;
             _saveFolder = _toolConfig.SaveFolder;
+            _extractFolder = _toolConfig.ExtractFolder;
             _gisFolder = _toolConfig.GISFolder;
             _logFileName = _toolConfig.LogFileName;
-            _layerFolder = _toolConfig.LayerFolder;
+            _layerPath = _toolConfig.LayerFolder;
             _combinedSitesTableName = _toolConfig.CombinedSitesTableName;
             _combinedSitesColumnList = _toolConfig.CombinedSitesTableColumns;
             _combinedSitesTableFormat = _toolConfig.CombinedSitesTableFormat;
@@ -1633,6 +1636,7 @@ namespace DataSearches.UI
 
             // Replace any standard strings in the variables.
             _saveFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.SaveFolder, reference, siteName, shortRef, subref, radius);
+            _extractFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.ExtractFolder, reference, siteName, shortRef, subref, radius);
             _gisFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.GISFolder, reference, siteName, shortRef, subref, radius);
             _logFileName = StringFunctions.ReplaceSearchStrings(_toolConfig.LogFileName, reference, siteName, shortRef, subref, radius);
             _combinedSitesTableName = StringFunctions.ReplaceSearchStrings(_toolConfig.CombinedSitesTableName, reference, siteName, shortRef, subref, radius);
@@ -1642,6 +1646,7 @@ namespace DataSearches.UI
 
             // Remove any illegal characters from the names.
             _saveFolder = StringFunctions.StripIllegals(_saveFolder, _repChar);
+            _extractFolder = StringFunctions.StripIllegals(_extractFolder, _repChar);
             _gisFolder = StringFunctions.StripIllegals(_gisFolder, _repChar);
             _logFileName = StringFunctions.StripIllegals(_logFileName, _repChar, true);
             _combinedSitesTableName = StringFunctions.StripIllegals(_combinedSitesTableName, _repChar);
@@ -1652,16 +1657,20 @@ namespace DataSearches.UI
             // Trim any trailing spaces (directory functions don't deal with them well).
             _saveFolder = _saveFolder.Trim();
 
+            // Clear the GIS folder if the layers are not to be kept so an
+            // empty output folder isn't created.
+            if (!keepSelectedLayers)
+                _gisFolder = null;
+
             // Create output folders if required.
-            _outputFolder = CreateOutputFolders(_saveRootDir, _saveFolder, _gisFolder);
-            if (_outputFolder == null)
+            if (!CreateOutputFolders(_saveRootDir, _saveFolder, _extractFolder, _gisFolder, ref _outputPath, ref _gisPath))
             {
-                MessageBox.Show("Cannot create output folder");
+                MessageBox.Show("Cannot create output folders");
                 return false;
             }
 
             // Create log file (if necessary).
-            _logFile = _outputFolder + @"\" + _logFileName;
+            _logFile = _outputPath + @"\" + _logFileName;
             if (FileFunctions.FileExists(_logFile) && ClearLogFile)
             {
                 try
@@ -1756,7 +1765,7 @@ namespace DataSearches.UI
             }
 
             // The output file for the search features is a shapefile in the root save directory.
-            _searchOutputFile = _outputFolder + "\\" + _searchLayerName + ".shp";
+            _searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
 
             // Remove the search feature layer from the map
             // in case there is one already there from a different folder.
@@ -1782,7 +1791,7 @@ namespace DataSearches.UI
                 _bufferLayerName = _bufferLayerName.Replace('.', '_');
 
             // The output file for the buffer is a shapefile in the root save directory.
-            _bufferOutputFile = _outputFolder + "\\" + _bufferLayerName + ".shp";
+            _bufferOutputFile = _outputPath + "\\" + _bufferLayerName + ".shp";
 
             // Remove the buffer layer from the map
             // in case there is one already there from a different folder.
@@ -1808,7 +1817,7 @@ namespace DataSearches.UI
             _bufferLayerPath = _mapFunctions.GetLayerPath(_bufferLayerName);
 
             // Start the combined sites table before we do any analysis.
-            _combinedSitesOutputFile = _outputFolder + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
+            _combinedSitesOutputFile = _outputPath + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
             if (!CreateCombinedSitesTable(_combinedSitesOutputFile, combinedSitesTableOption))
             {
                 _searchErrors = true;
@@ -1939,7 +1948,7 @@ namespace DataSearches.UI
                 if (addSelectedLayersOption != AddSelectedLayersOptions.No)
                 {
                     // Set the buffer layer symbology to use.
-                    string symbologyFile = _layerFolder + "\\" + _bufferLayerFile;
+                    string symbologyFile = _layerPath + "\\" + _bufferLayerFile;
 
                     if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0))
                     {
@@ -1987,7 +1996,7 @@ namespace DataSearches.UI
                 {
                     // Set the search layer symbology to use.
                     string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
-                    string symbologyFile = _layerFolder + "\\" + searchlayerFile;
+                    string symbologyFile = _layerPath + "\\" + searchlayerFile;
 
                     if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0))
                     {
@@ -2015,7 +2024,7 @@ namespace DataSearches.UI
                     await _mapFunctions.RemoveLayerAsync(_searchLayerName);
 
                     // Delete the search feature class.
-                    string searchOutputFile = _outputFolder + "\\" + _searchLayerName + ".shp";
+                    string searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
                     await ArcGISFunctions.DeleteFeatureClassAsync(searchOutputFile);
 
                     FileFunctions.WriteLine(_logFile, "Search feature layer deleted");
@@ -2070,10 +2079,14 @@ namespace DataSearches.UI
         /// </summary>
         /// <param name="saveRootDir"></param>
         /// <param name="saveFolder"></param>
+        /// <param name="extractFolder"></param>
         /// <param name="gisFolder"></param>
         /// <returns></returns>
-        private string CreateOutputFolders(string saveRootDir, string saveFolder, string gisFolder)
+        private bool CreateOutputFolders(string saveRootDir, string saveFolder, string extractFolder, string gisFolder, ref string extractPath, ref string gisPath)
         {
+            extractPath = null;
+            gisPath = null;
+
             // Create root folder if required.
             if (!FileFunctions.DirExists(saveRootDir))
             {
@@ -2084,7 +2097,7 @@ namespace DataSearches.UI
                 catch (Exception ex)
                 {
                     FileFunctions.WriteLine(_logFile, "Cannot create directory '" + saveRootDir + "'. System error: " + ex.Message);
-                    return null;
+                    return false;
                 }
             }
 
@@ -2102,7 +2115,26 @@ namespace DataSearches.UI
                 catch (Exception ex)
                 {
                     FileFunctions.WriteLine(_logFile, "Cannot create directory '" + saveFolder + "'. System error: " + ex.Message);
-                    return null;
+                    return false;
+                }
+            }
+
+            // Create extract sub-folder if required.
+            if (!string.IsNullOrEmpty(extractFolder))
+                extractFolder = saveFolder + @"\" + extractFolder;
+            else
+                extractFolder = saveFolder;
+
+            if (!FileFunctions.DirExists(extractFolder))
+            {
+                try
+                {
+                    Directory.CreateDirectory(extractFolder);
+                }
+                catch (Exception ex)
+                {
+                    FileFunctions.WriteLine(_logFile, "Cannot create directory '" + extractFolder + "'. System error: " + ex.Message);
+                    return false;
                 }
             }
 
@@ -2121,11 +2153,14 @@ namespace DataSearches.UI
                 catch (Exception ex)
                 {
                     FileFunctions.WriteLine(_logFile, "Cannot create directory '" + gisFolder + "'. System error: " + ex.Message);
-                    return null;
+                    return false;
                 }
             }
 
-            return gisFolder;
+            extractPath = extractFolder;
+            gisPath = gisFolder;
+
+            return true;
         }
 
         /// <summary>
@@ -2595,7 +2630,7 @@ namespace DataSearches.UI
             }
 
             // Add map labels to the output if required.
-            if (addSelectedLayersOption == AddSelectedLayersOptions.WithLabels && !string.IsNullOrEmpty(mapLabelColumn))
+            if (!string.IsNullOrEmpty(mapLabelColumn))
             {
                 if (!await AddMapLabelsAsync(overwriteLabelOption, mapOverwriteLabels, mapLabelColumn, mapKeyColumn, mapNodeGroup))
                 {
@@ -2608,8 +2643,8 @@ namespace DataSearches.UI
             }
 
             // Create relevant output names.
-            string mapOutputFile = _outputFolder + @"\" + mapOutputName; // Output shapefile / feature class name. Note no extension to allow write to GDB.
-            string mapTableOutputFile = _outputFolder + @"\" + mapTableOutputName + "." + mapFormat.ToLower(); // Output table name.
+            string mapOutputFile = _gisPath + @"\" + mapOutputName; // Output shapefile / feature class name. Note no extension to allow write to GDB.
+            string mapTableOutputFile = _outputPath + @"\" + mapTableOutputName + "." + mapFormat.ToLower(); // Output table name.
 
             // Include headers for CSV files.
             bool includeHeaders = false;
@@ -3299,7 +3334,7 @@ namespace DataSearches.UI
                 if (!string.IsNullOrEmpty(layerFileName))
                 {
                     // Set the layer symbology to use.
-                    symbologyFile = _layerFolder + "\\" + layerFileName;
+                    symbologyFile = _layerPath + "\\" + layerFileName;
                 }
 
                 // Apply layer symbology and move to group layer.
@@ -3383,7 +3418,7 @@ namespace DataSearches.UI
             scriptProc.StartInfo.FileName = @"wscript.exe";
             scriptProc.StartInfo.WorkingDirectory = FileFunctions.GetDirectoryName(macroName);
             scriptProc.StartInfo.UseShellExecute = true;
-            scriptProc.StartInfo.Arguments = string.Format("//B //Nologo \"{0}\" \"{1}\" \"{2}\" \"{3}\"", macroName, _outputFolder, mapTableOutputName + "." + mapFormat.ToLower(), mapTableOutputName + ".xlsx");
+            scriptProc.StartInfo.Arguments = string.Format("//B //Nologo \"{0}\" \"{1}\" \"{2}\" \"{3}\"", macroName, _outputPath, mapTableOutputName + "." + mapFormat.ToLower(), mapTableOutputName + ".xlsx");
             scriptProc.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
 
             try
