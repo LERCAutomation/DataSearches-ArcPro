@@ -1944,29 +1944,20 @@ namespace DataSearches.UI
             // Do we want to keep the buffer layer? If not, remove it.
             if (_keepBuffer)
             {
-                // Add the output buffer layer to the map.
-                if (addSelectedLayersOption != AddSelectedLayersOptions.No)
+                // Set the buffer layer symbology to use.
+                string symbologyFile = _layerPath + "\\" + _bufferLayerFile;
+
+                if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0))
                 {
-                    // Set the buffer layer symbology to use.
-                    string symbologyFile = _layerPath + "\\" + _bufferLayerFile;
-
-                    if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0))
-                    {
-                        //MessageBox.Show("Error setting buffer layer in the map.");
-                        FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
-                        _searchErrors = true;
-                    }
-
-                    // Turn labels off.
-                    await _mapFunctions.SwitchLabelsAsync(_bufferLayerName, false);
-
-                    FileFunctions.WriteLine(_logFile, "Buffer layer added to display");
+                    //MessageBox.Show("Error setting buffer layer in the map.");
+                    FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
+                    _searchErrors = true;
                 }
-                else
-                {
-                    // Remove the buffer layer from the map.
-                    await _mapFunctions.RemoveLayerAsync(_bufferLayerName);
-                }
+
+                // Turn labels off.
+                await _mapFunctions.SwitchLabelsAsync(_bufferLayerName, false);
+
+                FileFunctions.WriteLine(_logFile, "Buffer layer added to display");
             }
             else
             {
@@ -1991,30 +1982,21 @@ namespace DataSearches.UI
             // Save the selected feature if required.
             if (_keepSearchFeature)
             {
-                // Add the search layer to the map.
-                if (addSelectedLayersOption != AddSelectedLayersOptions.No)
+                // Set the search layer symbology to use.
+                string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
+                string symbologyFile = _layerPath + "\\" + searchlayerFile;
+
+                if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0))
                 {
-                    // Set the search layer symbology to use.
-                    string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
-                    string symbologyFile = _layerPath + "\\" + searchlayerFile;
-
-                    if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0))
-                    {
-                        //MessageBox.Show("Error setting search feature layer in the map.");
-                        FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the map");
-                        _searchErrors = true;
-                    }
-
-                    // Turn labels off.
-                    await _mapFunctions.SwitchLabelsAsync(_searchLayerName, false);
-
-                    FileFunctions.WriteLine(_logFile, "Search feature layer added to display");
+                    //MessageBox.Show("Error setting search feature layer in the map.");
+                    FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the map");
+                    _searchErrors = true;
                 }
-                else
-                {
-                    // Remove the search feature layer from the map.
-                    await _mapFunctions.RemoveLayerAsync(_searchLayerName);
-                }
+
+                // Turn labels off.
+                await _mapFunctions.SwitchLabelsAsync(_searchLayerName, false);
+
+                FileFunctions.WriteLine(_logFile, "Search feature layer added to display");
             }
             else
             {
