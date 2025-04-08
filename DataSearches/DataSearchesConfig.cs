@@ -495,6 +495,62 @@ namespace DataSearches
                 throw new("Could not locate 'RadiusColumn' in the XML profile.");
             }
 
+            // The name of the map window containing the search area layer.
+            try
+            {
+                _searchMapName = _xmlDataSearches["SearchMapName"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'SearchMapName' in the XML profile.");
+            }
+
+            // The window names for all maps, loaded from a semi-colon separated string.
+            try
+            {
+                rawText = _xmlDataSearches["MapNames"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'MapNames' in the XML profile.");
+            }
+            try
+            {
+                char[] chrSplit1Chars = [';'];
+                string[] layoutRawList = rawText.Split(chrSplit1Chars, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string rawEntry in layoutRawList)
+                {
+                    _mapNames.Add(rawEntry.Trim());
+                }
+            }
+            catch
+            {
+                throw new("Error parsing 'MapNames' string. Check for correct format.");
+            }
+
+            // The window names for all layouts, loaded from a semi-colon separated string.
+            try
+            {
+                rawText = _xmlDataSearches["LayoutNames"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'LayoutNames' in the XML profile.");
+            }
+            try
+            {
+                char[] chrSplit1Chars = [';'];
+                string[] layoutRawList = rawText.Split(chrSplit1Chars, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string rawEntry in layoutRawList)
+                {
+                    _layoutNames.Add(rawEntry.Trim());
+                }
+            }
+            catch
+            {
+                throw new("Error parsing 'LayoutNames' string. Check for correct format.");
+            }
+
             // Are we keeping the search feature as a layer? Yes/No.
             try
             {
@@ -781,6 +837,15 @@ namespace DataSearches
                         catch
                         {
                             throw new("Could not locate 'LayerName' for map layer '" + nodeName + "'.");
+                        }
+
+                        try
+                        {
+                            layer.MapName = node["MapName"].InnerText;
+                        }
+                        catch
+                        {
+                            throw new("Could not locate 'MapName' for map layer '" + nodeName + "'.");
                         }
 
                         try
@@ -1384,6 +1449,27 @@ namespace DataSearches
         public string RadiusColumn
         {
             get { return _radiusColumn; }
+        }
+
+        private string _searchMapName;
+
+        public string SearchMapName
+        {
+            get { return _searchMapName; }
+        }
+
+        private List<string> _mapNames = [];
+
+        public List<string> MapNames
+        {
+            get { return _mapNames; }
+        }
+
+        private List<string> _layoutNames = [];
+
+        public List<string> LayoutNames
+        {
+            get { return _layoutNames; }
         }
 
         private bool _keepSearchFeature;

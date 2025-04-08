@@ -23,13 +23,17 @@ using ArcGIS.Core.CIM;
 using ArcGIS.Core.Data;
 using ArcGIS.Core.Data.DDL;
 using ArcGIS.Core.Data.Exceptions;
+using ArcGIS.Core.Data.UtilityNetwork.Trace;
+using ArcGIS.Core.Geometry;
 using ArcGIS.Desktop.Catalog;
 using ArcGIS.Desktop.Core;
 using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Editing;
 using ArcGIS.Desktop.Editing.Attributes;
+using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Layouts.Utilities;
+using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using System;
 using System.Collections.Generic;
@@ -57,8 +61,11 @@ namespace DataTools
         /// <summary>
         /// Set the global variables.
         /// </summary>
-        public MapFunctions()
+        public MapFunctions(string searchMapName)
         {
+            // Get the active map from the project by name.
+            _activeMap = GetMapFromName(searchMapName);
+
             // Get the active map view (if there is one).
             _activeMapView = GetActiveMapView();
 
@@ -106,12 +113,96 @@ namespace DataTools
         }
 
         /// <summary>
+        /// Get the map from the project by name.
+        /// </summary>
+        /// <param name="mapName"></param>
+        /// <returns></returns>
+        internal static Map GetMapFromName(string mapName)
+        {
+            if (mapName == null)
+                return null;
+
+            // Get the map from the project
+            Map map = Project.Current.GetItems<MapProjectItem>()
+                .FirstOrDefault(m => m.Name == mapName)?.GetMap();
+
+            if (map != null)
+                return map;
+            else
+                return null;
+        }
+
+        /// <summary>
+        /// Get the map view from the project by name.
+        /// </summary>
+        /// <param name="mapName"></param>
+        /// <returns></returns>
+        internal static async Task<MapView> GetMapViewFromNameAsync(string mapName)
+        {
+            if (mapName == null)
+                return null;
+
+            MapView mapView = null;
+
+            await QueuedTask.Run(() =>
+            {
+                // Get the map from the project
+                Map map = Project.Current.GetItems<MapProjectItem>()
+                    .FirstOrDefault(m => m.Name == mapName)?.GetMap();
+
+                if (map == null)
+                    return;
+
+                // Loop through all panes and find the first one showing the map
+                mapView = FrameworkApplication.Panes
+                    .OfType<IMapPane>()
+                    .FirstOrDefault(p => p.MapView?.Map == map)
+                    ?.MapView;
+            });
+
+            if (mapView != null)
+                return mapView;
+            else
+                return null;
+        }
+
+        /// <summary>
+        /// Get the map view from the map.
+        /// </summary>
+        /// <param name="mapName"></param>
+        /// <returns></returns>
+        internal static async Task<MapView> GetMapViewFromMapAsync(Map map)
+        {
+            if (map == null)
+                return null;
+
+            MapView mapView = null;
+
+            await QueuedTask.Run(() =>
+            {
+                // Loop through all panes and find the first one showing the map
+                mapView = FrameworkApplication.Panes
+                    .OfType<IMapPane>()
+                    .FirstOrDefault(p => p.MapView?.Map == map)
+                    ?.MapView;
+            });
+
+            if (mapView != null)
+                return mapView;
+            else
+                return null;
+        }
+
+        /// <summary>
         /// Pause or resume bool in the active map.
         /// </summary>
         /// <param name="pause"></param>
-        public void PauseDrawing(bool pause)
+        public void PauseDrawing(bool pause, MapView targetMapView = null)
         {
-            _activeMapView.DrawingPaused = pause;
+            // Use provided map or default to _activeMapView.
+            MapView mapViewToUse = targetMapView ?? _activeMapView;
+
+            mapViewToUse.DrawingPaused = pause;
         }
 
         /// <summary>
@@ -119,28 +210,31 @@ namespace DataTools
         /// </summary>
         /// <param name="mapName"></param>
         /// <returns>string</returns>
-        public async Task<string> CreateMapAsync(string mapName)
+        public async Task<string> CreateMapAsync(string mapName, bool setActive = true)
         {
-            _activeMap = null;
-            _activeMapView = null;
-
             // If no map name is supplied.
             if (String.IsNullOrEmpty(mapName))
                 return null;
+
+            // Get the current active pane.
+            var currentPane = ProApp.Panes.ActivePane;
+
+            Map newMap = null;
+            MapView newMapView = null;
 
             try
             {
                 await QueuedTask.Run(() =>
                 {
                     // Create a new map without a base map.
-                    _activeMap = MapFactory.Instance.CreateMap(mapName, basemap: Basemap.None);
+                    newMap = MapFactory.Instance.CreateMap(mapName, basemap: Basemap.None);
 
-                    // Create and activate new map.
-                    ProApp.Panes.CreateMapPaneAsync(_activeMap, MapViewingMode.Map);
+                    // Create and activate new map pane.
+                    ProApp.Panes.CreateMapPaneAsync(newMap, MapViewingMode.Map);
                 });
 
                 // Get the active map view;
-                _activeMapView = GetActiveMapView();
+                newMapView = GetActiveMapView();
             }
             catch
             {
@@ -148,20 +242,33 @@ namespace DataTools
                 return null;
             }
 
-            return _activeMap.Name;
+            if (setActive)
+            {
+                // Set the new map as the active map.
+                _activeMap = newMap;
+                _activeMapView = newMapView;
+            }
+            else
+            {
+                // Switch back to the previous map pane.
+                currentPane?.Activate();
+            }
+
+            // Return the name of the new map.
+            return newMap.Name;
         }
 
         /// <summary>
-        /// Add a layer to the active map.
+        /// Add a layer to the target map.
         /// </summary>
         /// <param name="url"></param>
         /// <param name="index"></param>
         /// <param name="layerName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> AddLayerToMapAsync(string url, int index = 0, string layerName = "")
+        public async Task<bool> AddLayerToMapAsync(string url, int index = 0, string layerName = "", Map targetMap = null)
         {
             // If no url is supplied.
-            if (url == null)
+            if (string.IsNullOrWhiteSpace(url))
                 return false;
 
             try
@@ -170,13 +277,19 @@ namespace DataTools
                 {
                     Uri uri = new(url);
 
-                    // Check if the layer is already loaded (unlikely as the map is new).
-                    Layer findLayer = _activeMap.Layers.FirstOrDefault(t => t.Name == uri.Segments.Last());
+                    // Use provided map or default to _activeMap.
+                    Map mapToUse = targetMap ?? _activeMap;
 
-                    // If the layer is not loaded, add it.
-                    if (findLayer == null)
+                    // Check if the layer is already loaded (unlikely as the map is new).
+                    //string lastSegment = uri.Segments.Last();
+                    string lastSegment = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
+                    Layer existingLayer = mapToUse.Layers.FirstOrDefault(l => l.Name.Equals(lastSegment, StringComparison.OrdinalIgnoreCase));
+
+                    // If the layer is not loaded.
+                    if (existingLayer == null)
                     {
-                        Layer layer = LayerFactory.Instance.CreateLayer(uri, _activeMap, index, layerName);
+                        // Create and add the layer at specified index.
+                        Layer layer = LayerFactory.Instance.CreateLayer(uri, mapToUse, index, layerName);
                     }
                 });
             }
@@ -194,11 +307,14 @@ namespace DataTools
         /// </summary>
         /// <param name="url"></param>
         /// <returns>bool</returns>
-        public async Task<bool> AddTableToMapAsync(string url)
+        public async Task<bool> AddTableToMapAsync(string url, Map targetMap = null)
         {
             // If no url is supplied.
             if (url == null)
                 return false;
+
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
 
             try
             {
@@ -207,12 +323,12 @@ namespace DataTools
                     Uri uri = new(url);
 
                     // Check if the layer is already loaded.
-                    StandaloneTable findTable = _activeMap.StandaloneTables.FirstOrDefault(t => t.Name == uri.Segments.Last());
+                    StandaloneTable findTable = mapToUse.StandaloneTables.FirstOrDefault(t => t.Name == uri.Segments.Last());
 
                     // If the layer is not loaded, add it.
                     if (findTable == null)
                     {
-                        StandaloneTable table = StandaloneTableFactory.Instance.CreateStandaloneTable(uri, _activeMap);
+                        StandaloneTable table = StandaloneTableFactory.Instance.CreateStandaloneTable(uri, mapToUse);
                     }
                 });
             }
@@ -233,14 +349,23 @@ namespace DataTools
         /// <param name="factor"></param>
         /// <param name="mapScaleOrDistance"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, long objectID, double? factor, double? mapScaleOrDistance)
+        public async Task<bool> ZoomToLayerAsync(string layerName, long objectID, double? factor, double? mapScaleOrDistance,
+            Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
+            // Get the map view from the map.
+            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            if (mapViewToUse == null)
+                return false;
+
             // Check if the layer is already loaded.
-            BasicFeatureLayer findLayer = FindLayer(layerName);
+            BasicFeatureLayer findLayer = FindLayer(layerName, mapToUse);
 
             // If the layer is not loaded.
             if (findLayer == null)
@@ -249,7 +374,7 @@ namespace DataTools
             try
             {
                 // Zoom to the extent of the object.
-                await _activeMapView.ZoomToAsync(findLayer, objectID, null, true, factor, mapScaleOrDistance);
+                await mapViewToUse.ZoomToAsync(findLayer, objectID, null, true, factor, mapScaleOrDistance);
             }
             catch
             {
@@ -266,14 +391,22 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="objectIDs"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, IEnumerable<long> objectIDs)
+        public async Task<bool> ZoomToLayerAsync(string layerName, IEnumerable<long> objectIDs, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
+            // Get the map view from the map.
+            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            if (mapViewToUse == null)
+                return false;
+
             // Check if the layer is already loaded.
-            BasicFeatureLayer findLayer = FindLayer(layerName);
+            BasicFeatureLayer findLayer = FindLayer(layerName, mapToUse);
 
             // If the layer is not loaded.
             if (findLayer == null)
@@ -282,7 +415,7 @@ namespace DataTools
             try
             {
                 // Zoom to the extent of all of the objects.
-                await _activeMapView.ZoomToAsync(findLayer, objectIDs, null, true);
+                await mapViewToUse.ZoomToAsync(findLayer, objectIDs, null, true);
             }
             catch
             {
@@ -301,14 +434,23 @@ namespace DataTools
         /// <param name="ratio"></param>
         /// <param name="scale"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, bool selectedOnly, double ratio = 1, double scale = 10000)
+        public async Task<bool> ZoomToLayerAsync(string layerName, bool selectedOnly, double ratio = 1, double scale = 10000,
+            Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
+            // Get the map view from the map.
+            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            if (mapViewToUse == null)
+                return false;
+
             // Check if the layer is already loaded.
-            Layer findLayer = FindLayer(layerName);
+            Layer findLayer = FindLayer(layerName, mapToUse);
 
             // If the layer is not loaded.
             if (findLayer == null)
@@ -317,7 +459,7 @@ namespace DataTools
             try
             {
                 // Zoom to the layer extent.
-                await _activeMapView.ZoomToAsync(findLayer, selectedOnly);
+                await mapViewToUse.ZoomToAsync(findLayer, selectedOnly);
 
                 // Get the camera for the active view.
                 var camera = _activeMapView.Camera;
@@ -329,7 +471,7 @@ namespace DataTools
                     camera.Scale = scale;
 
                 // Zoom to the new camera position.
-                await _activeMapView.ZoomToAsync(camera);
+                await mapViewToUse.ZoomToAsync(camera);
             }
             catch
             {
@@ -342,6 +484,83 @@ namespace DataTools
 
         #endregion Map
 
+        #region Layout
+
+        /// <summary>
+        /// Update all of the text elements in a list of layout window names.
+        /// </summary>
+        /// <param name="layoutNames"></param>
+        /// <param name="siteColumn"></param>
+        /// <param name="siteName"></param>
+        /// <param name="searchColumn"></param>
+        /// <param name="searchRef"></param>
+        /// <param name="radiusColumn"></param>
+        /// <param name="radiusText"></param>
+        /// <returns></returns>
+        public static async Task<bool> UpdateLayoutsTextAsync(List<string> layoutNames, string siteColumn, string siteName,
+            string searchColumn, string searchRef, string radiusColumn, string radiusText)
+        {
+            foreach (string layoutName in layoutNames)
+            {
+                // Set the site name text element in the layout.
+                if (!await SetTextElementsAsync(layoutName, siteColumn, siteName))
+                    return false;
+
+                // Set the search reference text element in the layout.
+                if (!await SetTextElementsAsync(layoutName, searchColumn, searchRef))
+                    return false;
+
+                // Set the search radius text element in the layout.
+                if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Set a text element in a layout.
+        /// </summary>
+        /// <param name="layoutName"></param>
+        /// <param name="textName"></param>
+        /// <param name="textString"></param>
+        /// <returns></returns>
+        public static async Task<bool> SetTextElementsAsync(string layoutName, string textName, string textString)
+        {
+            // Check there is an input layout name.
+            if (layoutName == null)
+                return false;
+
+            // Check there is an input text element name and value.
+            if ((textName == null) || (textString == null))
+                return false;
+
+            await QueuedTask.Run(() =>
+            {
+                Layout layout = Project.Current.GetItems<LayoutProjectItem>()
+                                               .FirstOrDefault(item => item.Name == layoutName)
+                                               ?.GetLayout();
+
+                // If the text element is found
+                if (layout.FindElement(textName) is TextElement textElement)
+                {
+                    // Get the CIM element
+                    if (textElement.GetGraphic() is CIMTextGraphic cimTextGraphic)
+                    {
+                        // Update the text string
+                        cimTextGraphic.Text = textString;
+
+                        // Apply the change
+                        textElement.SetGraphic(cimTextGraphic);
+                    }
+                }
+            });
+
+            return true;
+        }
+
+        #endregion Layout
+
         #region Layers
 
         /// <summary>
@@ -349,14 +568,17 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>FeatureLayer</returns>
-        internal FeatureLayer FindLayer(string layerName)
+        internal FeatureLayer FindLayer(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             // Finds layers by name and returns a read only list of feature layers.
-            IEnumerable<FeatureLayer> layers = _activeMap.FindLayers(layerName, true).OfType<FeatureLayer>();
+            IEnumerable<FeatureLayer> layers = mapToUse.FindLayers(layerName, true).OfType<FeatureLayer>();
 
             // If no layers are loaded.
             if (layers == null)
@@ -370,7 +592,7 @@ namespace DataTools
                     FeatureLayer layer = layers.First();
 
                     // Check the feature layer is in the active map.
-                    if (layer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                    if (layer.Map.Name.Equals(mapToUse.Name, StringComparison.OrdinalIgnoreCase))
                         return layer;
                 }
             }
@@ -388,14 +610,17 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>int</returns>
-        internal int FindLayerIndex(string layerName)
+        internal int FindLayerIndex(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return 0;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             // Finds layers by name and returns a read only list of feature layers.
-            IEnumerable<FeatureLayer> layers = _activeMap.FindLayers(layerName, true).OfType<FeatureLayer>();
+            IEnumerable<FeatureLayer> layers = mapToUse.FindLayers(layerName, true).OfType<FeatureLayer>();
 
             // If no layers are loaded.
             if (layers == null)
@@ -403,10 +628,10 @@ namespace DataTools
 
             try
             {
-                for (int index = 0; index < _activeMap.Layers.Count; index++)
+                for (int index = 0; index < mapToUse.Layers.Count; index++)
                 {
                     // Get the index of the first feature layer found by name.
-                    if (_activeMap.Layers[index].Name == layerName)
+                    if (mapToUse.Layers[index].Name == layerName)
                         return index;
                 }
             }
@@ -424,20 +649,23 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> RemoveLayerAsync(string layerName)
+        public async Task<bool> RemoveLayerAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input layer name.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Find the layer in the active map.
-                FeatureLayer layer = FindLayer(layerName);
+                FeatureLayer layer = FindLayer(layerName, mapToUse);
 
                 // Remove the layer.
                 if (layer != null)
-                    return await RemoveLayerAsync(layer);
+                    return await RemoveLayerAsync(layer, mapToUse);
             }
             catch
             {
@@ -453,11 +681,14 @@ namespace DataTools
         /// </summary>
         /// <param name="layer"></param>
         /// <returns>bool</returns>
-        public async Task<bool> RemoveLayerAsync(Layer layer)
+        public async Task<bool> RemoveLayerAsync(Layer layer, Map targetMap = null)
         {
             // Check there is an input layer.
             if (layer == null)
                 return false;
+
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
 
             try
             {
@@ -465,7 +696,7 @@ namespace DataTools
                 {
                     // Remove the layer.
                     if (layer != null)
-                        _activeMap.RemoveLayer(layer);
+                        mapToUse.RemoveLayer(layer);
                 });
             }
             catch
@@ -486,23 +717,24 @@ namespace DataTools
         /// <param name="keyFieldName"></param>
         /// <param name="startNumber"></param>
         /// <returns>int</returns>
-        public async Task<int> AddIncrementalNumbersAsync(string outputFeatureClass, string outputLayerName, string labelFieldName, string keyFieldName, int startNumber = 1)
+        public async Task<int> AddIncrementalNumbersAsync(string outputFeatureClass, string outputLayerName, string labelFieldName, string keyFieldName,
+            int startNumber = 1, Map targetMap = null)
         {
             // Check the input parameters.
             if (!await ArcGISFunctions.FeatureClassExistsAsync(outputFeatureClass))
                 return -1;
 
-            if (!await FieldExistsAsync(outputLayerName, labelFieldName))
+            if (!await FieldExistsAsync(outputLayerName, labelFieldName, targetMap))
                 return -1;
 
-            if (!await FieldIsNumericAsync(outputLayerName, labelFieldName))
+            if (!await FieldIsNumericAsync(outputLayerName, labelFieldName, targetMap))
                 return -1;
 
-            if (!await FieldExistsAsync(outputLayerName, keyFieldName))
+            if (!await FieldExistsAsync(outputLayerName, keyFieldName, targetMap))
                 return -1;
 
             // Get the feature layer.
-            FeatureLayer outputFeaturelayer = FindLayer(outputLayerName);
+            FeatureLayer outputFeaturelayer = FindLayer(outputLayerName, targetMap);
             if (outputFeaturelayer == null)
                 return -1;
 
@@ -604,7 +836,7 @@ namespace DataTools
         /// <param name="radiusText"></param>
         /// <returns>bool</returns>
         public async Task<bool> UpdateFeaturesAsync(string layerName, string siteColumn, string siteName,
-            string orgColumn, string orgName, string radiusColumn, string radiusText)
+            string orgColumn, string orgName, string radiusColumn, string radiusText, Map targetMap = null)
         {
             // Check the input parameters.
             if (String.IsNullOrEmpty(layerName))
@@ -613,17 +845,17 @@ namespace DataTools
             if (String.IsNullOrEmpty(siteColumn) && String.IsNullOrEmpty(orgColumn) && String.IsNullOrEmpty(radiusColumn))
                 return false;
 
-            if (!string.IsNullOrEmpty(siteColumn) && !await FieldExistsAsync(layerName, siteColumn))
+            if (!string.IsNullOrEmpty(siteColumn) && !await FieldExistsAsync(layerName, siteColumn, targetMap))
                 return false;
 
-            if (!string.IsNullOrEmpty(orgColumn) && !await FieldExistsAsync(layerName, orgColumn))
+            if (!string.IsNullOrEmpty(orgColumn) && !await FieldExistsAsync(layerName, orgColumn, targetMap))
                 return false;
 
-            if (!string.IsNullOrEmpty(radiusColumn) && !await FieldExistsAsync(layerName, radiusColumn))
+            if (!string.IsNullOrEmpty(radiusColumn) && !await FieldExistsAsync(layerName, radiusColumn, targetMap))
                 return false;
 
             // Get the feature layer.
-            FeatureLayer featureLayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
             if (featureLayer == null)
                 return false;
@@ -748,13 +980,128 @@ namespace DataTools
         }
 
         /// <summary>
+        /// Select features in feature class by location.
+        /// </summary>
+        /// <param name="targetLayer"></param>
+        /// <param name="searchLayer"></param>
+        /// <param name="overlapType"></param>
+        /// <param name="searchDistance"></param>
+        /// <param name="selectionType"></param>
+        /// <returns></returns>
+        public static async Task<bool> SelectLayerByLocationAsync(FeatureLayer targetLayer, FeatureLayer searchLayer,
+            string overlapType = "INTERSECT", string searchDistance = "", string selectionType = "NEW_SELECTION")
+        {
+            // Check there is an input feature layer.
+            if (targetLayer == null)
+                return false;
+
+            // Check there is an input search layer.
+            if (searchLayer == null)
+                return false;
+
+            return await QueuedTask.Run(() =>
+            {
+                // Attempt to get the selected ObjectIDs in the search layer.
+                var oidSet = searchLayer.GetSelection()?.GetObjectIDs();
+
+                // Use a query filter — either for selected features or all features.
+                QueryFilter queryFilter;
+
+                // If any selected features to build the geometry.
+                if (oidSet != null && oidSet.Count > 0)
+                {
+                    // Use only selected features.
+                    queryFilter = new QueryFilter
+                    {
+                        ObjectIDs = oidSet
+                    };
+                }
+                else
+                {
+                    // No selected features — fallback to using all features.
+                    queryFilter = new QueryFilter();
+                }
+
+                // Union geometry of the features in the search layer to use as spatial filter.
+                Geometry searchGeometry;
+
+                using (var rowCursor = searchLayer.Search(queryFilter))
+                {
+                    var geometries = new List<Geometry>();
+
+                    while (rowCursor.MoveNext())
+                    {
+                        using var feature = rowCursor.Current as Feature;
+                        if (feature?.GetShape() != null)
+                            geometries.Add(feature.GetShape());
+                    }
+
+                    if (geometries.Count == 0)
+                        return false;
+
+                    searchGeometry = GeometryEngine.Instance.Union(geometries);
+                }
+
+                if (searchGeometry == null)
+                    return false;
+
+                // Optionally buffer the search geometry if a distance is provided.
+                if (!string.IsNullOrEmpty(searchDistance) && double.TryParse(searchDistance, out double distance) && distance > 0)
+                {
+                    // Use the spatial reference of the search geometry to maintain units.
+                    var spatialRef = searchGeometry.SpatialReference;
+
+                    // Buffer assumes units match geometry’s spatial reference (e.g., meters if projected).
+                    searchGeometry = GeometryEngine.Instance.Buffer(searchGeometry, distance);
+
+                    if (searchGeometry == null)
+                        return false;
+                }
+
+                // Map string overlapType to SpatialRelationship.
+                SpatialRelationship spatialRel = overlapType.ToUpper() switch
+                {
+                    "INTERSECT" => SpatialRelationship.Intersects,
+                    "CONTAINS" => SpatialRelationship.Contains,
+                    "WITHIN" => SpatialRelationship.Within,
+                    "CROSSES" => SpatialRelationship.Crosses,
+                    "TOUCHES" => SpatialRelationship.Touches,
+                    "OVERLAPS" => SpatialRelationship.Overlaps,
+                    _ => SpatialRelationship.Intersects
+                };
+
+                // Prepare the spatial query.
+                var spatialFilter = new SpatialQueryFilter
+                {
+                    FilterGeometry = searchGeometry,
+                    SpatialRelationship = spatialRel
+                };
+
+                // Determine selection combination method.
+                SelectionCombinationMethod method = selectionType.ToUpper() switch
+                {
+                    "ADD_TO_SELECTION" => SelectionCombinationMethod.Add,
+                    "REMOVE_FROM_SELECTION" => SelectionCombinationMethod.Subtract,
+                    "SELECT_NEW" or "NEW_SELECTION" => SelectionCombinationMethod.New,
+                    "INTERSECT_WITH_SELECTION" => SelectionCombinationMethod.And,
+                    _ => SelectionCombinationMethod.New
+                };
+
+                // Perform the selection.
+                targetLayer.Select(spatialFilter, method);
+
+                return true;
+            });
+        }
+
+        /// <summary>
         /// Select features in layerName by attributes.
         /// </summary>
         /// <param name="layerName"></param>
         /// <param name="whereClause"></param>
         /// <param name="selectionMethod"></param>
         /// <returns>bool</returns>
-        public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause, SelectionCombinationMethod selectionMethod)
+        public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause, SelectionCombinationMethod selectionMethod = SelectionCombinationMethod.New, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -763,7 +1110,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -794,7 +1141,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ClearLayerSelectionAsync(string layerName)
+        public async Task<bool> ClearLayerSelectionAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -803,7 +1150,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -828,7 +1175,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>long</returns>
-        public long GetSelectedFeatureCount(string layerName)
+        public long GetSelectedFeatureCount(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -838,7 +1185,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
                 if (featureLayer == null)
                     return -1;
@@ -860,7 +1207,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerPath"></param>
         /// <returns>IReadOnlyList<ArcGIS.Core.Data.Field></returns>
-        public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetFCFieldsAsync(string layerPath)
+        public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetFCFieldsAsync(string layerPath, Map targetMap = null)
         {
             // Check there is an input feature layer path.
             if (String.IsNullOrEmpty(layerPath))
@@ -869,7 +1216,7 @@ namespace DataTools
             try
             {
                 // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerPath);
+                FeatureLayer featureLayer = FindLayer(layerPath, targetMap);
 
                 if (featureLayer == null)
                     return null;
@@ -905,7 +1252,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerPath"></param>
         /// <returns>IReadOnlyList<ArcGIS.Core.Data.Field></returns>
-        public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetTableFieldsAsync(string layerPath)
+        public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetTableFieldsAsync(string layerPath, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerPath))
@@ -914,7 +1261,7 @@ namespace DataTools
             try
             {
                 // Find the table by name if it exists. Only search existing layers.
-                StandaloneTable inputTable = FindTable(layerPath);
+                StandaloneTable inputTable = FindTable(layerPath, targetMap);
 
                 if (inputTable == null)
                     return null;
@@ -978,7 +1325,7 @@ namespace DataTools
         /// <param name="layerPath"></param>
         /// <param name="fieldName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> FieldExistsAsync(string layerPath, string fieldName)
+        public async Task<bool> FieldExistsAsync(string layerPath, string fieldName, Map targetMap = null)
         {
             // Check there is an input feature layer path.
             if (String.IsNullOrEmpty(layerPath))
@@ -991,7 +1338,7 @@ namespace DataTools
             try
             {
                 // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerPath);
+                FeatureLayer featureLayer = FindLayer(layerPath, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -1039,12 +1386,12 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="fieldNames"></param>
         /// <returns>List<string></returns>
-        public async Task<List<string>> GetExistingFieldsAsync(string layerName, List<string> fieldNames)
+        public async Task<List<string>> GetExistingFieldsAsync(string layerName, List<string> fieldNames, Map targetMap = null)
         {
             List<string> fieldsThatExist = [];
             foreach (string fieldName in fieldNames)
             {
-                if (await FieldExistsAsync(layerName, fieldName))
+                if (await FieldExistsAsync(layerName, fieldName, targetMap))
                     fieldsThatExist.Add(fieldName);
             }
 
@@ -1057,7 +1404,7 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="fieldName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> FieldIsNumericAsync(string layerName, string fieldName)
+        public async Task<bool> FieldIsNumericAsync(string layerName, string fieldName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -1070,7 +1417,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -1127,7 +1474,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>int</returns>
-        public async Task<int> GetFCRowLengthAsync(string layerName)
+        public async Task<int> GetFCRowLengthAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -1136,7 +1483,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName);
+                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
                 if (featureLayer == null)
                     return 0;
@@ -1190,7 +1537,7 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="fieldList"></param>
         /// <returns>bool</returns>
-        public async Task<bool> KeepSelectedFieldsAsync(string layerName, List<string> fieldList)
+        public async Task<bool> KeepSelectedFieldsAsync(string layerName, List<string> fieldList, Map targetMap = null)
         {
             // Check the input parameters.
             if (String.IsNullOrEmpty(layerName))
@@ -1203,7 +1550,7 @@ namespace DataTools
             //fieldList.Add("FID");
 
             // Get the list of fields for the input table.
-            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields = await GetFCFieldsAsync(layerName);
+            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields = await GetFCFieldsAsync(layerName, targetMap);
 
             // Check a list of fields is returned.
             if (inputfields == null || inputfields.Count == 0)
@@ -1214,7 +1561,7 @@ namespace DataTools
             List<string> inputFieldNames = inputfields.Where(x => !x.IsRequired).Select(y => y.Name).ToList();
 
             // Get the list of fields that do exist in the layer.
-            List<string> existingFields = await GetExistingFieldsAsync(layerName, fieldList);
+            List<string> existingFields = await GetExistingFieldsAsync(layerName, fieldList, targetMap);
 
             // Get the list of layer fields that aren't in the field list.
             var remainingFields = inputFieldNames.Except(existingFields).ToList();
@@ -1258,7 +1605,7 @@ namespace DataTools
 
         /// <summary>
         /// Get the full layer path name for a layer in the map (i.e.
-        /// to include any parent group names.
+        /// to include any parent group names).
         /// </summary>
         /// <param name="layer"></param>
         /// <returns>string</returns>
@@ -1304,16 +1651,19 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>string</returns>
-        public string GetLayerPath(string layerName)
+        public string GetLayerPath(string layerName, Map targetMap = null)
         {
             // Check there is an input layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Find the layer in the active map.
-                FeatureLayer layer = FindLayer(layerName);
+                FeatureLayer layer = FindLayer(layerName, mapToUse);
 
                 if (layer == null)
                     return null;
@@ -1371,16 +1721,19 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>string: point, line, polygon</returns>
-        public string GetFeatureClassType(string layerName)
+        public string GetFeatureClassType(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Find the layer in the active map.
-                FeatureLayer layer = FindLayer(layerName);
+                FeatureLayer layer = FindLayer(layerName, mapToUse);
 
                 if (layer == null)
                     return null;
@@ -1403,16 +1756,19 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>GroupLayer</returns>
-        internal GroupLayer FindGroupLayer(string layerName)
+        internal GroupLayer FindGroupLayer(string layerName, Map targetMap = null)
         {
             // Check there is an input group layer name.
             if (String.IsNullOrEmpty(layerName))
                 return null;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Finds group layers by name and returns a read only list of group layers.
-                IEnumerable<GroupLayer> groupLayers = _activeMap.FindLayers(layerName).OfType<GroupLayer>();
+                IEnumerable<GroupLayer> groupLayers = mapToUse.FindLayers(layerName).OfType<GroupLayer>();
 
                 while (groupLayers.Any())
                 {
@@ -1420,7 +1776,7 @@ namespace DataTools
                     GroupLayer groupLayer = groupLayers.First();
 
                     // Check the group layer is in the active map.
-                    if (groupLayer.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                    if (groupLayer.Map.Name.Equals(mapToUse.Name, StringComparison.OrdinalIgnoreCase))
                         return groupLayer;
                 }
             }
@@ -1441,7 +1797,7 @@ namespace DataTools
         /// <param name="groupLayerName"></param>
         /// <param name="position"></param>
         /// <returns>bool</returns>
-        public async Task<bool> MoveToGroupLayerAsync(Layer layer, string groupLayerName, int position = -1)
+        public async Task<bool> MoveToGroupLayerAsync(Layer layer, string groupLayerName, int position = -1, Map targetMap = null)
         {
             // Check if there is an input layer.
             if (layer == null)
@@ -1451,8 +1807,11 @@ namespace DataTools
             if (String.IsNullOrEmpty(groupLayerName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             // Does the group layer exist?
-            GroupLayer groupLayer = FindGroupLayer(groupLayerName);
+            GroupLayer groupLayer = FindGroupLayer(groupLayerName, mapToUse);
             if (groupLayer == null)
             {
                 // Add the group layer to the map.
@@ -1460,7 +1819,7 @@ namespace DataTools
                 {
                     await QueuedTask.Run(() =>
                     {
-                        groupLayer = LayerFactory.Instance.CreateGroupLayer(_activeMap, 0, groupLayerName);
+                        groupLayer = LayerFactory.Instance.CreateGroupLayer(mapToUse, 0, groupLayerName);
                     });
                 }
                 catch
@@ -1476,7 +1835,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Move the layer into the group.
-                    _activeMap.MoveLayer(layer, groupLayer, position);
+                    mapToUse.MoveLayer(layer, groupLayer, position);
 
                     // Expand the group.
                     groupLayer.SetExpanded(true);
@@ -1496,16 +1855,19 @@ namespace DataTools
         /// </summary>
         /// <param name="groupLayerName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> RemoveGroupLayerAsync(string groupLayerName)
+        public async Task<bool> RemoveGroupLayerAsync(string groupLayerName, Map targetMap = null)
         {
             // Check there is an input group layer name.
             if (String.IsNullOrEmpty(groupLayerName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Does the group layer exist?
-                GroupLayer groupLayer = FindGroupLayer(groupLayerName);
+                GroupLayer groupLayer = FindGroupLayer(groupLayerName, mapToUse);
                 if (groupLayer == null)
                     return false;
 
@@ -1516,7 +1878,7 @@ namespace DataTools
                 await QueuedTask.Run(() =>
                 {
                     // Remove the group layer.
-                    _activeMap.RemoveLayer(groupLayer);
+                    mapToUse.RemoveLayer(groupLayer);
                 });
             }
             catch
@@ -1537,16 +1899,19 @@ namespace DataTools
         /// </summary>
         /// <param name="tableName"></param>
         /// <returns>StandaloneTable</returns>
-        internal StandaloneTable FindTable(string tableName)
+        internal StandaloneTable FindTable(string tableName, Map targetMap = null)
         {
             // Check there is an input table name.
             if (String.IsNullOrEmpty(tableName))
                 return null;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Finds tables by name and returns a read only list of standalone tables.
-                IEnumerable<StandaloneTable> tables = _activeMap.FindStandaloneTables(tableName).OfType<StandaloneTable>();
+                IEnumerable<StandaloneTable> tables = mapToUse.FindStandaloneTables(tableName).OfType<StandaloneTable>();
 
                 while (tables.Any())
                 {
@@ -1554,7 +1919,7 @@ namespace DataTools
                     StandaloneTable table = tables.First();
 
                     // Check the table is in the active map.
-                    if (table.Map.Name.Equals(_activeMap.Name, StringComparison.OrdinalIgnoreCase))
+                    if (table.Map.Name.Equals(mapToUse.Name, StringComparison.OrdinalIgnoreCase))
                         return table;
                 }
             }
@@ -1572,21 +1937,24 @@ namespace DataTools
         /// </summary>
         /// <param name="tableName"></param>
         /// <returns>bool</returns>
-        public async Task<bool> RemoveTableAsync(string tableName)
+        public async Task<bool> RemoveTableAsync(string tableName, Map targetMap = null)
         {
             // Check there is an input table name.
             if (String.IsNullOrEmpty(tableName))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             try
             {
                 // Find the table in the active map.
-                StandaloneTable table = FindTable(tableName);
+                StandaloneTable table = FindTable(tableName, mapToUse);
 
                 if (table != null)
                 {
                     // Remove the table.
-                    await RemoveTableAsync(table);
+                    await RemoveTableAsync(table, mapToUse);
                 }
 
                 return true;
@@ -1603,18 +1971,21 @@ namespace DataTools
         /// </summary>
         /// <param name="table"></param>
         /// <returns>bool</returns>
-        public async Task<bool> RemoveTableAsync(StandaloneTable table)
+        public async Task<bool> RemoveTableAsync(StandaloneTable table, Map targetMap = null)
         {
             // Check there is an input table name.
             if (table == null)
                 return false;
+
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
 
             try
             {
                 await QueuedTask.Run(() =>
                 {
                     // Remove the table.
-                    _activeMap.RemoveStandaloneTable(table);
+                    mapToUse.RemoveStandaloneTable(table);
                 });
             }
             catch
@@ -1636,7 +2007,7 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="layerFile"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile)
+        public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile, Map targetMap = null)
         {
             // Check there is an input layer name.
             if (String.IsNullOrEmpty(layerName))
@@ -1646,8 +2017,11 @@ namespace DataTools
             if (!FileFunctions.FileExists(layerFile))
                 return false;
 
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
             // Find the layer in the active map.
-            FeatureLayer featureLayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
             if (featureLayer != null)
             {
@@ -1674,14 +2048,14 @@ namespace DataTools
                             featureLayer.SetRenderer(lryxRenderer);
 
                         //Get the label classes from the lyrx layer definition - we need the first one.
-                        List<CIMLabelClass> lryxLabelClassesList = lyrxLayerDefn.LabelClasses.ToList();
+                        List<CIMLabelClass> lryxLabelClassesList = [.. lyrxLayerDefn.LabelClasses];
                         CIMLabelClass lyrxLabelClass = lryxLabelClassesList.FirstOrDefault();
 
                         // Get the input layer definition.
                         CIMFeatureLayer lyrDefn = featureLayer.GetDefinition() as CIMFeatureLayer;
 
                         // Get the label classes from the input layer definition - we need the first one.
-                        List<CIMLabelClass> labelClassesList = lyrDefn.LabelClasses.ToList();
+                        List<CIMLabelClass> labelClassesList = [.. lyrDefn.LabelClasses];
                         CIMLabelClass labelClass = labelClassesList.FirstOrDefault();
 
                         // Copy the lyrx label class to the input layer class.
@@ -1721,7 +2095,7 @@ namespace DataTools
         /// <param name="displayLabels"></param>
         /// <returns>bool</returns>
         public async Task<bool> LabelLayerAsync(string layerName, string labelColumn, string labelFont = "Arial", double labelSize = 10, string labelStyle = "Normal",
-                            int labelRed = 0, int labelGreen = 0, int labelBlue = 0, bool allowOverlap = true, bool displayLabels = true)
+                            int labelRed = 0, int labelGreen = 0, int labelBlue = 0, bool allowOverlap = true, bool displayLabels = true, Map targetMap = null)
         {
             // Check there is an input layer.
             if (String.IsNullOrEmpty(layerName))
@@ -1732,7 +2106,7 @@ namespace DataTools
                 return false;
 
             // Get the input feature layer.
-            FeatureLayer featureLayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
             if (featureLayer == null)
                 return false;
@@ -1788,14 +2162,14 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="displayLabels"></param>
         /// <returns>bool</returns>
-        public async Task<bool> SwitchLabelsAsync(string layerName, bool displayLabels)
+        public async Task<bool> SwitchLabelsAsync(string layerName, bool displayLabels, Map targetMap = null)
         {
             // Check there is an input layer.
             if (String.IsNullOrEmpty(layerName))
                 return false;
 
             // Get the input feature layer.
-            FeatureLayer featureLayer = FindLayer(layerName);
+            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
 
             if (featureLayer == null)
                 return false;
@@ -1833,7 +2207,7 @@ namespace DataTools
         /// <param name="includeHeader"></param>
         /// <returns>int</returns>
         public async Task<int> CopyFCToTextFileAsync(string inputLayer, string outFile, string columns, string orderByColumns,
-             string separator, bool append = false, bool includeHeader = true)
+             string separator, bool append = false, bool includeHeader = true, Map targetMap = null)
         {
             // Check there is an input layer name.
             if (String.IsNullOrEmpty(inputLayer))
@@ -1856,13 +2230,13 @@ namespace DataTools
             try
             {
                 // Get the input feature layer.
-                inputFeaturelayer = FindLayer(inputLayer);
+                inputFeaturelayer = FindLayer(inputLayer, targetMap);
 
                 if (inputFeaturelayer == null)
                     return -1;
 
                 // Get the list of fields for the input table.
-                inputfields = await GetFCFieldsAsync(inputLayer);
+                inputfields = await GetFCFieldsAsync(inputLayer, targetMap);
 
                 // Check a list of fields is returned.
                 if (inputfields == null || inputfields.Count == 0)
@@ -2041,7 +2415,7 @@ namespace DataTools
         /// <param name="includeHeader"></param>
         /// <returns>int</returns>
         public async Task<int> CopyTableToTextFileAsync(string inputLayer, string outFile, string columns, string orderByColumns,
-            string separator, bool append = false, bool includeHeader = true)
+            string separator, bool append = false, bool includeHeader = true, Map targetMap = null)
         {
             // Check there is an input table name.
             if (String.IsNullOrEmpty(inputLayer))
@@ -2064,13 +2438,13 @@ namespace DataTools
             try
             {
                 // Get the input feature layer.
-                inputTable = FindTable(inputLayer);
+                inputTable = FindTable(inputLayer, targetMap);
 
                 if (inputTable == null)
                     return -1;
 
                 // Get the list of fields for the input table.
-                inputfields = await GetTableFieldsAsync(inputLayer);
+                inputfields = await GetTableFieldsAsync(inputLayer, targetMap);
 
                 // Check a list of fields is returned.
                 if (inputfields == null || inputfields.Count == 0)
@@ -2290,7 +2664,8 @@ namespace DataTools
         /// <param name="append"></param>
         /// <param name="includeHeader"></param>
         /// <returns>int</returns>
-        public async Task<int> CopyToTextFileAsync(string inputLayer, string outFile, string separator, bool isSpatial, bool append = false, bool includeHeader = true)
+        public async Task<int> CopyToTextFileAsync(string inputLayer, string outFile, string separator, bool isSpatial, bool append = false,
+            bool includeHeader = true, Map targetMap = null)
         {
             // Check there is an input table name.
             if (String.IsNullOrEmpty(inputLayer))
@@ -2312,12 +2687,12 @@ namespace DataTools
                 if (isSpatial)
                 {
                     // Get the list of fields for the input table.
-                    fields = await GetFCFieldsAsync(inputLayer);
+                    fields = await GetFCFieldsAsync(inputLayer, targetMap);
                 }
                 else
                 {
                     // Get the list of fields for the input table.
-                    fields = await GetTableFieldsAsync(inputLayer);
+                    fields = await GetTableFieldsAsync(inputLayer, targetMap);
                 }
 
                 // Check a list of fields is returned.
@@ -2377,7 +2752,7 @@ namespace DataTools
                         FeatureLayer inputFC;
 
                         // Get the input feature layer.
-                        inputFC = FindLayer(inputLayer);
+                        inputFC = FindLayer(inputLayer, targetMap);
 
                         /// Get the underlying table for the input layer.
                         using FeatureClass featureClass = inputFC.GetFeatureClass();
@@ -2390,7 +2765,7 @@ namespace DataTools
                         StandaloneTable inputTable;
 
                         // Get the input table.
-                        inputTable = FindTable(inputLayer);
+                        inputTable = FindTable(inputLayer, targetMap);
 
                         /// Get the underlying table for the input layer.
                         using Table table = inputTable.GetTable();

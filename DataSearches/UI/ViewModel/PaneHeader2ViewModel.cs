@@ -20,9 +20,11 @@
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Core.Data;
+using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Framework.Controls;
+using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using DataTools;
 using System;
@@ -219,7 +221,7 @@ namespace DataSearches.UI
         private void InitializeComponent()
         {
             // Create a new map functions object.
-            _mapFunctions = new();
+            _mapFunctions = new(_toolConfig.SearchMapName);
 
             // Get the relevant config file settings.
             _repChar = _toolConfig.RepChar;
@@ -767,7 +769,7 @@ namespace DataSearches.UI
                     });
                 }
 
-                //TODO
+                //TODO:
                 //// If we have a database path and the site name or organisation
                 //// are required then try and look them up.
                 //if (!string.IsNullOrEmpty(_databasePath) &&  ((_requireSiteName) || (_requireOrganisation)))
@@ -1470,7 +1472,7 @@ namespace DataSearches.UI
             // Get all of the map layer details.
             _mapLayers = _toolConfig.MapLayers;
 
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active is null || MapView.Active.Map.Name != _mapFunctions.MapName)
                 {
@@ -1486,10 +1488,13 @@ namespace DataSearches.UI
                     List<MapLayer> allLayers = _mapLayers;
 
                     // Loop through all of the layers to check if they are open
-                    // in the active map.
+                    // in their map.
                     foreach (MapLayer layer in allLayers)
                     {
-                        if (_mapFunctions.FindLayer(layer.LayerName) != null)
+                        // Get the name of the window containing the layer.
+                        Map layerMap = MapFunctions.GetMapFromName(layer.MapName);
+
+                        if (_mapFunctions.FindLayer(layer.LayerName, layerMap) != null)
                         {
                             // Preselect layer if required.
                             layer.IsSelected = layer.PreselectLayer;
@@ -1568,6 +1573,24 @@ namespace DataSearches.UI
 
             // Selected layers.
             _selectedLayers = MapLayersList.Where(p => p.IsSelected).ToList();
+
+            // Map window containing search area.
+            string searchMapName = _toolConfig.SearchMapName;
+
+            // List of output map and window names.
+            List<string> mapWindowNames = _toolConfig.MapNames;
+            List<string> outputWindowNames = _toolConfig.LayoutNames;
+
+            // Build a list of map windows.
+            List<Map> mapWindows = [];
+            foreach (string mapName in mapWindowNames)
+            {
+                // Get the name of the window containing the search area.
+                Map map = MapFunctions.GetMapFromName(mapName);
+
+                if (map != null)
+                    mapWindows.Add(map);
+            }
 
             // What is the selected buffer unit?
             string bufferUnitText = _bufferUnitOptionsDisplay[bufferUnitIndex]; // Unit to be used in reporting.
@@ -1687,6 +1710,7 @@ namespace DataSearches.UI
 
             // Replace any illegal characters in the user name string.
             _userID = StringFunctions.StripIllegals(Environment.UserName, "_", false);
+
             // Replace hyphen with underscore.
             _userID = _userID.Replace('-', '_');
 
@@ -1740,9 +1764,25 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // Pause the map redrawing.
+            // Get the name of the window containing the search area.
+            Map searchMap = MapFunctions.GetMapFromName(searchMapName);
+            if (searchMap == null)
+            {
+                _searchErrors = true;
+                return false;
+            }
+
+            MapView searchMapView = await MapFunctions.GetMapViewFromNameAsync(searchMapName);
+            if (searchMapView == null)
+            {
+                _searchErrors = true;
+                return false;
+            }
+
+            //TODO: Pause only the active map window?
+            // Pause the active map redrawing.
             if (PauseMap)
-                _mapFunctions.PauseDrawing(true);
+                _mapFunctions.PauseDrawing(true, null);
 
             // Select the feature matching the search reference in the map.
             if (!await _mapFunctions.SelectLayerByAttributesAsync(_inputLayerName, searchClause, SelectionCombinationMethod.New))
@@ -1751,12 +1791,12 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // Update the table if required.
+            // Update the table in the active map if required.
             if (_updateTable && (!string.IsNullOrEmpty(_siteColumn) || !string.IsNullOrEmpty(_orgColumn) || !string.IsNullOrEmpty(_radiusColumn)))
             {
                 FileFunctions.WriteLine(_logFile, "Updating attributes in search layer ...");
 
-                if (!await _mapFunctions.UpdateFeaturesAsync(_inputLayerName, _siteColumn, siteName, _orgColumn, organisation, _radiusColumn, radius))
+                if (!await _mapFunctions.UpdateFeaturesAsync(_inputLayerName, _siteColumn, siteName, _orgColumn, organisation, _radiusColumn, radius, searchMap))
                 {
                     FileFunctions.WriteLine(_logFile, "Error updating attributes in search layer");
                     _searchErrors = true;
@@ -1767,9 +1807,14 @@ namespace DataSearches.UI
             // The output file for the search features is a shapefile in the root save directory.
             _searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
 
-            // Remove the search feature layer from the map
+            // Remove the search feature layer from the search map
             // in case there is one already there from a different folder.
-            await _mapFunctions.RemoveLayerAsync(_searchLayerName);
+            await _mapFunctions.RemoveLayerAsync(_searchLayerName, searchMap);
+
+            // Remove the search feature layer from all other map windows
+            // in case there is one already there from a different folder.
+            foreach (Map map in mapWindows)
+                await _mapFunctions.RemoveLayerAsync(_searchLayerName, map);
 
             // Save the selected feature(s).
             if (!await SaveSearchFeaturesAsync())
@@ -1793,9 +1838,14 @@ namespace DataSearches.UI
             // The output file for the buffer is a shapefile in the root save directory.
             _bufferOutputFile = _outputPath + "\\" + _bufferLayerName + ".shp";
 
-            // Remove the buffer layer from the map
+            // Remove the buffer layer from the search map
             // in case there is one already there from a different folder.
-            await _mapFunctions.RemoveLayerAsync(_bufferLayerName);
+            await _mapFunctions.RemoveLayerAsync(_bufferLayerName, searchMap);
+
+            // Remove the search feature layer from all other map windows
+            // in case there is one already there from a different folder.
+            foreach (Map map in mapWindows)
+                await _mapFunctions.RemoveLayerAsync(_bufferLayerName, map);
 
             // Buffer search feature(s).
             if (!await BufferSearchFeaturesAsync(bufferSize, bufferUnitProcess, bufferUnitShort))
@@ -1807,10 +1857,26 @@ namespace DataSearches.UI
             // Zoom to the buffer layer extent or a fixed scale if no buffer.
             if (!_pauseMap)
             {
+                // If there is no buffer then zoom to 1:10000.
                 if (bufferSize == "0")
-                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000);
+                {
+                    // Zoom in the search layer map.
+                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, searchMap);
+
+                    // Zoom in all other map windows.
+                    foreach (Map map in mapWindows)
+                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, map);
+                }
+                // If there is a buffer then zoom to the buffer extent plus 5%.
                 else
-                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05);
+                {
+                    // Zoom in the search layer map.
+                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, searchMap);
+
+                    // Zoom in all other map windows.
+                    foreach (Map map in mapWindows)
+                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1.05, 10000, map);
+                }
             }
 
             // Get the full layer path (in case it's nested in one or more groups).
@@ -1882,6 +1948,9 @@ namespace DataSearches.UI
             if (_dockPane.SearchCancelled)
                 return false;
 
+            // Set the search reference and site name in all of the layouts.
+            await MapFunctions.UpdateLayoutsTextAsync(outputWindowNames, _siteColumn, siteName, _searchColumn, searchRef, _radiusColumn, radius);
+
             // Add the search area and buffer to the map if required.
             await AddSearchLayersToMapAsync(addSelectedLayersOption);
 
@@ -1889,6 +1958,7 @@ namespace DataSearches.UI
             if (_searchErrors)
                 return false;
 
+            //TODO: Zoom to all map windows.
             // Zoom to the buffer layer extent.
             if (bufferSize != "0" && _keepBuffer)
                 await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05);
@@ -1908,7 +1978,7 @@ namespace DataSearches.UI
             FileFunctions.WriteLine(_logFile, message);
             FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
 
-            // Resume the map redrawing.
+            // Resume the active map redrawing.
             _mapFunctions.PauseDrawing(false);
 
             // Indicate search has finished.
@@ -1963,8 +2033,9 @@ namespace DataSearches.UI
             {
                 try
                 {
-                    // Remove the buffer layer from the map.
-                    await _mapFunctions.RemoveLayerAsync(_bufferLayerName);
+                    //TODO: Remove from all maps?
+                    // Remove the buffer layer from the active map.
+                    await _mapFunctions.RemoveLayerAsync(_bufferLayerName, null);
 
                     // Delete the buffer feature class.
                     await ArcGISFunctions.DeleteFeatureClassAsync(_bufferOutputFile);
@@ -2002,8 +2073,9 @@ namespace DataSearches.UI
             {
                 try
                 {
+                    //TODO: Remove from all maps?
                     // Remove the search feature layer from the map.
-                    await _mapFunctions.RemoveLayerAsync(_searchLayerName);
+                    await _mapFunctions.RemoveLayerAsync(_searchLayerName, null);
 
                     // Delete the search feature class.
                     string searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
@@ -2026,12 +2098,12 @@ namespace DataSearches.UI
         /// <returns></returns>
         private async Task CleanUpSearchAsync()
         {
-            // Remove all temporary feature classes and tables.
-            await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
-            await _mapFunctions.RemoveLayerAsync(_tempFCLayerName);
-            await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName);
-            await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName);
-            await _mapFunctions.RemoveTableAsync(_tempTableLayerName);
+            // Remove all temporary feature classes and tables from the active map.
+            await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName, null);
+            await _mapFunctions.RemoveLayerAsync(_tempFCLayerName, null);
+            await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName, null);
+            await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName, null);
+            await _mapFunctions.RemoveTableAsync(_tempTableLayerName, null);
 
             // Delete the temporary feature classes and tables.
             if (await ArcGISFunctions.FeatureClassExistsAsync(_tempMasterOutputFile))
@@ -2049,11 +2121,11 @@ namespace DataSearches.UI
             if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
                 await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
 
-            // Clear the search features selection.
-            await _mapFunctions.ClearLayerSelectionAsync(_inputLayerName);
+            // Clear the search features selection in the active map.
+            await _mapFunctions.ClearLayerSelectionAsync(_inputLayerName, null);
 
-            // Remove the group layer from the map if it is empty.
-            await _mapFunctions.RemoveGroupLayerAsync(_groupLayerName);
+            // Remove the group layer from the active map if it is empty.
+            await _mapFunctions.RemoveGroupLayerAsync(_groupLayerName, null);
         }
 
         /// <summary>
@@ -2184,8 +2256,8 @@ namespace DataSearches.UI
             {
                 string searchLayer = _searchLayerBase + searchLayerExtension;
 
-                // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = _mapFunctions.FindLayer(searchLayer);
+                // Find the feature layer by name in the search map if it exists. Only search existing layers.
+                FeatureLayer featureLayer = _mapFunctions.FindLayer(searchLayer, null);
 
                 if (featureLayer != null)
                 {
@@ -2216,8 +2288,8 @@ namespace DataSearches.UI
             {
                 string searchLayer = _searchLayerBase + searchLayerExtension;
 
-                // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = _mapFunctions.FindLayer(searchLayer);
+                // Find the feature layer by name in the active map if it exists. Only search existing layers.
+                FeatureLayer featureLayer = _mapFunctions.FindLayer(searchLayer, null);
 
                 if (featureLayer != null)
                 {
@@ -2321,40 +2393,40 @@ namespace DataSearches.UI
             // If the GDB already existed clean it up.
             if (tempGDBFound)
             {
-                // Delete the temporary master feature class if it still exists.
-                await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName);
+                // Delete the temporary master feature class from the active map if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempMasterLayerName, null);
                 if (await ArcGISFunctions.FeatureClassExistsAsync(_tempMasterOutputFile))
                 {
                     await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempMasterLayerName);
                     //FileFunctions.WriteLine(_logFile, "Temporary master feature class deleted");
                 }
 
-                // Delete the temporary output feature class if it still exists.
-                await _mapFunctions.RemoveLayerAsync(_tempFCLayerName);
+                // Delete the temporary output feature class from the active map if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempFCLayerName, null);
                 if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCOutputFile))
                 {
                     await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCLayerName);
                     //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
                 }
 
-                // Delete the temporary output points feature class if it still exists.
-                await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName);
+                // Delete the temporary output points feature class from the active map if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempFCPointsLayerName, null);
                 if (await ArcGISFunctions.FeatureClassExistsAsync(_tempFCPointsOutputFile))
                 {
                     await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempFCPointsLayerName);
                     //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
                 }
 
-                // Delete the temporary search points feature class if it still exists.
-                await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName);
+                // Delete the temporary search points feature class from the active map if it still exists.
+                await _mapFunctions.RemoveLayerAsync(_tempSearchPointsLayerName, null);
                 if (await ArcGISFunctions.FeatureClassExistsAsync(_tempSearchPointsOutputFile))
                 {
                     await ArcGISFunctions.DeleteGeodatabaseFCAsync(_tempGDBName, _tempSearchPointsLayerName);
                     //FileFunctions.WriteLine(_logFile, "Temporary output feature class deleted");
                 }
 
-                // Delete the temporary output table if it still exists.
-                await _mapFunctions.RemoveTableAsync(_tempTableLayerName);
+                // Delete the temporary output table from the active map if it still exists.
+                await _mapFunctions.RemoveTableAsync(_tempTableLayerName, null);
                 if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
                 {
                     await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
@@ -2414,7 +2486,7 @@ namespace DataSearches.UI
             string dissolveFields = "";
             foreach (string fieldName in aggColumns)
             {
-                if (await _mapFunctions.FieldExistsAsync(searchLayerPath, fieldName))
+                if (await _mapFunctions.FieldExistsAsync(searchLayerPath, fieldName, null))
                     dissolveFields = dissolveFields + fieldName + ";";
             }
 
@@ -2446,7 +2518,7 @@ namespace DataSearches.UI
         /// <param name="symbologyFile"></param>
         /// <param name="position"></param>
         /// <returns></returns>
-        private async Task<bool> SetLayerInMapAsync(string layerName, string symbologyFile, int position = -1)
+        private async Task<bool> SetLayerInMapAsync(string layerName, string symbologyFile, int position = -1, Map targetMap = null)
         {
             // Apply layer symbology.
             if (!string.IsNullOrEmpty(symbologyFile))
@@ -2455,7 +2527,7 @@ namespace DataSearches.UI
                 {
                     FileFunctions.WriteLine(_logFile, "Applying symbology to '" + layerName + "'");
 
-                    if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(layerName, symbologyFile))
+                    if (!await _mapFunctions.ApplySymbologyFromLayerFileAsync(layerName, symbologyFile, targetMap))
                     {
                         //MessageBox.Show("Error applying symbology to '" + layerName + "'");
                         FileFunctions.WriteLine(_logFile, "Error applying symbology to '" + layerName + "'");
@@ -2473,7 +2545,7 @@ namespace DataSearches.UI
             // Move layer to the group layer.
             if (!string.IsNullOrEmpty(_groupLayerName))
             {
-                if (!await _mapFunctions.MoveToGroupLayerAsync(_mapFunctions.FindLayer(layerName), _groupLayerName, position))
+                if (!await _mapFunctions.MoveToGroupLayerAsync(_mapFunctions.FindLayer(layerName, targetMap), _groupLayerName, position, targetMap))
                 {
                     //MessageBox.Show("Error moving layer to '" + _groupLayerName + "'");
                     FileFunctions.WriteLine(_logFile, "Error moving layer to '" + _groupLayerName + "'");
@@ -2512,6 +2584,7 @@ namespace DataSearches.UI
             string mapNodeGroup = selectedLayer.NodeGroup;
             //string mapNodeLayer = selectedLayer.NodeLayer;
             string mapLayerName = selectedLayer.LayerName;
+            string mapMapName = selectedLayer.MapName;
             string mapOutputName = selectedLayer.GISOutputName;
             string mapTableOutputName = selectedLayer.TableOutputName;
             string mapColumns = selectedLayer.Columns;
@@ -2558,22 +2631,49 @@ namespace DataSearches.UI
             // Get the full layer path (in case it's nested in one or more groups).
             string mapLayerPath = _mapFunctions.GetLayerPath(mapLayerName);
 
-            // Select by location.
-            FileFunctions.WriteLine(_logFile, "Selecting features using selected feature(s) from layer " + _bufferLayerName + " ...");
-            if (!await MapFunctions.SelectLayerByLocationAsync(mapLayerPath, _bufferLayerPath, "INTERSECT", "", "NEW_SELECTION"))
+            // Get the target map for the map name.
+            Map targetMap = MapFunctions.GetMapFromName(mapMapName);
+            if (targetMap == null)
             {
-                //MessageBox.Show("Error selecting layer " + mapLayerName + " by location.");
-                FileFunctions.WriteLine(_logFile, "Error selecting layer " + mapLayerName + " by location");
+                //MessageBox.Show("Cannot find map " + mapMapName);
+                FileFunctions.WriteLine(_logFile, "Cannot find map '" + mapMapName + "'");
                 _searchErrors = true;
 
                 return false;
             }
 
-            // Find the map layer by name.
-            FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName);
-
+            // Find the map layer by name in the target map.
+            FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName, targetMap);
             if (mapLayer == null)
+            {
+                //MessageBox.Show("Cannot find layer " + mapLayerName);
+                FileFunctions.WriteLine(_logFile, "Cannot find map layer '" + mapLayerName + "' in map '" + mapLayerName + "'");
+                _searchErrors = true;
+
                 return false;
+            }
+
+            // Find the buffer layer by name in the active map.
+            FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName, null);
+            if (bufferLayer == null)
+            {
+                //MessageBox.Show("Cannot find layer " + _bufferLayerName);
+                FileFunctions.WriteLine(_logFile, "Cannot find buffer layer '" + _bufferLayerName + "' in active map");
+                _searchErrors = true;
+
+                return false;
+            }
+
+            // Select by location.
+            FileFunctions.WriteLine(_logFile, "Selecting features using selected feature(s) from layer '" + _bufferLayerName + "' ...");
+            if (!await MapFunctions.SelectLayerByLocationAsync(mapLayer, bufferLayer, "INTERSECT", "", "NEW_SELECTION"))
+            {
+                //MessageBox.Show("Error selecting layer " + mapLayerName + " by location.");
+                FileFunctions.WriteLine(_logFile, "Error selecting layer '" + mapLayerName + "' by location");
+                _searchErrors = true;
+
+                return false;
+            }
 
             // Refine the selection by attributes (if required).
             if (mapLayer.SelectionCount > 0 && !string.IsNullOrEmpty(mapCriteria))
@@ -2603,7 +2703,7 @@ namespace DataSearches.UI
             FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", featureCount) + " feature(s) found");
 
             // Create the map output depending on the output type required.
-            if (!await CreateMapOutputAsync(mapLayerName, mapLayerPath, _bufferLayerPath, mapOutputType))
+            if (!await CreateMapOutputAsync(mapLayerName, mapLayerPath, _bufferLayerPath, mapOutputType, targetMap))
             {
                 MessageBox.Show("Cannot output selection from " + mapLayerName + " to " + _tempMasterOutputFile + ".");
                 FileFunctions.WriteLine(_logFile, "Cannot output selection from " + mapLayerName + " to " + _tempMasterOutputFile);
@@ -2614,7 +2714,7 @@ namespace DataSearches.UI
             // Add map labels to the output if required.
             if (!string.IsNullOrEmpty(mapLabelColumn))
             {
-                if (!await AddMapLabelsAsync(overwriteLabelOption, mapOverwriteLabels, mapLabelColumn, mapKeyColumn, mapNodeGroup))
+                if (!await AddMapLabelsAsync(overwriteLabelOption, mapOverwriteLabels, mapLabelColumn, mapKeyColumn, mapNodeGroup, targetMap))
                 {
                     //MessageBox.Show("Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
@@ -2648,7 +2748,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Extracting summary information ...");
 
                 int intLineCount = await ExportSelectionAsync(mapTableOutputFile, mapFormat.ToLower(), mapColumns, mapGroupColumns, mapStatsColumns, mapOrderColumns,
-                    includeHeaders, false, areaUnit, mapIncludeNearFields, radiusText);
+                    includeHeaders, false, areaUnit, mapIncludeNearFields, radiusText, targetMap);
                 if (intLineCount <= 0)
                 {
                     //MessageBox.Show("Error extracting summary from " + _tempMasterOutputFile + ".");
@@ -2665,7 +2765,8 @@ namespace DataSearches.UI
             // copy to a permanent layer.
             if ((keepSelectedLayers) && (mapKeepLayer))
             {
-                if (!await KeepLayerAsync(mapOutputName, mapOutputFile, addSelectedLayersOption, mapLayerFileName, mapDisplayLabels, mapLabelClause, mapLabelColumn))
+                if (!await KeepLayerAsync(mapOutputName, mapOutputFile, addSelectedLayersOption, mapLayerFileName, mapDisplayLabels, mapLabelClause,
+                    mapLabelColumn, targetMap))
                 {
                     _searchErrors = true;
 
@@ -2680,7 +2781,7 @@ namespace DataSearches.UI
 
                 int intLineCount = await ExportSelectionAsync(_combinedSitesOutputFile, _combinedSitesTableFormat, mapCombinedSitesColumns, mapCombinedSitesGroupColumns,
                     mapCombinedSitesStatsColumns, mapCombinedSitesOrderColumns,
-                    false, true, areaUnit, mapIncludeNearFields, radiusText);
+                    false, true, areaUnit, mapIncludeNearFields, radiusText, targetMap);
 
                 if (intLineCount < 0)
                 {
@@ -2694,8 +2795,8 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", intLineCount) + " row(s) added to combined sites table");
             }
 
-            // Clear the selection in the input layer.
-            await _mapFunctions.ClearLayerSelectionAsync(mapLayerName);
+            // Clear the selection in the input layer in the active map.
+            await _mapFunctions.ClearLayerSelectionAsync(mapLayerName, null);
 
             FileFunctions.WriteLine(_logFile, "Analysis complete");
 
@@ -2724,7 +2825,7 @@ namespace DataSearches.UI
         /// <param name="bufferLayerPath"></param>
         /// <param name="mapOutputType"></param>
         /// <returns></returns>
-        private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath, string bufferLayerPath, string mapOutputType)
+        private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath, string bufferLayerPath, string mapOutputType, Map targetMap)
         {
             // Get the input feature class type.
             string mapLayerFCType = _mapFunctions.GetFeatureClassType(mapLayerName);
@@ -2767,12 +2868,31 @@ namespace DataSearches.UI
                 }
                 else
                 {
+                    // Find the map layer by name in the target map.
+                    FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName, targetMap);
+                    if (mapLayer == null)
+                    {
+                        //MessageBox.Show("Cannot find layer " + mapLayerName);
+                        FileFunctions.WriteLine(_logFile, "Cannot find map layer '" + mapLayerName + "' in map '" + mapLayerName + "'");
+                        _searchErrors = true;
+
+                        return false;
+                    }
+
+                    // Find the buffer layer by name in the active map.
+                    FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName, null);
+                    if (bufferLayer == null)
+                    {
+                        //MessageBox.Show("Cannot find layer " + _bufferLayerName);
+                        FileFunctions.WriteLine(_logFile, "Cannot find buffer layer '" + _bufferLayerName + "' in active map");
+                        _searchErrors = true;
+
+                        return false;
+                    }
+
                     // Select from the buffer layer.
                     FileFunctions.WriteLine(_logFile, "Selecting features  ...");
-                    await MapFunctions.SelectLayerByLocationAsync(bufferLayerPath, mapLayerPath);
-
-                    // Find the buffer layer by name.
-                    FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName);
+                    await MapFunctions.SelectLayerByLocationAsync(bufferLayer, mapLayer);
 
                     if (bufferLayer == null)
                         return false;
@@ -2795,8 +2915,8 @@ namespace DataSearches.UI
                         return true;
                     }
 
-                    // Clear the buffer layer selection.
-                    await _mapFunctions.ClearLayerSelectionAsync(_bufferLayerName);
+                    // Clear the buffer layer selection in the active map.
+                    await _mapFunctions.ClearLayerSelectionAsync(_bufferLayerName, null);
 
                     return true;
                 }
@@ -2841,11 +2961,11 @@ namespace DataSearches.UI
         /// <param name="mapGroupName"></param>
         /// <returns></returns>
         private async Task<bool> AddMapLabelsAsync(OverwriteLabelOptions overwriteLabelOption, bool overwriteLabels,
-            string mapLabelColumn, string mapKeyColumn, string mapGroupName)
+            string mapLabelColumn, string mapKeyColumn, string mapGroupName, Map targetMap)
         {
             bool newLabelField = false;
             // Does the map label field already exist? If not, add it.
-            if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, mapLabelColumn))
+            if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, mapLabelColumn, targetMap))
             {
                 if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, mapLabelColumn, "LONG"))
                 {
@@ -2865,7 +2985,7 @@ namespace DataSearches.UI
                 overwriteLabels)
             {
                 // Add labels as required.
-                if (!await CreateMapLabelsAsync(overwriteLabelOption, mapLabelColumn, mapKeyColumn, mapGroupName))
+                if (!await CreateMapLabelsAsync(overwriteLabelOption, mapLabelColumn, mapKeyColumn, mapGroupName, targetMap))
                 {
                     //MessageBox.Show("Error setting map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error setting map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
@@ -2887,7 +3007,7 @@ namespace DataSearches.UI
         /// <param name="mapGroupName"></param>
         /// <returns></returns>
         private async Task<bool> CreateMapLabelsAsync(OverwriteLabelOptions overwriteLabelOption, string mapLabelColumn, string mapKeyColumn,
-            string mapGroupName)
+            string mapGroupName, Map targetMap = null)
         {
             FileFunctions.WriteLine(_logFile, "Adding map labels ...");
 
@@ -2896,7 +3016,7 @@ namespace DataSearches.UI
             {
                 FileFunctions.WriteLine(_logFile, "Resetting label counter ...");
 
-                if (await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, 1) < 0)
+                if (await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, 1, targetMap) < 0)
                 {
                     //MessageBox.Show("Error calculating map label field '" + mapLabelColumn + "' in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating map label field '" + mapLabelColumn + "' in " + _tempMasterOutputFile);
@@ -2912,7 +3032,7 @@ namespace DataSearches.UI
                 int groupIndex = _mapGroupNames.IndexOf(mapGroupName);
                 int groupLabel = _mapGroupLabels[groupIndex];
 
-                groupLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, groupLabel);
+                groupLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, groupLabel, targetMap);
 
                 // Increment the new group label.
                 groupLabel++;
@@ -2925,7 +3045,7 @@ namespace DataSearches.UI
                 // There is no group or groups are ignored, or we are not resetting. Use the existing max label number.
                 int startLabel = _maxLabel;
 
-                _maxLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, startLabel);
+                _maxLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, startLabel, targetMap);
 
                 // Increment the new max label.
                 _maxLabel++;
@@ -2951,7 +3071,8 @@ namespace DataSearches.UI
         /// <returns></returns>
         private async Task<int> ExportSelectionAsync(string outputTableName, string outputFormat,
             string mapColumns, string mapGroupColumns, string mapStatsColumns, string mapOrderColumns,
-            bool includeHeaders, bool append, string areaUnit, string includeNearFields, string radiusText)
+            bool includeHeaders, bool append, string areaUnit, string includeNearFields, string radiusText,
+            Map targetMap)
         {
             int intLineCount;
 
@@ -2959,8 +3080,8 @@ namespace DataSearches.UI
             if (string.IsNullOrEmpty(mapColumns))
                 return -1;
 
-            // Check the input feature layer exists.
-            FeatureLayer inputFeaturelayer = _mapFunctions.FindLayer(_tempMasterLayerName);
+            // Check the input feature layer exists in the active map.
+            FeatureLayer inputFeaturelayer = _mapFunctions.FindLayer(_tempMasterLayerName, null);
             if (inputFeaturelayer == null)
                 return -1;
 
@@ -2975,7 +3096,7 @@ namespace DataSearches.UI
             {
                 areaColumnName = "Area" + areaUnit;
                 // Does the area field already exist? If not, add it.
-                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, areaColumnName))
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, areaColumnName, targetMap))
                 {
                     if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, areaColumnName, "DOUBLE", 20))
                     {
@@ -3018,7 +3139,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Including radius column ...");
 
                 // Does the radius field already exist? If not, add it.
-                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Radius"))
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Radius", targetMap))
                 {
                     if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, "Radius", "TEXT", fieldLength: 25))
                     {
@@ -3120,8 +3241,8 @@ namespace DataSearches.UI
                 }
             }
 
-            // Check the output feature layer exists.
-            FeatureLayer outputFeatureLayer = _mapFunctions.FindLayer(_tempFCLayerName);
+            // Check the output feature layer exists in the active map.
+            FeatureLayer outputFeatureLayer = _mapFunctions.FindLayer(_tempFCLayerName, null);
             if (outputFeatureLayer == null)
                 return -1;
 
@@ -3135,7 +3256,7 @@ namespace DataSearches.UI
                 {
                     string columnName = groupColumn.Trim();
 
-                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName))
+                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName, targetMap))
                         mapGroupColumns = mapGroupColumns + columnName + ";";
                 }
                 if (!string.IsNullOrEmpty(mapGroupColumns))
@@ -3153,7 +3274,7 @@ namespace DataSearches.UI
                     List<string> statsComponents = [.. statsColumn.Split(' ')];
                     string columnName = statsComponents[0].Trim(); // The field name.
 
-                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName))
+                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName, targetMap))
                         mapStatsColumns = mapStatsColumns + statsColumn + ";";
                 }
                 if (!string.IsNullOrEmpty(mapStatsColumns))
@@ -3206,7 +3327,7 @@ namespace DataSearches.UI
 
                 // Get the list of fields for the input table.
                 IReadOnlyList<Field> inputFields;
-                inputFields = await _mapFunctions.GetTableFieldsAsync(_tempTableLayerName);
+                inputFields = await _mapFunctions.GetTableFieldsAsync(_tempTableLayerName, targetMap);
 
                 // Check a list of fields is returned.
                 if (inputFields == null || inputFields.Count == 0)
@@ -3266,19 +3387,13 @@ namespace DataSearches.UI
 
                 // Now export the output table.
                 FileFunctions.WriteLine(_logFile, "Exporting to " + outputFormat.ToUpper() + " ...");
-                //if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
-                    intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
-                //else
-                //    intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
+                intLineCount = await _mapFunctions.CopyTableToTextFileAsync(_tempTableLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
             }
             else
             {
                 // Do straight copy of the feature class.
                 FileFunctions.WriteLine(_logFile, "Exporting to " + outputFormat.ToUpper() + " ...");
-                //if (outputFormat.Equals("csv", StringComparison.OrdinalIgnoreCase))
-                    intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
-                //else
-                //    intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, "\t", append, includeHeaders);
+                intLineCount = await _mapFunctions.CopyFCToTextFileAsync(_tempFCLayerName, outputTableName, mapColumns, mapOrderColumns, ",", append, includeHeaders);
             }
 
             return intLineCount;
@@ -3297,18 +3412,27 @@ namespace DataSearches.UI
         /// <param name="labelColumn"></param>
         /// <returns></returns>
         private async Task<bool> KeepLayerAsync(string layerName, string outputFile, AddSelectedLayersOptions addSelectedLayersOption,
-            string layerFileName, bool displayLabels, string labelClause, string labelColumn)
+            string layerFileName, bool displayLabels, string labelClause, string labelColumn, Map targetMap = null)
         {
             bool addToMap = addSelectedLayersOption != AddSelectedLayersOptions.No;
 
             // Copy to a permanent file (note this is not the summarised layer).
             FileFunctions.WriteLine(_logFile, "Copying selected GIS features to " + layerName + ".shp ...");
-            await ArcGISFunctions.CopyFeaturesAsync(_tempMasterLayerName, outputFile, addToMap);
+            await ArcGISFunctions.CopyFeaturesAsync(_tempMasterLayerName, outputFile, false);
 
             // If the layer is to be added to the map
             if (addToMap)
             {
-                FileFunctions.WriteLine(_logFile, "Output " + layerName + " added to display");
+                // Add the layer to the required map.
+                string mapName = targetMap?.Name ?? "Active Map";
+                FileFunctions.WriteLine(_logFile, "Adding '" + layerName + "' to map '" + mapName + "'");
+
+                if (!await _mapFunctions.AddLayerToMapAsync(outputFile, 0, layerName, targetMap))
+                {
+                    _searchErrors = true;
+
+                    return false;
+                }
 
                 string symbologyFile = null;
 
@@ -3320,7 +3444,7 @@ namespace DataSearches.UI
                 }
 
                 // Apply layer symbology and move to group layer.
-                if (!await SetLayerInMapAsync(layerName, symbologyFile, -1))
+                if (!await SetLayerInMapAsync(layerName, symbologyFile, -1, targetMap))
                 {
                     _searchErrors = true;
 
@@ -3378,7 +3502,7 @@ namespace DataSearches.UI
             {
                 // User doesn't want to add the layer to the display.
                 // In case it's still there from a previous run.
-                await _mapFunctions.RemoveLayerAsync(layerName);
+                await _mapFunctions.RemoveLayerAsync(layerName, targetMap);
             }
 
             return true;
@@ -3546,6 +3670,8 @@ namespace DataSearches.UI
         public string NodeLayer { get; set; }
 
         public string LayerName { get; set; }
+
+        public string MapName { get; set; }
 
         public string GISOutputName { get; set; }
 
