@@ -144,6 +144,7 @@ namespace DataSearches.UI
         private bool _keepBuffer;
 
         private string _searchLayerName;
+        private string _searchMapName;
         private string _searchOutputFile;
         private string _groupLayerName;
 
@@ -220,8 +221,8 @@ namespace DataSearches.UI
         /// </summary>
         private void InitializeComponent()
         {
-            // Create a new map functions object.
-            _mapFunctions = new(_toolConfig.SearchMapName);
+            //// Create a new map functions object.
+            //_mapFunctions = new(_toolConfig.SearchMapName);
 
             // Get the relevant config file settings.
             _repChar = _toolConfig.RepChar;
@@ -259,6 +260,7 @@ namespace DataSearches.UI
             _bufferPrefix = _toolConfig.BufferPrefix;
             _bufferLayerFile = _toolConfig.BufferLayerFile;
             _searchLayerName = _toolConfig.SearchOutputName;
+            _searchMapName = _toolConfig.SearchMapName;
             _groupLayerName = _toolConfig.GroupLayerName;
 
             _keepSearchFeature = _toolConfig.KeepSearchFeature;
@@ -632,6 +634,9 @@ namespace DataSearches.UI
                 message = "Search '{0}' ended unexpectedly!";
                 image = "Error";
             }
+
+            // Resume the active map redrawing.
+            await _mapFunctions.PauseDrawingAsync(false);
 
             // Indicate that the search process has stopped.
             StopSearch(string.Format(message, searchRef), image);
@@ -1476,8 +1481,8 @@ namespace DataSearches.UI
             {
                 if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active is null || MapView.Active.Map.Name != _mapFunctions.MapName)
                 {
-                    // Create a new map functions object.
-                    _mapFunctions = new();
+                    // Create a new map functions object (asynchronously).
+                    _mapFunctions = await MapFunctions.CreateAsync(_searchMapName);
                 }
 
                 // Check if there is an active map.
@@ -1491,10 +1496,10 @@ namespace DataSearches.UI
                     // in their map.
                     foreach (MapLayer layer in allLayers)
                     {
-                        // Get the name of the window containing the layer.
-                        Map layerMap = MapFunctions.GetMapFromName(layer.MapName);
+                        //// Get the name of the window containing the layer.
+                        //Map layerMap = MapFunctions.GetMapFromName(layer.MapName);
 
-                        if (_mapFunctions.FindLayer(layer.LayerName, layerMap) != null)
+                        if (_mapFunctions.FindLayer(layer.LayerName, null) != null)
                         {
                             // Preselect layer if required.
                             layer.IsSelected = layer.PreselectLayer;
@@ -1557,8 +1562,8 @@ namespace DataSearches.UI
         {
             if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active.Map.Name != _mapFunctions.MapName)
             {
-                // Create a new map functions object.
-                _mapFunctions = new();
+                // Create a new map functions object (asynchronously).
+                _mapFunctions = await MapFunctions.CreateAsync(_searchMapName);
             }
 
             // Reset search errors flag.
@@ -1586,7 +1591,7 @@ namespace DataSearches.UI
             foreach (string mapName in mapWindowNames)
             {
                 // Get the name of the window containing the search area.
-                Map map = MapFunctions.GetMapFromName(mapName);
+                Map map = await MapFunctions.GetMapFromNameAsync(mapName);
 
                 if (map != null)
                     mapWindows.Add(map);
@@ -1765,7 +1770,7 @@ namespace DataSearches.UI
             }
 
             // Get the name of the window containing the search area.
-            Map searchMap = MapFunctions.GetMapFromName(searchMapName);
+            Map searchMap = await MapFunctions.GetMapFromNameAsync(searchMapName);
             if (searchMap == null)
             {
                 _searchErrors = true;
@@ -1782,7 +1787,7 @@ namespace DataSearches.UI
             //TODO: Pause only the active map window?
             // Pause the active map redrawing.
             if (PauseMap)
-                _mapFunctions.PauseDrawing(true, null);
+                await _mapFunctions.PauseDrawingAsync(true, null);
 
             // Select the feature matching the search reference in the map.
             if (!await _mapFunctions.SelectLayerByAttributesAsync(_inputLayerName, searchClause, SelectionCombinationMethod.New))
@@ -1948,7 +1953,7 @@ namespace DataSearches.UI
             if (_dockPane.SearchCancelled)
                 return false;
 
-            // Set the search reference and site name in all of the layouts.
+            // Set the search reference, site name and radius in all of the layouts.
             await MapFunctions.UpdateLayoutsTextAsync(outputWindowNames, _siteColumn, siteName, _searchColumn, searchRef, _radiusColumn, radius);
 
             // Add the search area and buffer to the map if required.
@@ -1958,10 +1963,30 @@ namespace DataSearches.UI
             if (_searchErrors)
                 return false;
 
-            //TODO: Zoom to all map windows.
             // Zoom to the buffer layer extent.
-            if (bufferSize != "0" && _keepBuffer)
-                await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05);
+            if (_keepBuffer)
+            {
+                // If there is no buffer then zoom to 1:10000.
+                if (bufferSize == "0")
+                {
+                    // Zoom in the search layer map.
+                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, searchMap);
+
+                    // Zoom in all other map windows.
+                    foreach (Map map in mapWindows)
+                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, map);
+                }
+                // If there is a buffer then zoom to the buffer extent plus 5%.
+                else
+                {
+                    // Zoom in the search layer map.
+                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, searchMap);
+
+                    // Zoom in all other map windows.
+                    foreach (Map map in mapWindows)
+                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1.05, 10000, map);
+                }
+            }
 
             return true;
         }
@@ -1977,9 +2002,6 @@ namespace DataSearches.UI
             FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
             FileFunctions.WriteLine(_logFile, message);
             FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
-
-            // Resume the active map redrawing.
-            _mapFunctions.PauseDrawing(false);
 
             // Indicate search has finished.
             _dockPane.SearchRunning = false;
@@ -2017,7 +2039,7 @@ namespace DataSearches.UI
                 // Set the buffer layer symbology to use.
                 string symbologyFile = _layerPath + "\\" + _bufferLayerFile;
 
-                if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0))
+                if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0, null))
                 {
                     //MessageBox.Show("Error setting buffer layer in the map.");
                     FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
@@ -2057,7 +2079,7 @@ namespace DataSearches.UI
                 string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
                 string symbologyFile = _layerPath + "\\" + searchlayerFile;
 
-                if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0))
+                if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0, null))
                 {
                     //MessageBox.Show("Error setting search feature layer in the map.");
                     FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the map");
@@ -2631,23 +2653,23 @@ namespace DataSearches.UI
             // Get the full layer path (in case it's nested in one or more groups).
             string mapLayerPath = _mapFunctions.GetLayerPath(mapLayerName);
 
-            // Get the target map for the map name.
-            Map targetMap = MapFunctions.GetMapFromName(mapMapName);
-            if (targetMap == null)
+            // Find the map layer by name in the active map.
+            FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName, null);
+            if (mapLayer == null)
             {
-                //MessageBox.Show("Cannot find map " + mapMapName);
-                FileFunctions.WriteLine(_logFile, "Cannot find map '" + mapMapName + "'");
+                //MessageBox.Show("Cannot find layer " + mapLayerName);
+                FileFunctions.WriteLine(_logFile, "Cannot find map layer '" + mapLayerName + "' in map '" + mapLayerName + "'");
                 _searchErrors = true;
 
                 return false;
             }
 
-            // Find the map layer by name in the target map.
-            FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName, targetMap);
-            if (mapLayer == null)
+            // Get the target map for the map name.
+            Map targetMap = await MapFunctions.GetMapFromNameAsync(mapMapName);
+            if (targetMap == null)
             {
-                //MessageBox.Show("Cannot find layer " + mapLayerName);
-                FileFunctions.WriteLine(_logFile, "Cannot find map layer '" + mapLayerName + "' in map '" + mapLayerName + "'");
+                //MessageBox.Show("Cannot find map " + mapMapName);
+                FileFunctions.WriteLine(_logFile, "Cannot find map '" + mapMapName + "'");
                 _searchErrors = true;
 
                 return false;
@@ -2702,8 +2724,8 @@ namespace DataSearches.UI
 
             FileFunctions.WriteLine(_logFile, string.Format("{0:n0}", featureCount) + " feature(s) found");
 
-            // Create the map output depending on the output type required.
-            if (!await CreateMapOutputAsync(mapLayerName, mapLayerPath, _bufferLayerPath, mapOutputType, targetMap))
+            // Create the temporary map output depending on the output type required.
+            if (!await CreateMapOutputAsync(mapLayerName, mapLayerPath, _bufferLayerPath, mapOutputType))
             {
                 MessageBox.Show("Cannot output selection from " + mapLayerName + " to " + _tempMasterOutputFile + ".");
                 FileFunctions.WriteLine(_logFile, "Cannot output selection from " + mapLayerName + " to " + _tempMasterOutputFile);
@@ -2711,10 +2733,10 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // Add map labels to the output if required.
+            // Add map labels to the temporary output if required.
             if (!string.IsNullOrEmpty(mapLabelColumn))
             {
-                if (!await AddMapLabelsAsync(overwriteLabelOption, mapOverwriteLabels, mapLabelColumn, mapKeyColumn, mapNodeGroup, targetMap))
+                if (!await AddMapLabelsAsync(overwriteLabelOption, mapOverwriteLabels, mapLabelColumn, mapKeyColumn, mapNodeGroup))
                 {
                     //MessageBox.Show("Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error adding map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
@@ -2748,7 +2770,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Extracting summary information ...");
 
                 int intLineCount = await ExportSelectionAsync(mapTableOutputFile, mapFormat.ToLower(), mapColumns, mapGroupColumns, mapStatsColumns, mapOrderColumns,
-                    includeHeaders, false, areaUnit, mapIncludeNearFields, radiusText, targetMap);
+                    includeHeaders, false, areaUnit, mapIncludeNearFields, radiusText);
                 if (intLineCount <= 0)
                 {
                     //MessageBox.Show("Error extracting summary from " + _tempMasterOutputFile + ".");
@@ -2762,7 +2784,7 @@ namespace DataSearches.UI
             }
 
             // If selected layers are to be kept, and this layer is to be kept,
-            // copy to a permanent layer.
+            // copy to a permanent layer and add it to the target map (if required).
             if ((keepSelectedLayers) && (mapKeepLayer))
             {
                 if (!await KeepLayerAsync(mapOutputName, mapOutputFile, addSelectedLayersOption, mapLayerFileName, mapDisplayLabels, mapLabelClause,
@@ -2781,7 +2803,7 @@ namespace DataSearches.UI
 
                 int intLineCount = await ExportSelectionAsync(_combinedSitesOutputFile, _combinedSitesTableFormat, mapCombinedSitesColumns, mapCombinedSitesGroupColumns,
                     mapCombinedSitesStatsColumns, mapCombinedSitesOrderColumns,
-                    false, true, areaUnit, mapIncludeNearFields, radiusText, targetMap);
+                    false, true, areaUnit, mapIncludeNearFields, radiusText);
 
                 if (intLineCount < 0)
                 {
@@ -2818,14 +2840,14 @@ namespace DataSearches.UI
         }
 
         /// <summary>
-        /// Create the required output type from the current layer.
+        /// Create the required temporary output type from the current layer.
         /// </summary>
         /// <param name="mapLayerName"></param>
         /// <param name="mapLayerPath"></param>
         /// <param name="bufferLayerPath"></param>
         /// <param name="mapOutputType"></param>
         /// <returns></returns>
-        private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath, string bufferLayerPath, string mapOutputType, Map targetMap)
+        private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath, string bufferLayerPath, string mapOutputType)
         {
             // Get the input feature class type.
             string mapLayerFCType = _mapFunctions.GetFeatureClassType(mapLayerName);
@@ -2869,7 +2891,7 @@ namespace DataSearches.UI
                 else
                 {
                     // Find the map layer by name in the target map.
-                    FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName, targetMap);
+                    FeatureLayer mapLayer = _mapFunctions.FindLayer(mapLayerName, null);
                     if (mapLayer == null)
                     {
                         //MessageBox.Show("Cannot find layer " + mapLayerName);
@@ -2879,7 +2901,7 @@ namespace DataSearches.UI
                         return false;
                     }
 
-                    // Find the buffer layer by name in the active map.
+                    // Find the buffer layer by name in the target map.
                     FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName, null);
                     if (bufferLayer == null)
                     {
@@ -2961,11 +2983,11 @@ namespace DataSearches.UI
         /// <param name="mapGroupName"></param>
         /// <returns></returns>
         private async Task<bool> AddMapLabelsAsync(OverwriteLabelOptions overwriteLabelOption, bool overwriteLabels,
-            string mapLabelColumn, string mapKeyColumn, string mapGroupName, Map targetMap)
+            string mapLabelColumn, string mapKeyColumn, string mapGroupName)
         {
             bool newLabelField = false;
             // Does the map label field already exist? If not, add it.
-            if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, mapLabelColumn, targetMap))
+            if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, mapLabelColumn, null))
             {
                 if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, mapLabelColumn, "LONG"))
                 {
@@ -2985,7 +3007,7 @@ namespace DataSearches.UI
                 overwriteLabels)
             {
                 // Add labels as required.
-                if (!await CreateMapLabelsAsync(overwriteLabelOption, mapLabelColumn, mapKeyColumn, mapGroupName, targetMap))
+                if (!await CreateMapLabelsAsync(overwriteLabelOption, mapLabelColumn, mapKeyColumn, mapGroupName))
                 {
                     //MessageBox.Show("Error setting map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error setting map labels to " + mapLabelColumn + " in " + _tempMasterOutputFile);
@@ -3007,7 +3029,7 @@ namespace DataSearches.UI
         /// <param name="mapGroupName"></param>
         /// <returns></returns>
         private async Task<bool> CreateMapLabelsAsync(OverwriteLabelOptions overwriteLabelOption, string mapLabelColumn, string mapKeyColumn,
-            string mapGroupName, Map targetMap = null)
+            string mapGroupName)
         {
             FileFunctions.WriteLine(_logFile, "Adding map labels ...");
 
@@ -3016,7 +3038,7 @@ namespace DataSearches.UI
             {
                 FileFunctions.WriteLine(_logFile, "Resetting label counter ...");
 
-                if (await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, 1, targetMap) < 0)
+                if (await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, 1) < 0)
                 {
                     //MessageBox.Show("Error calculating map label field '" + mapLabelColumn + "' in " + _tempMasterOutputFile + ".");
                     FileFunctions.WriteLine(_logFile, "Error calculating map label field '" + mapLabelColumn + "' in " + _tempMasterOutputFile);
@@ -3032,7 +3054,7 @@ namespace DataSearches.UI
                 int groupIndex = _mapGroupNames.IndexOf(mapGroupName);
                 int groupLabel = _mapGroupLabels[groupIndex];
 
-                groupLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, groupLabel, targetMap);
+                groupLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, groupLabel);
 
                 // Increment the new group label.
                 groupLabel++;
@@ -3045,7 +3067,7 @@ namespace DataSearches.UI
                 // There is no group or groups are ignored, or we are not resetting. Use the existing max label number.
                 int startLabel = _maxLabel;
 
-                _maxLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, startLabel, targetMap);
+                _maxLabel = await _mapFunctions.AddIncrementalNumbersAsync(_tempMasterOutputFile, _tempMasterLayerName, mapLabelColumn, mapKeyColumn, startLabel);
 
                 // Increment the new max label.
                 _maxLabel++;
@@ -3071,8 +3093,7 @@ namespace DataSearches.UI
         /// <returns></returns>
         private async Task<int> ExportSelectionAsync(string outputTableName, string outputFormat,
             string mapColumns, string mapGroupColumns, string mapStatsColumns, string mapOrderColumns,
-            bool includeHeaders, bool append, string areaUnit, string includeNearFields, string radiusText,
-            Map targetMap)
+            bool includeHeaders, bool append, string areaUnit, string includeNearFields, string radiusText)
         {
             int intLineCount;
 
@@ -3096,7 +3117,7 @@ namespace DataSearches.UI
             {
                 areaColumnName = "Area" + areaUnit;
                 // Does the area field already exist? If not, add it.
-                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, areaColumnName, targetMap))
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, areaColumnName, null))
                 {
                     if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, areaColumnName, "DOUBLE", 20))
                     {
@@ -3139,7 +3160,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Including radius column ...");
 
                 // Does the radius field already exist? If not, add it.
-                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Radius", targetMap))
+                if (!await _mapFunctions.FieldExistsAsync(_tempMasterLayerName, "Radius", null))
                 {
                     if (!await ArcGISFunctions.AddFieldAsync(_tempMasterOutputFile, "Radius", "TEXT", fieldLength: 25))
                     {
@@ -3256,7 +3277,7 @@ namespace DataSearches.UI
                 {
                     string columnName = groupColumn.Trim();
 
-                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName, targetMap))
+                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName, null))
                         mapGroupColumns = mapGroupColumns + columnName + ";";
                 }
                 if (!string.IsNullOrEmpty(mapGroupColumns))
@@ -3274,7 +3295,7 @@ namespace DataSearches.UI
                     List<string> statsComponents = [.. statsColumn.Split(' ')];
                     string columnName = statsComponents[0].Trim(); // The field name.
 
-                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName, targetMap))
+                    if (await _mapFunctions.FieldExistsAsync(_tempFCLayerName, columnName, null))
                         mapStatsColumns = mapStatsColumns + statsColumn + ";";
                 }
                 if (!string.IsNullOrEmpty(mapStatsColumns))
@@ -3327,7 +3348,7 @@ namespace DataSearches.UI
 
                 // Get the list of fields for the input table.
                 IReadOnlyList<Field> inputFields;
-                inputFields = await _mapFunctions.GetTableFieldsAsync(_tempTableLayerName, targetMap);
+                inputFields = await _mapFunctions.GetTableFieldsAsync(_tempTableLayerName, null);
 
                 // Check a list of fields is returned.
                 if (inputFields == null || inputFields.Count == 0)
@@ -3412,8 +3433,10 @@ namespace DataSearches.UI
         /// <param name="labelColumn"></param>
         /// <returns></returns>
         private async Task<bool> KeepLayerAsync(string layerName, string outputFile, AddSelectedLayersOptions addSelectedLayersOption,
-            string layerFileName, bool displayLabels, string labelClause, string labelColumn, Map targetMap = null)
+            string layerFileName, bool displayLabels, string labelClause, string labelColumn, Map targetMap)
         {
+            //TODO: Add ".shp" to outputFile?
+
             bool addToMap = addSelectedLayersOption != AddSelectedLayersOptions.No;
 
             // Copy to a permanent file (note this is not the summarised layer).

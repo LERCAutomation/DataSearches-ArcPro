@@ -31,6 +31,7 @@ using ArcGIS.Desktop.Core.Geoprocessing;
 using ArcGIS.Desktop.Editing;
 using ArcGIS.Desktop.Editing.Attributes;
 using ArcGIS.Desktop.Framework;
+using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Layouts.Utilities;
 using ArcGIS.Desktop.Layouts;
@@ -52,7 +53,6 @@ namespace DataTools
         #region Fields
 
         private Map _activeMap;
-        private MapView _activeMapView;
 
         #endregion Fields
 
@@ -61,19 +61,33 @@ namespace DataTools
         /// <summary>
         /// Set the global variables.
         /// </summary>
-        public MapFunctions(string searchMapName)
+        public MapFunctions()
         {
-            // Get the active map from the project by name.
-            _activeMap = GetMapFromName(searchMapName);
+            _activeMap = null;
+        }
 
-            // Get the active map view (if there is one).
-            _activeMapView = GetActiveMapView();
+        public static async Task<MapFunctions> CreateAsync(string searchMapName)
+        {
+            var instance = new MapFunctions();
 
-            // Set the map currently displayed in the active map view.
-            if (_activeMapView != null)
-                _activeMap = _activeMapView.Map;
-            else
-                _activeMap = null;
+            await instance.InitializeAsync(searchMapName);
+
+            return instance;
+        }
+
+        /// <summary>
+        /// Set the active map from the project by name.
+        /// </summary>
+        private async Task InitializeAsync(string searchMapName)
+        {
+            // Get the search map from the project by name.
+            Map searchMap = await GetMapFromNameAsync(searchMapName);
+
+            // Open the map in a new pane if it's not already open, and activate it.
+            await ActivateMapAsync(searchMap);
+
+            // Set the active map.
+            _activeMap = MapView.Active.Map;
         }
 
         #endregion Constructor
@@ -117,19 +131,55 @@ namespace DataTools
         /// </summary>
         /// <param name="mapName"></param>
         /// <returns></returns>
-        internal static Map GetMapFromName(string mapName)
+        internal static async Task<Map> GetMapFromNameAsync(string mapName)
         {
             if (mapName == null)
                 return null;
 
-            // Get the map from the project
-            Map map = Project.Current.GetItems<MapProjectItem>()
+            Map map = null;
+
+            await QueuedTask.Run(() =>
+            {
+                // Get the map from the project
+                map = Project.Current.GetItems<MapProjectItem>()
                 .FirstOrDefault(m => m.Name == mapName)?.GetMap();
+            });
 
             if (map != null)
                 return map;
             else
                 return null;
+        }
+
+        /// <summary>
+        /// Opens the specified map in a new pane if it's not already open, and activates it.
+        /// </summary>
+        /// <param name="map">The Map object to activate or open.</param>
+        internal static async Task ActivateMapAsync(Map map)
+        {
+            // Check if a pane is already open for this map.
+            var pane = ProApp.Panes
+                .OfType<Pane>()
+                .FirstOrDefault(p =>
+                {
+                    if (p is IMapPane mp && mp.MapView.Map == map)
+                        return true;
+                    return false;
+                });
+
+            if (pane != null)
+            {
+                // Already open — activate it.
+                pane.Activate();
+
+                // Check it worked.
+                var isActive = MapView.Active?.Map == map;
+            }
+            else
+            {
+                // Not open — open and activate it.
+                var newPane = await ProApp.Panes.CreateMapPaneAsync(map);
+            }
         }
 
         /// <summary>
@@ -194,14 +244,20 @@ namespace DataTools
         }
 
         /// <summary>
-        /// Pause or resume bool in the active map.
+        /// Pause or resume the active map view drawing.
         /// </summary>
         /// <param name="pause"></param>
-        public void PauseDrawing(bool pause, MapView targetMapView = null)
+        public async Task PauseDrawingAsync(bool pause, Map targetMap = null)
         {
-            // Use provided map or default to _activeMapView.
-            MapView mapViewToUse = targetMapView ?? _activeMapView;
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
 
+            // Get the map view from the map.
+            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            if (mapViewToUse == null)
+                return;
+
+            // Pause or resume the map view drawing.
             mapViewToUse.DrawingPaused = pause;
         }
 
@@ -246,7 +302,6 @@ namespace DataTools
             {
                 // Set the new map as the active map.
                 _activeMap = newMap;
-                _activeMapView = newMapView;
             }
             else
             {
@@ -461,8 +516,8 @@ namespace DataTools
                 // Zoom to the layer extent.
                 await mapViewToUse.ZoomToAsync(findLayer, selectedOnly);
 
-                // Get the camera for the active view.
-                var camera = _activeMapView.Camera;
+                // Get the camera for the map view.
+                var camera = mapViewToUse.Camera;
 
                 // Adjust the camera scale.
                 if (ratio != 1)
@@ -718,23 +773,23 @@ namespace DataTools
         /// <param name="startNumber"></param>
         /// <returns>int</returns>
         public async Task<int> AddIncrementalNumbersAsync(string outputFeatureClass, string outputLayerName, string labelFieldName, string keyFieldName,
-            int startNumber = 1, Map targetMap = null)
+            int startNumber = 1)
         {
             // Check the input parameters.
             if (!await ArcGISFunctions.FeatureClassExistsAsync(outputFeatureClass))
                 return -1;
 
-            if (!await FieldExistsAsync(outputLayerName, labelFieldName, targetMap))
+            if (!await FieldExistsAsync(outputLayerName, labelFieldName, null))
                 return -1;
 
-            if (!await FieldIsNumericAsync(outputLayerName, labelFieldName, targetMap))
+            if (!await FieldIsNumericAsync(outputLayerName, labelFieldName, null))
                 return -1;
 
-            if (!await FieldExistsAsync(outputLayerName, keyFieldName, targetMap))
+            if (!await FieldExistsAsync(outputLayerName, keyFieldName, null))
                 return -1;
 
             // Get the feature layer.
-            FeatureLayer outputFeaturelayer = FindLayer(outputLayerName, targetMap);
+            FeatureLayer outputFeaturelayer = FindLayer(outputLayerName, null);
             if (outputFeaturelayer == null)
                 return -1;
 
