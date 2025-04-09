@@ -306,7 +306,7 @@ namespace DataTools
         /// <returns>string</returns>
         public static string AlignStatsColumns(string AllColumns, string StatsColumns, string GroupColumns)
         {
-            if (String.IsNullOrEmpty(GroupColumns) || String.IsNullOrEmpty(AllColumns))
+            if (string.IsNullOrEmpty(GroupColumns) || string.IsNullOrEmpty(AllColumns))
                 return StatsColumns;
 
             List<string> liAllColumns = [.. AllColumns.Split(',')];

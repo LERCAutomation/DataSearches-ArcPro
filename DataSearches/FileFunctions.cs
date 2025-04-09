@@ -354,15 +354,11 @@ namespace DataTools
                 // Add the date and time to the start of the text.
                 logLine = DateTime.Now.ToString() + " : " + logLine;
 
-                // Open the log file.
-                StreamWriter myWriter = new(logFile, true);
+                // Open the log file.= with shared access.
+                using StreamWriter myWriter = new(new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.ReadWrite));
 
                 // Write the line to the end of the log file.
                 myWriter.WriteLine(logLine);
-
-                // Close the log file and dispose of the object.
-                myWriter.Close();
-                myWriter.Dispose();
             }
             catch
             {

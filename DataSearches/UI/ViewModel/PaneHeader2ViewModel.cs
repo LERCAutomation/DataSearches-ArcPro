@@ -1197,6 +1197,43 @@ namespace DataSearches.UI
 
         #endregion Properties
 
+        #region Debug Logging
+
+        /// <summary>
+        /// Initializes application-wide trace logging by redirecting Trace output to a specified log file.
+        /// This method should be called once, after the log file path has been set (e.g. loaded from configuration).
+        /// </summary>
+        /// <param name="logFilePath">The full path to the log file where trace messages should be written.</param>
+        private void InitializeTraceLogging(string logFilePath)
+        {
+            Trace.Listeners.Clear();
+
+            var logFileStream = new FileStream(
+                logFilePath,
+                FileMode.Append,
+                FileAccess.Write,
+                FileShare.ReadWrite);
+
+            var listener = new TextWriterTraceListener(logFileStream)
+            {
+                TraceOutputOptions = TraceOptions.DateTime
+            };
+
+            Trace.AutoFlush = true;
+            Trace.Listeners.Add(listener);
+        }
+
+        /// <summary>
+        /// Writes any message to the Trace log with a timestamp.
+        /// </summary>
+        /// <param name="message"></param>
+        private void TraceLog(string message)
+        {
+            Trace.WriteLine($"{DateTime.Now:G} : {message}");
+        }
+
+        #endregion Debug Logging
+
         #region Methods
 
         /// <summary>
@@ -1708,6 +1745,9 @@ namespace DataSearches.UI
                     return false;
                 }
             }
+
+            // Initialize the application-wide trace logging to redirect the output to the log file.
+            InitializeTraceLogging(_logFile);
 
             // Replace any illegal characters in the user name string.
             _userID = StringFunctions.StripIllegals(Environment.UserName, "_", false);
@@ -2611,9 +2651,9 @@ namespace DataSearches.UI
             mapTableOutputName = StringFunctions.StripIllegals(mapTableOutputName, _repChar);
 
             // Set the statistics columns if they haven't been supplied.
-            if (String.IsNullOrEmpty(mapStatsColumns) && !String.IsNullOrEmpty(mapGroupColumns))
+            if (string.IsNullOrEmpty(mapStatsColumns) && !string.IsNullOrEmpty(mapGroupColumns))
                 mapStatsColumns = StringFunctions.AlignStatsColumns(mapColumns, mapStatsColumns, mapGroupColumns);
-            if (String.IsNullOrEmpty(mapCombinedSitesStatsColumns) && !String.IsNullOrEmpty(mapCombinedSitesGroupColumns))
+            if (string.IsNullOrEmpty(mapCombinedSitesStatsColumns) && !string.IsNullOrEmpty(mapCombinedSitesGroupColumns))
                 mapCombinedSitesStatsColumns = StringFunctions.AlignStatsColumns(mapCombinedSitesColumns, mapCombinedSitesStatsColumns, mapCombinedSitesGroupColumns);
 
             // Get the full layer path (in case it's nested in one or more groups).

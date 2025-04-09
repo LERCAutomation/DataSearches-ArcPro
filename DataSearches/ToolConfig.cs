@@ -132,7 +132,7 @@ namespace DataTools
                     // Prompt the user for the correct file path.
                     string xmlFilePath = GetConfigFilePath();
 
-                    if (String.IsNullOrEmpty(xmlFilePath))
+                    if (string.IsNullOrEmpty(xmlFilePath))
                     {
                         _selectCancelled = true;
                         return false;
@@ -142,14 +142,14 @@ namespace DataTools
                     xmlFile = xmlFolder + String.Format(@"\{0}.xml", _toolName);
                 }
                 // If the tool XML file path is blank or doesn't exist.
-                else if (String.IsNullOrEmpty(xmlFile) || !FileFunctions.FileExists(xmlFile))
+                else if (string.IsNullOrEmpty(xmlFile) || !FileFunctions.FileExists(xmlFile))
                 {
                     _selectCancelled = true;
                     return false;
                 }
 
                 // Check the tool XML file path exists.
-                if (String.IsNullOrEmpty(xmlFile) || (!FileFunctions.FileExists(xmlFile)))
+                if (string.IsNullOrEmpty(xmlFile) || (!FileFunctions.FileExists(xmlFile)))
                     return false;
             }
             catch (Exception ex)

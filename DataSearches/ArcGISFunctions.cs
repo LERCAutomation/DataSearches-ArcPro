@@ -38,6 +38,7 @@ using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -117,6 +118,19 @@ namespace DataTools
 
         #endregion Properties
 
+        #region Debug Logging
+
+        /// <summary>
+        /// Writes any message to the Trace log with a timestamp.
+        /// </summary>
+        /// <param name="message"></param>
+        private void TraceLog(string message)
+        {
+            Trace.WriteLine($"{DateTime.Now:G} : {message}");
+        }
+
+        #endregion Debug Logging
+
         #region Map
 
         /// <summary>
@@ -190,38 +204,43 @@ namespace DataTools
         }
 
         /// <summary>
-        /// Get the map view from the project by name.
+        /// Retrieves the <see cref="MapView"/> associated with the specified map name,
+        /// if the map is currently open in a pane.
         /// </summary>
-        /// <param name="mapName"></param>
-        /// <returns></returns>
+        /// <param name="mapName">The name of the map to find the view for.</param>
+        /// <returns>
+        /// A <see cref="MapView"/> instance if the map is open in a pane; otherwise, <c>null</c>.
+        /// </returns>
         internal static async Task<MapView> GetMapViewFromNameAsync(string mapName)
         {
+            // Return null if no map name was provided.
             if (mapName == null)
                 return null;
 
-            MapView mapView = null;
-
-            await QueuedTask.Run(() =>
+            // Use the background thread to get the map object from the project.
+            Map map = await QueuedTask.Run(() =>
             {
-                // Get the map from the project.
-                Map map = Project.Current.GetItems<MapProjectItem>()
-                    .FirstOrDefault(m => m.Name == mapName)?.GetMap();
-
-                if (map == null)
-                    return;
-
-                // Loop through all panes and find the first one showing the map.
-                mapView = FrameworkApplication.Panes
-                    .OfType<IMapPane>()
-                    .FirstOrDefault(p => p.MapView?.Map == map)
-                    ?.MapView;
+                // Search the project's map items by name and retrieve the corresponding Map.
+                return Project.Current.GetItems<MapProjectItem>()
+                    .FirstOrDefault(m => m.Name == mapName)
+                    ?.GetMap();
             });
 
-            if (mapView != null)
-                return mapView;
-            else
+            // If the map was not found, return null.
+            if (map == null)
                 return null;
+
+            // Access the UI thread to search for a pane showing the specified map.
+            // Only UI thread can access FrameworkApplication.Panes.
+            MapView mapView = FrameworkApplication.Panes
+                .OfType<IMapPane>()
+                .FirstOrDefault(p => p.MapView?.Map == map)
+                ?.MapView;
+
+            // Return the found MapView or null if not found.
+            return mapView;
         }
+
 
         /// <summary>
         /// Get the map view from the map.
@@ -251,22 +270,31 @@ namespace DataTools
         }
 
         /// <summary>
-        /// Pause or resume the active map view drawing.
+        /// Pauses or resumes drawing for the specified map, or the active map if none is provided.
         /// </summary>
-        /// <param name="pause"></param>
+        /// <param name="pause">If <c>true</c>, drawing will be paused; otherwise, drawing will be resumed.</param>
+        /// <param name="targetMap">
+        /// Optional map to control drawing for. If <c>null</c>, the internally tracked active map is used.
+        /// </param>
         public async Task PauseDrawingAsync(bool pause, Map targetMap = null)
         {
-            // Use provided map or default to _activeMap.
+            // Use the provided map or fall back to the internally stored active map.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Get the map view from the map name.
+            // Attempt to retrieve the MapView for the specified map.
             MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
+            {
+                // Log if the view could not be found — the map may not be open.
+                TraceLog("PauseDrawingAsync: MapView not found.");
                 return;
+            }
 
-            // Pause or resume the map view drawing.
+            // Pause or resume drawing depending on the input parameter.
+            // This can be useful when performing batch updates or long-running edits.
             mapViewToUse.DrawingPaused = pause;
         }
+
 
         /// <summary>
         /// Create a new map and return the map name.
@@ -276,7 +304,7 @@ namespace DataTools
         public async Task<string> CreateMapAsync(string mapName, bool setActive = true)
         {
             // If no map name is supplied.
-            if (String.IsNullOrEmpty(mapName))
+            if (string.IsNullOrEmpty(mapName))
                 return null;
 
             // Get the current active pane.
@@ -404,106 +432,154 @@ namespace DataTools
         }
 
         /// <summary>
-        /// Zoom to a an object for a given ratio or scale.
+        /// Zooms to a feature in the specified layer using a given scale or distance factor.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <param name="objectID"></param>
-        /// <param name="factor"></param>
-        /// <param name="mapScaleOrDistance"></param>
-        /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, long objectID, double? factor, double? mapScaleOrDistance,
-            Map targetMap = null)
-        {
-            // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
-                return false;
-
-            // Use provided map or default to _activeMap.
-            Map mapToUse = targetMap ?? _activeMap;
-
-            // Get the map view from the map name.
-            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
-            if (mapViewToUse == null)
-                return false;
-
-            // Locate the layer in the map.
-            BasicFeatureLayer targetLayer = FindLayer(layerName, mapToUse);
-            if (targetLayer == null)
-                return false;
-
-            try
-            {
-                // Zoom to the extent of the object.
-                await mapViewToUse.ZoomToAsync(targetLayer, objectID, null, true, factor, mapScaleOrDistance);
-            }
-            catch
-            {
-                // Handle exception.
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Zoom to a list of objects.
-        /// </summary>
-        /// <param name="layerName"></param>
-        /// <param name="objectIDs"></param>
-        /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, IEnumerable<long> objectIDs, Map targetMap = null)
-        {
-            // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
-                return false;
-
-            // Use provided map or default to _activeMap.
-            Map mapToUse = targetMap ?? _activeMap;
-
-            // Get the map view from the map name.
-            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
-            if (mapViewToUse == null)
-                return false;
-
-            // Locate the layer in the map.
-            BasicFeatureLayer targetLayer = FindLayer(layerName, mapToUse);
-            if (targetLayer == null)
-                return false;
-
-            try
-            {
-                // Zoom to the extent of all of the objects.
-                await mapViewToUse.ZoomToAsync(targetLayer, objectIDs, null, true);
-            }
-            catch
-            {
-                // Handle exception.
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Zoom to a layer for a given ratio or scale.
-        /// </summary>
-        /// <param name="layerName">The name of the layer to zoom to.</param>
-        /// <param name="selectedOnly">If true, zooms to selected features only.</param>
-        /// <param name="ratio">Optional zoom ratio multiplier.</param>
-        /// <param name="scale">Optional fixed scale to set after zooming.</param>
-        /// <param name="targetMap">Optional map to use; defaults to _activeMap.</param>
-        /// <returns>bool</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName, bool selectedOnly, double ratio = 1, double scale = 10000,
+        /// <param name="layerName">The name of the feature layer to zoom to.</param>
+        /// <param name="objectID">The object ID of the feature to zoom to.</param>
+        /// <param name="factor">Optional. The zoom factor to apply (e.g., 2.0 for twice the extent size).</param>
+        /// <param name="mapScaleOrDistance">Optional. The desired map scale or distance in map units.</param>
+        /// <param name="targetMap">Optional. The target map to use. Defaults to the active map if null.</param>
+        /// <returns>True if zoom was successful; otherwise, false.</returns>
+        public async Task<bool> ZoomToLayerAsync(
+            string layerName,
+            long objectID,
+            double? factor,
+            double? mapScaleOrDistance,
             Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
                 return false;
 
+            // Check if the input factor is valid.
+            if (factor.HasValue && factor.Value <= 0)
+                return false;
+
+            // Check if the input mapScaleOrDistance is valid.
+            if (mapScaleOrDistance.HasValue && factor.Value <= 0)
+                return false;
+
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Get the map view from the map name.
+            // Get the map view associated with the map.
+            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
+            if (mapViewToUse == null)
+                return false;
+
+            // Find the target feature layer.
+            var targetLayer = FindLayer(layerName, mapToUse);
+            if (targetLayer is not FeatureLayer featureLayer)
+                return false;
+
+            try
+            {
+                // Zoom to the extent of the specified object ID.
+                await mapViewToUse.ZoomToAsync(
+                    featureLayer,
+                    objectID,
+                    duration: null,
+                    maintainViewDirection: true,
+                    factor: factor,
+                    mapScaleOrDistance: mapScaleOrDistance);
+            }
+            catch (Exception ex)
+            {
+                // Handle exception.
+                TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Zooms to the extent of specified object IDs in a feature layer.
+        /// </summary>
+        /// <param name="layerName">The name of the layer containing the objects.</param>
+        /// <param name="objectIDs">A list of object IDs to zoom to.</param>
+        /// <param name="targetMap">Optional target map; defaults to _activeMap.</param>
+        /// <returns>True if zoom succeeded; false otherwise.</returns>
+        public async Task<bool> ZoomToLayerAsync(string layerName,
+            IEnumerable<long> objectIDs,
+            Map targetMap = null)
+        {
+            // Check there is an input feature layer name.
+            if (string.IsNullOrEmpty(layerName))
+            {
+                TraceLog("ZoomToLayerAsync: No layer name provided.");
+                return false;
+            }
+
+            // Check if there are any input objects.
+            if (objectIDs == null || !objectIDs.Any())
+            {
+                TraceLog("ZoomToLayerAsync: No object IDs provided.");
+                return false;
+            }
+
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
+            // Get the map view associated with the map.
+            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
+            if (mapViewToUse == null)
+                return false;
+
+            // Find the target feature layer.
+            var targetLayer = FindLayer(layerName, mapToUse);
+            if (targetLayer is not FeatureLayer featureLayer)
+                return false;
+
+            try
+            {
+                // Zoom to the extent of the specified object IDs.
+                await mapViewToUse.ZoomToAsync(featureLayer,
+                    objectIDs,
+                    duration: null,
+                    maintainViewDirection: true);
+            }
+            catch (Exception ex)
+            {
+                // Handle exception.
+                TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Zooms to the extent of a layer in a map view for a given ratio or scale.
+        /// </summary>
+        /// <param name="layerName">The name of the layer to zoom to.</param>
+        /// <param name="selectedOnly">If true, zooms to selected features only.</param>
+        /// <param name="ratio">Optional zoom ratio multiplier.</param>
+        /// <param name="scale">Optional fixed scale to set after zooming.</param>
+        /// <param name="targetMap">Optional map to use; defaults to _activeMap.</param>
+        /// <returns>True if zoom succeeded; false otherwise.</returns>
+        public async Task<bool> ZoomToLayerAsync(string layerName,
+            bool selectedOnly,
+            double? ratio = 1,
+            double? scale = 10000,
+            Map targetMap = null)
+        {
+            // Check there is an input feature layer name.
+            if (string.IsNullOrEmpty(layerName))
+                return false;
+
+            // Check if the input ratio is valid.
+            if (ratio.HasValue && ratio.Value <= 0)
+                return false;
+
+            // Check if the input scale is valid.
+            if (scale.HasValue && scale.Value <= 0)
+                return false;
+
+            // Use provided map or default to _activeMap.
+            Map mapToUse = targetMap ?? _activeMap;
+
+            // Attempt to get the map view associated with the map.
             MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
                 return false;
@@ -515,24 +591,30 @@ namespace DataTools
 
             try
             {
-                // Zoom to the layer extent.
+                // Zoom to the layer extent or its selection.
                 await mapViewToUse.ZoomToAsync(targetLayer, selectedOnly);
 
-                // Get the camera for the map view.
+                // Refine zoom using camera adjustments.
                 var camera = mapViewToUse.Camera;
 
-                // Adjust the camera scale.
+                // Apply ratio or fixed scale (mutually exclusive).
                 if (ratio != 1)
-                    camera.Scale *= ratio;
+                {
+                    camera.Scale *= (double)ratio;
+                }
                 else if (scale > 0)
-                    camera.Scale = scale;
+                {
+                    camera.Scale = (double)scale;
+                }
 
-                // Zoom to the new camera position.
-                await mapViewToUse.ZoomToAsync(camera);
+                // Apply the modified camera view.
+                await mapViewToUse.ZoomToAsync(camera,
+                    duration: null);
             }
-            catch
+            catch (Exception ex)
             {
                 // Handle exception.
+                TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
                 return false;
             }
 
@@ -666,38 +748,30 @@ namespace DataTools
         internal FeatureLayer FindLayer(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
+            {
+                TraceLog("FindLayer: No layer name provided.");
                 return null;
+            }
 
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Finds layers by name and returns a read only list of feature layers.
-            IEnumerable<FeatureLayer> layers = mapToUse.FindLayers(layerName, true).OfType<FeatureLayer>();
-
-            // If no layers are loaded.
-            if (layers == null)
-                return null;
-
             try
             {
-                while (layers.Any())
-                {
-                    // Get the first feature layer found by name.
-                    FeatureLayer layer = layers.First();
+                // Search all layers by name, including within group layers.
+                var featureLayer = mapToUse.FindLayers(layerName, true)
+                                           .OfType<FeatureLayer>()
+                                           .FirstOrDefault();
 
-                    // Check the feature layer is in the active map.
-                    if (layer.Map.Name.Equals(mapToUse.Name, StringComparison.OrdinalIgnoreCase))
-                        return layer;
-                }
+                return featureLayer;
             }
-            catch
+            catch (Exception ex)
             {
                 // Handle exception.
+                TraceLog($"FindLayer failed: {ex.Message}");
                 return null;
             }
-
-            return null;
         }
 
         /// <summary>
@@ -708,7 +782,7 @@ namespace DataTools
         internal int FindLayerIndex(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return 0;
 
             // Use provided map or default to _activeMap.
@@ -747,7 +821,7 @@ namespace DataTools
         public async Task<bool> RemoveLayerAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             // Use provided map or default to _activeMap.
@@ -934,10 +1008,10 @@ namespace DataTools
             string orgColumn, string orgName, string radiusColumn, string radiusText, Map targetMap = null)
         {
             // Check the input parameters.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
-            if (String.IsNullOrEmpty(siteColumn) && String.IsNullOrEmpty(orgColumn) && String.IsNullOrEmpty(radiusColumn))
+            if (string.IsNullOrEmpty(siteColumn) && string.IsNullOrEmpty(orgColumn) && string.IsNullOrEmpty(radiusColumn))
                 return false;
 
             if (!string.IsNullOrEmpty(siteColumn) && !await FieldExistsAsync(layerName, siteColumn, targetMap))
@@ -1033,11 +1107,11 @@ namespace DataTools
             string overlapType = "INTERSECT", string searchDistance = "", string selectionType = "NEW_SELECTION")
         {
             // Check if there is an input target layer name.
-            if (String.IsNullOrEmpty(targetLayer))
+            if (string.IsNullOrEmpty(targetLayer))
                 return false;
 
             // Check if there is an input search layer name.
-            if (String.IsNullOrEmpty(searchLayer))
+            if (string.IsNullOrEmpty(searchLayer))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -1199,7 +1273,7 @@ namespace DataTools
         public async Task<bool> SelectLayerByAttributesAsync(string layerName, string whereClause, SelectionCombinationMethod selectionMethod = SelectionCombinationMethod.New, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             try
@@ -1239,7 +1313,7 @@ namespace DataTools
         public async Task<bool> ClearLayerSelectionAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             try
@@ -1273,7 +1347,7 @@ namespace DataTools
         public long GetSelectedFeatureCount(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return -1;
 
             long selectedCount;
@@ -1305,7 +1379,7 @@ namespace DataTools
         public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetFCFieldsAsync(string layerPath, Map targetMap = null)
         {
             // Check there is an input feature layer path.
-            if (String.IsNullOrEmpty(layerPath))
+            if (string.IsNullOrEmpty(layerPath))
                 return null;
 
             try
@@ -1350,7 +1424,7 @@ namespace DataTools
         public async Task<IReadOnlyList<ArcGIS.Core.Data.Field>> GetTableFieldsAsync(string layerPath, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerPath))
+            if (string.IsNullOrEmpty(layerPath))
                 return null;
 
             try
@@ -1398,7 +1472,7 @@ namespace DataTools
             bool fldFound = false;
 
             // Check there is an input field name.
-            if (String.IsNullOrEmpty(fieldName))
+            if (string.IsNullOrEmpty(fieldName))
                 return false;
 
             foreach (ArcGIS.Core.Data.Field fld in fields)
@@ -1423,11 +1497,11 @@ namespace DataTools
         public async Task<bool> FieldExistsAsync(string layerPath, string fieldName, Map targetMap = null)
         {
             // Check there is an input feature layer path.
-            if (String.IsNullOrEmpty(layerPath))
+            if (string.IsNullOrEmpty(layerPath))
                 return false;
 
             // Check there is an input field name.
-            if (String.IsNullOrEmpty(fieldName))
+            if (string.IsNullOrEmpty(fieldName))
                 return false;
 
             try
@@ -1502,11 +1576,11 @@ namespace DataTools
         public async Task<bool> FieldIsNumericAsync(string layerName, string fieldName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             // Check there is an input field name.
-            if (String.IsNullOrEmpty(fieldName))
+            if (string.IsNullOrEmpty(fieldName))
                 return false;
 
             try
@@ -1572,7 +1646,7 @@ namespace DataTools
         public async Task<int> GetFCRowLengthAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return 0;
 
             try
@@ -1635,7 +1709,7 @@ namespace DataTools
         public async Task<bool> KeepSelectedFieldsAsync(string layerName, List<string> fieldList, Map targetMap = null)
         {
             // Check the input parameters.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             if (fieldList == null || fieldList.Count == 0)
@@ -1749,7 +1823,7 @@ namespace DataTools
         public string GetLayerPath(string layerName, Map targetMap = null)
         {
             // Check there is an input layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return null;
 
             // Use provided map or default to _activeMap.
@@ -1819,7 +1893,7 @@ namespace DataTools
         public string GetFeatureClassType(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return null;
 
             // Use provided map or default to _activeMap.
@@ -1854,7 +1928,7 @@ namespace DataTools
         internal GroupLayer FindGroupLayer(string layerName, Map targetMap = null)
         {
             // Check there is an input group layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return null;
 
             // Use provided map or default to _activeMap.
@@ -1899,7 +1973,7 @@ namespace DataTools
                 return false;
 
             // Check there is an input group layer name.
-            if (String.IsNullOrEmpty(groupLayerName))
+            if (string.IsNullOrEmpty(groupLayerName))
                 return false;
 
             // Use provided map or default to _activeMap.
@@ -1953,7 +2027,7 @@ namespace DataTools
         public async Task<bool> RemoveGroupLayerAsync(string groupLayerName, Map targetMap = null)
         {
             // Check there is an input group layer name.
-            if (String.IsNullOrEmpty(groupLayerName))
+            if (string.IsNullOrEmpty(groupLayerName))
                 return false;
 
             // Use provided map or default to _activeMap.
@@ -1997,7 +2071,7 @@ namespace DataTools
         internal StandaloneTable FindTable(string tableName, Map targetMap = null)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(tableName))
+            if (string.IsNullOrEmpty(tableName))
                 return null;
 
             // Use provided map or default to _activeMap.
@@ -2035,7 +2109,7 @@ namespace DataTools
         public async Task<bool> RemoveTableAsync(string tableName, Map targetMap = null)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(tableName))
+            if (string.IsNullOrEmpty(tableName))
                 return false;
 
             // Use provided map or default to _activeMap.
@@ -2105,7 +2179,7 @@ namespace DataTools
         public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile, Map targetMap = null)
         {
             // Check there is an input layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             // Check the lyrx file exists.
@@ -2193,11 +2267,11 @@ namespace DataTools
                             int labelRed = 0, int labelGreen = 0, int labelBlue = 0, bool allowOverlap = true, bool displayLabels = true, Map targetMap = null)
         {
             // Check there is an input layer.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             // Check there is a label columns to set.
-            if (String.IsNullOrEmpty(labelColumn))
+            if (string.IsNullOrEmpty(labelColumn))
                 return false;
 
             // Get the input feature layer.
@@ -2260,7 +2334,7 @@ namespace DataTools
         public async Task<bool> SwitchLabelsAsync(string layerName, bool displayLabels, Map targetMap = null)
         {
             // Check there is an input layer.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             // Get the input feature layer.
@@ -2305,15 +2379,15 @@ namespace DataTools
              string separator, bool append = false, bool includeHeader = true, Map targetMap = null)
         {
             // Check there is an input layer name.
-            if (String.IsNullOrEmpty(inputLayer))
+            if (string.IsNullOrEmpty(inputLayer))
                 return -1;
 
             // Check there is an output table name.
-            if (String.IsNullOrEmpty(outFile))
+            if (string.IsNullOrEmpty(outFile))
                 return -1;
 
             // Check there are columns to output.
-            if (String.IsNullOrEmpty(columns))
+            if (string.IsNullOrEmpty(columns))
                 return -1;
 
             string outColumns;
@@ -2513,15 +2587,15 @@ namespace DataTools
             string separator, bool append = false, bool includeHeader = true, Map targetMap = null)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(inputLayer))
+            if (string.IsNullOrEmpty(inputLayer))
                 return -1;
 
             // Check there is an output table name.
-            if (String.IsNullOrEmpty(outFile))
+            if (string.IsNullOrEmpty(outFile))
                 return -1;
 
             // Check there are columns to output.
-            if (String.IsNullOrEmpty(columns))
+            if (string.IsNullOrEmpty(columns))
                 return -1;
 
             bool missingColumns = false;
@@ -2716,11 +2790,11 @@ namespace DataTools
         public async Task<int> CopyToCSVAsync(string inTable, string outFile, bool isSpatial, bool append)
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return -1;
 
             // Check if there is an output file.
-            if (String.IsNullOrEmpty(outFile))
+            if (string.IsNullOrEmpty(outFile))
                 return -1;
 
             string separator = ",";
@@ -2738,11 +2812,11 @@ namespace DataTools
         public async Task<int> CopyToTabAsync(string inTable, string outFile, bool isSpatial, bool append)
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return -1;
 
             // Check if there is an output file.
-            if (String.IsNullOrEmpty(outFile))
+            if (string.IsNullOrEmpty(outFile))
                 return -1;
 
             string separator = "\t";
@@ -2763,11 +2837,11 @@ namespace DataTools
             bool includeHeader = true, Map targetMap = null)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(inputLayer))
+            if (string.IsNullOrEmpty(inputLayer))
                 return -1;
 
             // Check there is an output file.
-            if (String.IsNullOrEmpty(outFile))
+            if (string.IsNullOrEmpty(outFile))
                 return -1;
 
             string fieldName = null;
@@ -2947,11 +3021,11 @@ namespace DataTools
         public static async Task<bool> FeatureClassExistsAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             if (fileName.Substring(fileName.Length - 4, 1) == ".")
@@ -2989,7 +3063,7 @@ namespace DataTools
         public static async Task<bool> FeatureClassExistsAsync(string fullPath)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(fullPath))
+            if (string.IsNullOrEmpty(fullPath))
                 return false;
 
             return await FeatureClassExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
@@ -3004,11 +3078,11 @@ namespace DataTools
         public static async Task<bool> DeleteFeatureClassAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             string featureClass = filePath + @"\" + fileName;
@@ -3024,7 +3098,7 @@ namespace DataTools
         public static async Task<bool> DeleteFeatureClassAsync(string fileName)
         {
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3080,11 +3154,11 @@ namespace DataTools
             bool fieldIsNullable = true, bool fieldIsRequred = false, string fieldDomain = null)
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check if there is an input field name.
-            if (String.IsNullOrEmpty(fieldName))
+            if (string.IsNullOrEmpty(fieldName))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3134,15 +3208,15 @@ namespace DataTools
         public static async Task<bool> RenameFieldAsync(string inTable, string fieldName, string newFieldName)
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check if there is an input old field name.
-            if (String.IsNullOrEmpty(fieldName))
+            if (string.IsNullOrEmpty(fieldName))
                 return false;
 
             // Check if there is an input new field name.
-            if (String.IsNullOrEmpty(newFieldName))
+            if (string.IsNullOrEmpty(newFieldName))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3189,15 +3263,15 @@ namespace DataTools
         public static async Task<bool> CalculateFieldAsync(string inTable, string fieldName, string fieldCalc)
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check if there is an input field name.
-            if (String.IsNullOrEmpty(fieldName))
+            if (string.IsNullOrEmpty(fieldName))
                 return false;
 
             // Check if there is an input field calculcation string.
-            if (String.IsNullOrEmpty(fieldCalc))
+            if (string.IsNullOrEmpty(fieldCalc))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3245,11 +3319,11 @@ namespace DataTools
         public static async Task<bool> CalculateGeometryAsync(string inTable, string geometryProperty, string lineUnit = "", string areaUnit = "")
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check if there is an input geometry property.
-            if (String.IsNullOrEmpty(geometryProperty))
+            if (string.IsNullOrEmpty(geometryProperty))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3434,15 +3508,15 @@ namespace DataTools
             string lineSide = "FULL", string lineEndType = "ROUND", string dissolveOption = "NONE", string dissolveFields = "", string method = "PLANAR", bool addToMap = false)
         {
             // Check if there is an input feature class.
-            if (String.IsNullOrEmpty(inFeatureClass))
+            if (string.IsNullOrEmpty(inFeatureClass))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(outFeatureClass))
+            if (string.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Check if there is an input buffer distance.
-            if (String.IsNullOrEmpty(bufferDistance))
+            if (string.IsNullOrEmpty(bufferDistance))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3496,15 +3570,15 @@ namespace DataTools
         public static async Task<bool> ClipFeaturesAsync(string inFeatureClass, string clipFeatureClass, string outFeatureClass, bool addToMap = false)
         {
             // Check if there is an input feature class.
-            if (String.IsNullOrEmpty(inFeatureClass))
+            if (string.IsNullOrEmpty(inFeatureClass))
                 return false;
 
             // Check if there is an input clip feature class.
-            if (String.IsNullOrEmpty(clipFeatureClass))
+            if (string.IsNullOrEmpty(clipFeatureClass))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(outFeatureClass))
+            if (string.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3555,11 +3629,11 @@ namespace DataTools
         public static async Task<bool> IntersectFeaturesAsync(string inFeatures, string outFeatureClass, string joinAttributes = "ALL", string outputType = "INPUT", bool addToMap = false)
         {
             // Check if there is an input feature class.
-            if (String.IsNullOrEmpty(inFeatures))
+            if (string.IsNullOrEmpty(inFeatures))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(outFeatureClass))
+            if (string.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3618,15 +3692,15 @@ namespace DataTools
             string matchFields = "", bool addToMap = false)
         {
             // Check if there is an input target feature class.
-            if (String.IsNullOrEmpty(targetFeatures))
+            if (string.IsNullOrEmpty(targetFeatures))
                 return false;
 
             // Check if there is an input join feature class.
-            if (String.IsNullOrEmpty(joinFeatures))
+            if (string.IsNullOrEmpty(joinFeatures))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(outFeatureClass))
+            if (string.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3684,19 +3758,19 @@ namespace DataTools
             bool addToMap = false)
         {
             // Check if there is an input target feature class.
-            if (String.IsNullOrEmpty(inFeatures))
+            if (string.IsNullOrEmpty(inFeatures))
                 return false;
 
             // Check if there is an input field name.
-            if (String.IsNullOrEmpty(inField))
+            if (string.IsNullOrEmpty(inField))
                 return false;
 
             // Check if there is a join feature class.
-            if (String.IsNullOrEmpty(joinFeatures))
+            if (string.IsNullOrEmpty(joinFeatures))
                 return false;
 
             // Check if there is a join field name.
-            if (String.IsNullOrEmpty(joinField))
+            if (string.IsNullOrEmpty(joinField))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3750,15 +3824,15 @@ namespace DataTools
             string caseFields = "", string concatenationSeparator = "", bool addToMap = false)
         {
             // Check if there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check if there is an output table name.
-            if (String.IsNullOrEmpty(outTable))
+            if (string.IsNullOrEmpty(outTable))
                 return false;
 
             // Check if there is an input statistics fields string.
-            if (String.IsNullOrEmpty(statisticsFields))
+            if (string.IsNullOrEmpty(statisticsFields))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3808,11 +3882,11 @@ namespace DataTools
         public static async Task<bool> FeatureToPointAsync(string inFeatureClass, string outFeatureClass, string pointLocation = "CENTROID", bool addToMap = false)
         {
             // Check if there is an input feature class.
-            if (String.IsNullOrEmpty(inFeatureClass))
+            if (string.IsNullOrEmpty(inFeatureClass))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(outFeatureClass))
+            if (string.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3867,11 +3941,11 @@ namespace DataTools
             string location = "NO_LOCATION", string angle = "NO_ANGLE", string method = "PLANAR", string fieldNames = "", string distanceUnit = "")
         {
             // Check if there is an input feature class.
-            if (String.IsNullOrEmpty(inFeatureClass))
+            if (string.IsNullOrEmpty(inFeatureClass))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(nearFeatureClass))
+            if (string.IsNullOrEmpty(nearFeatureClass))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -3951,11 +4025,11 @@ namespace DataTools
         public static async Task<bool> FeatureClassExistsGDBAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             bool exists = false;
@@ -3997,11 +4071,11 @@ namespace DataTools
         public static async Task<bool> TableExistsGDBAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             bool exists = false;
@@ -4043,11 +4117,11 @@ namespace DataTools
         public static async Task<bool> DeleteGeodatabaseFCAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             bool success = false;
@@ -4102,7 +4176,7 @@ namespace DataTools
                 return false;
 
             // Check there is an input feature class name.
-            if (String.IsNullOrEmpty(featureClassName))
+            if (string.IsNullOrEmpty(featureClassName))
                 return false;
 
             bool success = false;
@@ -4145,11 +4219,11 @@ namespace DataTools
         public static async Task<bool> DeleteGeodatabaseTableAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             bool success = false;
@@ -4244,11 +4318,11 @@ namespace DataTools
         public static async Task<bool> TableExistsAsync(string filePath, string fileName)
         {
             // Check there is an input file path.
-            if (String.IsNullOrEmpty(filePath))
+            if (string.IsNullOrEmpty(filePath))
                 return false;
 
             // Check there is an input file name.
-            if (String.IsNullOrEmpty(fileName))
+            if (string.IsNullOrEmpty(fileName))
                 return false;
 
             if (fileName.Substring(fileName.Length - 4, 1) == ".")
@@ -4288,7 +4362,7 @@ namespace DataTools
         public static async Task<bool> TableExistsAsync(string fullPath)
         {
             // Check there is an input full path.
-            if (String.IsNullOrEmpty(fullPath))
+            if (string.IsNullOrEmpty(fullPath))
                 return false;
 
             return await TableExistsAsync(FileFunctions.GetDirectoryName(fullPath), FileFunctions.GetFileName(fullPath));
@@ -4350,11 +4424,11 @@ namespace DataTools
         public static async Task<bool> CopyFeaturesAsync(string inFeatureClass, string outFeatureClass, bool addToMap = false)
         {
             // Check if there is an input feature class.
-            if (String.IsNullOrEmpty(inFeatureClass))
+            if (string.IsNullOrEmpty(inFeatureClass))
                 return false;
 
             // Check if there is an output feature class.
-            if (String.IsNullOrEmpty(outFeatureClass))
+            if (string.IsNullOrEmpty(outFeatureClass))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -4404,15 +4478,15 @@ namespace DataTools
         public static async Task<bool> CopyFeaturesAsync(string inputWorkspace, string inputDatasetName, string outputFeatureClass, bool addToMap = false)
         {
             // Check there is an input workspace.
-            if (String.IsNullOrEmpty(inputWorkspace))
+            if (string.IsNullOrEmpty(inputWorkspace))
                 return false;
 
             // Check there is an input dataset name.
-            if (String.IsNullOrEmpty(inputDatasetName))
+            if (string.IsNullOrEmpty(inputDatasetName))
                 return false;
 
             // Check there is an output feature class.
-            if (String.IsNullOrEmpty(outputFeatureClass))
+            if (string.IsNullOrEmpty(outputFeatureClass))
                 return false;
 
             string inFeatureClass = inputWorkspace + @"\" + inputDatasetName;
@@ -4432,19 +4506,19 @@ namespace DataTools
         public static async Task<bool> CopyFeaturesAsync(string inputWorkspace, string inputDatasetName, string outputWorkspace, string outputDatasetName, bool addToMap = false)
         {
             // Check there is an input workspace.
-            if (String.IsNullOrEmpty(inputWorkspace))
+            if (string.IsNullOrEmpty(inputWorkspace))
                 return false;
 
             // Check there is an input dataset name.
-            if (String.IsNullOrEmpty(inputDatasetName))
+            if (string.IsNullOrEmpty(inputDatasetName))
                 return false;
 
             // Check there is an output workspace.
-            if (String.IsNullOrEmpty(outputWorkspace))
+            if (string.IsNullOrEmpty(outputWorkspace))
                 return false;
 
             // Check there is an output dataset name.
-            if (String.IsNullOrEmpty(outputDatasetName))
+            if (string.IsNullOrEmpty(outputDatasetName))
                 return false;
 
             string inFeatureClass = inputWorkspace + @"\" + inputDatasetName;
@@ -4467,11 +4541,11 @@ namespace DataTools
         public static async Task<bool> ExportFeaturesAsync(string inTable, string outTable, bool addToMap = false)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check there is an output table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -4524,11 +4598,11 @@ namespace DataTools
         public static async Task<bool> CopyTableAsync(string inTable, string outTable, bool addToMap = false)
         {
             // Check there is an input table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Check there is an output table name.
-            if (String.IsNullOrEmpty(inTable))
+            if (string.IsNullOrEmpty(inTable))
                 return false;
 
             // Make a value array of strings to be passed to the tool.
@@ -4577,15 +4651,15 @@ namespace DataTools
         public static async Task<bool> CopyTableAsync(string inputWorkspace, string inputDatasetName, string outputTable)
         {
             // Check there is an input workspace.
-            if (String.IsNullOrEmpty(inputWorkspace))
+            if (string.IsNullOrEmpty(inputWorkspace))
                 return false;
 
             // Check there is an input dataset name.
-            if (String.IsNullOrEmpty(inputDatasetName))
+            if (string.IsNullOrEmpty(inputDatasetName))
                 return false;
 
             // Check there is an output feature class.
-            if (String.IsNullOrEmpty(outputTable))
+            if (string.IsNullOrEmpty(outputTable))
                 return false;
 
             string inputTable = inputWorkspace + @"\" + inputDatasetName;
@@ -4604,19 +4678,19 @@ namespace DataTools
         public static async Task<bool> CopyTableAsync(string inputWorkspace, string inputDatasetName, string outputWorkspace, string outputDatasetName)
         {
             // Check there is an input workspace.
-            if (String.IsNullOrEmpty(inputWorkspace))
+            if (string.IsNullOrEmpty(inputWorkspace))
                 return false;
 
             // Check there is an input dataset name.
-            if (String.IsNullOrEmpty(inputDatasetName))
+            if (string.IsNullOrEmpty(inputDatasetName))
                 return false;
 
             // Check there is an output workspace.
-            if (String.IsNullOrEmpty(outputWorkspace))
+            if (string.IsNullOrEmpty(outputWorkspace))
                 return false;
 
             // Check there is an output dataset name.
-            if (String.IsNullOrEmpty(outputDatasetName))
+            if (string.IsNullOrEmpty(outputDatasetName))
                 return false;
 
             string inputTable = inputWorkspace + @"\" + inputDatasetName;
