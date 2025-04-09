@@ -63,7 +63,14 @@ namespace DataTools
         /// </summary>
         public MapFunctions()
         {
-            _activeMap = null;
+            // Get the active map view (if there is one).
+            MapView _activeMapView = GetActiveMapView();
+
+            // Set the map currently displayed in the active map view.
+            if (_activeMapView != null)
+                _activeMap = _activeMapView.Map;
+            else
+                _activeMap = null;
         }
 
         public static async Task<MapFunctions> CreateAsync(string searchMapName)
@@ -196,14 +203,14 @@ namespace DataTools
 
             await QueuedTask.Run(() =>
             {
-                // Get the map from the project
+                // Get the map from the project.
                 Map map = Project.Current.GetItems<MapProjectItem>()
                     .FirstOrDefault(m => m.Name == mapName)?.GetMap();
 
                 if (map == null)
                     return;
 
-                // Loop through all panes and find the first one showing the map
+                // Loop through all panes and find the first one showing the map.
                 mapView = FrameworkApplication.Panes
                     .OfType<IMapPane>()
                     .FirstOrDefault(p => p.MapView?.Map == map)
@@ -252,8 +259,8 @@ namespace DataTools
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Get the map view from the map.
-            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            // Get the map view from the map name.
+            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
                 return;
 
@@ -414,22 +421,20 @@ namespace DataTools
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Get the map view from the map.
-            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            // Get the map view from the map name.
+            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
                 return false;
 
-            // Check if the layer is already loaded.
-            BasicFeatureLayer findLayer = FindLayer(layerName, mapToUse);
-
-            // If the layer is not loaded.
-            if (findLayer == null)
+            // Locate the layer in the map.
+            BasicFeatureLayer targetLayer = FindLayer(layerName, mapToUse);
+            if (targetLayer == null)
                 return false;
 
             try
             {
                 // Zoom to the extent of the object.
-                await mapViewToUse.ZoomToAsync(findLayer, objectID, null, true, factor, mapScaleOrDistance);
+                await mapViewToUse.ZoomToAsync(targetLayer, objectID, null, true, factor, mapScaleOrDistance);
             }
             catch
             {
@@ -455,22 +460,20 @@ namespace DataTools
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Get the map view from the map.
-            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            // Get the map view from the map name.
+            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
                 return false;
 
-            // Check if the layer is already loaded.
-            BasicFeatureLayer findLayer = FindLayer(layerName, mapToUse);
-
-            // If the layer is not loaded.
-            if (findLayer == null)
+            // Locate the layer in the map.
+            BasicFeatureLayer targetLayer = FindLayer(layerName, mapToUse);
+            if (targetLayer == null)
                 return false;
 
             try
             {
                 // Zoom to the extent of all of the objects.
-                await mapViewToUse.ZoomToAsync(findLayer, objectIDs, null, true);
+                await mapViewToUse.ZoomToAsync(targetLayer, objectIDs, null, true);
             }
             catch
             {
@@ -484,37 +487,36 @@ namespace DataTools
         /// <summary>
         /// Zoom to a layer for a given ratio or scale.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <param name="selectedOnly"></param>
-        /// <param name="ratio"></param>
-        /// <param name="scale"></param>
+        /// <param name="layerName">The name of the layer to zoom to.</param>
+        /// <param name="selectedOnly">If true, zooms to selected features only.</param>
+        /// <param name="ratio">Optional zoom ratio multiplier.</param>
+        /// <param name="scale">Optional fixed scale to set after zooming.</param>
+        /// <param name="targetMap">Optional map to use; defaults to _activeMap.</param>
         /// <returns>bool</returns>
         public async Task<bool> ZoomToLayerAsync(string layerName, bool selectedOnly, double ratio = 1, double scale = 10000,
             Map targetMap = null)
         {
             // Check there is an input feature layer name.
-            if (String.IsNullOrEmpty(layerName))
+            if (string.IsNullOrEmpty(layerName))
                 return false;
 
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Get the map view from the map.
-            MapView mapViewToUse = await GetMapViewFromMapAsync(mapToUse);
+            // Get the map view from the map name.
+            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
                 return false;
 
-            // Check if the layer is already loaded.
-            Layer findLayer = FindLayer(layerName, mapToUse);
-
-            // If the layer is not loaded.
-            if (findLayer == null)
+            // Locate the layer in the map.
+            Layer targetLayer = FindLayer(layerName, mapToUse);
+            if (targetLayer == null)
                 return false;
 
             try
             {
                 // Zoom to the layer extent.
-                await mapViewToUse.ZoomToAsync(findLayer, selectedOnly);
+                await mapViewToUse.ZoomToAsync(targetLayer, selectedOnly);
 
                 // Get the camera for the map view.
                 var camera = mapViewToUse.Camera;
@@ -557,19 +559,49 @@ namespace DataTools
         {
             foreach (string layoutName in layoutNames)
             {
-                // Set the site name text element in the layout.
-                if (!await SetTextElementsAsync(layoutName, siteColumn, siteName))
-                    return false;
+                // Retrieve the layout item by name from the current project.
+                var layoutItem = Project.Current.GetItems<LayoutProjectItem>()
+                    .FirstOrDefault(item => item.Name == layoutName);
 
-                // Set the search reference text element in the layout.
-                if (!await SetTextElementsAsync(layoutName, searchColumn, searchRef))
-                    return false;
+                // Skip this layout if it does not exist.
+                if (layoutItem == null)
+                    continue;
 
-                // Set the search radius text element in the layout.
-                if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
-                    return false;
+                // Get the layout object from the layout item on the QueuedTask thread.
+                Layout layout = null;
+                await QueuedTask.Run(() =>
+                {
+                    layout = layoutItem.GetLayout();
+                });
+
+                // Check if the layout is currently open in a layout pane.
+                bool isOpen = false;
+                await QueuedTask.Run(() =>
+                {
+                    isOpen = ProApp.Panes
+                        .OfType<Pane>()
+                        .Where(p => p is ILayoutPane)
+                        .Cast<ILayoutPane>()
+                        .Any(lp => lp.LayoutView?.Layout == layout);
+                });
+
+                if (isOpen)
+                {
+                    // Update the site name text element in the layout.
+                    if (!await SetTextElementsAsync(layoutName, siteColumn, siteName))
+                        return false;
+
+                    // Update the search reference text element in the layout.
+                    if (!await SetTextElementsAsync(layoutName, searchColumn, searchRef))
+                        return false;
+
+                    // Update the search radius text element in the layout.
+                    if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
+                        return false;
+                }
             }
 
+            // Return true if all layout updates succeeded.
             return true;
         }
 
@@ -590,26 +622,34 @@ namespace DataTools
             if ((textName == null) || (textString == null))
                 return false;
 
-            await QueuedTask.Run(() =>
+            try
             {
-                Layout layout = Project.Current.GetItems<LayoutProjectItem>()
-                                               .FirstOrDefault(item => item.Name == layoutName)
-                                               ?.GetLayout();
-
-                // If the text element is found
-                if (layout.FindElement(textName) is TextElement textElement)
+                await QueuedTask.Run(() =>
                 {
-                    // Get the CIM element
-                    if (textElement.GetGraphic() is CIMTextGraphic cimTextGraphic)
-                    {
-                        // Update the text string
-                        cimTextGraphic.Text = textString;
+                    Layout layout = Project.Current.GetItems<LayoutProjectItem>()
+                                                   .FirstOrDefault(item => item.Name == layoutName)
+                                                   ?.GetLayout();
 
-                        // Apply the change
-                        textElement.SetGraphic(cimTextGraphic);
+                    // If the text element is found
+                    if (layout.FindElement(textName) is TextElement textElement)
+                    {
+                        // Get the CIM element
+                        if (textElement.GetGraphic() is CIMTextGraphic cimTextGraphic)
+                        {
+                            // Update the text string
+                            cimTextGraphic.Text = textString;
+
+                            // Apply the change
+                            textElement.SetGraphic(cimTextGraphic);
+                        }
                     }
-                }
-            });
+                });
+            }
+            catch
+            {
+                // Handle Exception.
+                return false;
+            }
 
             return true;
         }

@@ -439,8 +439,8 @@ namespace DataSearches.UI
         {
             _paneH2VM = new PaneHeader2ViewModel(_dockPane, _paneH1VM.ToolConfig);
 
-            // Load the form (don't wait for the response).
-            _paneH2VM.ResetFormAsync();
+            // Load the form.
+            await _paneH2VM.ResetFormAsync();
 
             return true;
         }
@@ -664,7 +664,7 @@ namespace DataSearches.UI
         /// </summary>
         /// <param name="param"></param>
         /// <remarks></remarks>
-        private async void RunCommandClick(object param)
+        private void RunCommandClick(object param)
         {
             // Run the search (but don't wait).
             _paneH2VM.ProcessSearchAsync();

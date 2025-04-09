@@ -495,16 +495,6 @@ namespace DataSearches
                 throw new("Could not locate 'RadiusColumn' in the XML profile.");
             }
 
-            // The name of the map window containing the search area layer.
-            try
-            {
-                _searchMapName = _xmlDataSearches["SearchMapName"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate 'SearchMapName' in the XML profile.");
-            }
-
             // The window names for all maps, loaded from a semi-colon separated string.
             try
             {
@@ -1449,13 +1439,6 @@ namespace DataSearches
         public string RadiusColumn
         {
             get { return _radiusColumn; }
-        }
-
-        private string _searchMapName;
-
-        public string SearchMapName
-        {
-            get { return _searchMapName; }
         }
 
         private List<string> _mapNames = [];

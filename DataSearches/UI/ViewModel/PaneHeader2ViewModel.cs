@@ -137,6 +137,7 @@ namespace DataSearches.UI
 
         private string _bufferPrefix;
         private string _bufferLayerName;
+        private FeatureLayer _bufferLayer;
         private string _bufferLayerPath;
         private string _bufferOutputFile;
         private string _bufferLayerFile;
@@ -144,7 +145,6 @@ namespace DataSearches.UI
         private bool _keepBuffer;
 
         private string _searchLayerName;
-        private string _searchMapName;
         private string _searchOutputFile;
         private string _groupLayerName;
 
@@ -260,7 +260,6 @@ namespace DataSearches.UI
             _bufferPrefix = _toolConfig.BufferPrefix;
             _bufferLayerFile = _toolConfig.BufferLayerFile;
             _searchLayerName = _toolConfig.SearchOutputName;
-            _searchMapName = _toolConfig.SearchMapName;
             _groupLayerName = _toolConfig.GroupLayerName;
 
             _keepSearchFeature = _toolConfig.KeepSearchFeature;
@@ -1477,12 +1476,12 @@ namespace DataSearches.UI
             // Get all of the map layer details.
             _mapLayers = _toolConfig.MapLayers;
 
-            await Task.Run(async () =>
+            await Task.Run(() =>
             {
                 if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active is null || MapView.Active.Map.Name != _mapFunctions.MapName)
                 {
-                    // Create a new map functions object (asynchronously).
-                    _mapFunctions = await MapFunctions.CreateAsync(_searchMapName);
+                    // Create a new map functions object.
+                    _mapFunctions = new();
                 }
 
                 // Check if there is an active map.
@@ -1562,8 +1561,8 @@ namespace DataSearches.UI
         {
             if (_mapFunctions == null || _mapFunctions.MapName == null || MapView.Active.Map.Name != _mapFunctions.MapName)
             {
-                // Create a new map functions object (asynchronously).
-                _mapFunctions = await MapFunctions.CreateAsync(_searchMapName);
+                // Create a new map functions object.
+                _mapFunctions = new();
             }
 
             // Reset search errors flag.
@@ -1578,9 +1577,6 @@ namespace DataSearches.UI
 
             // Selected layers.
             _selectedLayers = MapLayersList.Where(p => p.IsSelected).ToList();
-
-            // Map window containing search area.
-            string searchMapName = _toolConfig.SearchMapName;
 
             // List of output map and window names.
             List<string> mapWindowNames = _toolConfig.MapNames;
@@ -1769,22 +1765,6 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // Get the name of the window containing the search area.
-            Map searchMap = await MapFunctions.GetMapFromNameAsync(searchMapName);
-            if (searchMap == null)
-            {
-                _searchErrors = true;
-                return false;
-            }
-
-            MapView searchMapView = await MapFunctions.GetMapViewFromNameAsync(searchMapName);
-            if (searchMapView == null)
-            {
-                _searchErrors = true;
-                return false;
-            }
-
-            //TODO: Pause only the active map window?
             // Pause the active map redrawing.
             if (PauseMap)
                 await _mapFunctions.PauseDrawingAsync(true, null);
@@ -1801,7 +1781,7 @@ namespace DataSearches.UI
             {
                 FileFunctions.WriteLine(_logFile, "Updating attributes in search layer ...");
 
-                if (!await _mapFunctions.UpdateFeaturesAsync(_inputLayerName, _siteColumn, siteName, _orgColumn, organisation, _radiusColumn, radius, searchMap))
+                if (!await _mapFunctions.UpdateFeaturesAsync(_inputLayerName, _siteColumn, siteName, _orgColumn, organisation, _radiusColumn, radius, null))
                 {
                     FileFunctions.WriteLine(_logFile, "Error updating attributes in search layer");
                     _searchErrors = true;
@@ -1814,7 +1794,7 @@ namespace DataSearches.UI
 
             // Remove the search feature layer from the search map
             // in case there is one already there from a different folder.
-            await _mapFunctions.RemoveLayerAsync(_searchLayerName, searchMap);
+            await _mapFunctions.RemoveLayerAsync(_searchLayerName, null);
 
             // Remove the search feature layer from all other map windows
             // in case there is one already there from a different folder.
@@ -1845,7 +1825,7 @@ namespace DataSearches.UI
 
             // Remove the buffer layer from the search map
             // in case there is one already there from a different folder.
-            await _mapFunctions.RemoveLayerAsync(_bufferLayerName, searchMap);
+            await _mapFunctions.RemoveLayerAsync(_bufferLayerName, null);
 
             // Remove the search feature layer from all other map windows
             // in case there is one already there from a different folder.
@@ -1859,29 +1839,15 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // Zoom to the buffer layer extent or a fixed scale if no buffer.
-            if (!_pauseMap)
+            // Find the buffer layer by name in the active map.
+            _bufferLayer = _mapFunctions.FindLayer(_bufferLayerName, null);
+            if (_bufferLayer == null)
             {
-                // If there is no buffer then zoom to 1:10000.
-                if (bufferSize == "0")
-                {
-                    // Zoom in the search layer map.
-                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, searchMap);
+                //MessageBox.Show("Cannot find layer " + _bufferLayerName);
+                FileFunctions.WriteLine(_logFile, "Cannot find buffer layer '" + _bufferLayerName + "' in active map");
+                _searchErrors = true;
 
-                    // Zoom in all other map windows.
-                    foreach (Map map in mapWindows)
-                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, map);
-                }
-                // If there is a buffer then zoom to the buffer extent plus 5%.
-                else
-                {
-                    // Zoom in the search layer map.
-                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, searchMap);
-
-                    // Zoom in all other map windows.
-                    foreach (Map map in mapWindows)
-                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1.05, 10000, map);
-                }
+                return false;
             }
 
             // Get the full layer path (in case it's nested in one or more groups).
@@ -1970,7 +1936,7 @@ namespace DataSearches.UI
                 if (bufferSize == "0")
                 {
                     // Zoom in the search layer map.
-                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, searchMap);
+                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, null);
 
                     // Zoom in all other map windows.
                     foreach (Map map in mapWindows)
@@ -1980,11 +1946,11 @@ namespace DataSearches.UI
                 else
                 {
                     // Zoom in the search layer map.
-                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, searchMap);
+                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, null);
 
                     // Zoom in all other map windows.
                     foreach (Map map in mapWindows)
-                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1.05, 10000, map);
+                        await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, map);
                 }
             }
 
@@ -2675,20 +2641,9 @@ namespace DataSearches.UI
                 return false;
             }
 
-            // Find the buffer layer by name in the active map.
-            FeatureLayer bufferLayer = _mapFunctions.FindLayer(_bufferLayerName, null);
-            if (bufferLayer == null)
-            {
-                //MessageBox.Show("Cannot find layer " + _bufferLayerName);
-                FileFunctions.WriteLine(_logFile, "Cannot find buffer layer '" + _bufferLayerName + "' in active map");
-                _searchErrors = true;
-
-                return false;
-            }
-
             // Select by location.
             FileFunctions.WriteLine(_logFile, "Selecting features using selected feature(s) from layer '" + _bufferLayerName + "' ...");
-            if (!await MapFunctions.SelectLayerByLocationAsync(mapLayer, bufferLayer, "INTERSECT", "", "NEW_SELECTION"))
+            if (!await MapFunctions.SelectLayerByLocationAsync(mapLayer, _bufferLayer, "INTERSECT", "", "NEW_SELECTION"))
             {
                 //MessageBox.Show("Error selecting layer " + mapLayerName + " by location.");
                 FileFunctions.WriteLine(_logFile, "Error selecting layer '" + mapLayerName + "' by location");
@@ -2747,7 +2702,7 @@ namespace DataSearches.UI
             }
 
             // Create relevant output names.
-            string mapOutputFile = _gisPath + @"\" + mapOutputName; // Output shapefile / feature class name. Note no extension to allow write to GDB.
+            string mapOutputFile = _gisPath + @"\" + mapOutputName; // Output shapefile/feature class name. Note no extension to allow write to GDB.
             string mapTableOutputFile = _outputPath + @"\" + mapTableOutputName + "." + mapFormat.ToLower(); // Output table name.
 
             // Include headers for CSV files.
@@ -3435,7 +3390,7 @@ namespace DataSearches.UI
         private async Task<bool> KeepLayerAsync(string layerName, string outputFile, AddSelectedLayersOptions addSelectedLayersOption,
             string layerFileName, bool displayLabels, string labelClause, string labelColumn, Map targetMap)
         {
-            //TODO: Add ".shp" to outputFile?
+            outputFile = outputFile + ".shp"; // Add the extension to the output file name.
 
             bool addToMap = addSelectedLayersOption != AddSelectedLayersOptions.No;
 
