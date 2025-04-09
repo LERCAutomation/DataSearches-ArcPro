@@ -1223,15 +1223,6 @@ namespace DataSearches.UI
             Trace.Listeners.Add(listener);
         }
 
-        /// <summary>
-        /// Writes any message to the Trace log with a timestamp.
-        /// </summary>
-        /// <param name="message"></param>
-        private void TraceLog(string message)
-        {
-            Trace.WriteLine($"{DateTime.Now:G} : {message}");
-        }
-
         #endregion Debug Logging
 
         #region Methods
@@ -1619,12 +1610,15 @@ namespace DataSearches.UI
             List<string> mapWindowNames = _toolConfig.MapNames;
             List<string> outputWindowNames = _toolConfig.LayoutNames;
 
+            // List of zoom scales for the layout windows.
+            List<int> zoomScales = _toolConfig.ZoomScales;
+
             // Build a list of map windows.
             List<Map> mapWindows = [];
             foreach (string mapName in mapWindowNames)
             {
                 // Get the name of the window containing the search area.
-                Map map = await MapFunctions.GetMapFromNameAsync(mapName);
+                Map map = await _mapFunctions.GetMapFromNameAsync(mapName);
 
                 if (map != null)
                     mapWindows.Add(map);
@@ -1960,10 +1954,10 @@ namespace DataSearches.UI
                 return false;
 
             // Set the search reference, site name and radius in all of the layouts.
-            await MapFunctions.UpdateLayoutsTextAsync(outputWindowNames, _siteColumn, siteName, _searchColumn, searchRef, _radiusColumn, radius);
+            await _mapFunctions.UpdateLayoutsTextAsync(outputWindowNames, _siteColumn, siteName, _searchColumn, searchRef, _radiusColumn, radius);
 
             // Add the search area and buffer to the map if required.
-            await AddSearchLayersToMapAsync(addSelectedLayersOption);
+            await AddSearchLayersToMapsAsync(addSelectedLayersOption);
 
             // If there were any more errors then exit.
             if (_searchErrors)
@@ -1972,25 +1966,43 @@ namespace DataSearches.UI
             // Zoom to the buffer layer extent.
             if (_keepBuffer)
             {
-                // If there is no buffer then zoom to 1:10000.
-                if (bufferSize == "0")
-                {
-                    // Zoom in the search layer map.
-                    await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, null);
+                // Set the target layer name.
+                string targetLayer = bufferSize == "0" ? _searchLayerName : _bufferLayerName;
 
-                    // Zoom in all other map windows.
-                    foreach (Map map in mapWindows)
-                        await _mapFunctions.ZoomToLayerAsync(_searchLayerName, false, 1, 10000, map);
+                // Set the zoom ratio and scale.
+                double zoomRatio = bufferSize == "0" ? 1 : 1.05;
+                double zoomScale = 10000;
+
+                // Zoom in the search layer map.
+                await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, zoomScale, null);
+
+                // Zoom in all other map windows.
+                foreach (Map map in mapWindows)
+                {
+                    bool result = await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, zoomScale, map);
+
+                    if (!result)
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Zoom failed in map: {map.Name}");
+                        _searchErrors = true;
+
+                        return false;
+                    }
                 }
-                // If there is a buffer then zoom to the buffer extent plus 5%.
-                else
-                {
-                    // Zoom in the search layer map.
-                    await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, null);
 
-                    // Zoom in all other map windows.
-                    foreach (Map map in mapWindows)
-                        await _mapFunctions.ZoomToLayerAsync(_bufferLayerName, false, 1.05, 10000, map);
+                // Zoom in all layout windows.
+                foreach (string layoutName in outputWindowNames)
+                {
+                    bool result = await _mapFunctions.ZoomToLayerInLayoutAsync(layoutName, targetLayer, selectedOnly: false,
+                        ratio: zoomRatio, scale: zoomScale, validScales: zoomScales, mapFrameName: "Map Frame");
+
+                    if (!result)
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Zoom failed in layout: {layoutName}");
+                        _searchErrors = true;
+
+                        return false;
+                    }
                 }
             }
 
@@ -2031,11 +2043,11 @@ namespace DataSearches.UI
         }
 
         /// <summary>
-        /// Add the search area and buffer to the map if required.
+        /// Add the search area and buffer to all of the maps if required.
         /// </summary>
         /// <param name="addSelectedLayersOption"></param>
         /// <returns></returns>
-        private async Task AddSearchLayersToMapAsync(AddSelectedLayersOptions addSelectedLayersOption)
+        private async Task AddSearchLayersToMapsAsync(AddSelectedLayersOptions addSelectedLayersOption, List<Map> mapWindows)
         {
             FileFunctions.WriteLine(_logFile, "");
 
@@ -2045,15 +2057,40 @@ namespace DataSearches.UI
                 // Set the buffer layer symbology to use.
                 string symbologyFile = _layerPath + "\\" + _bufferLayerFile;
 
+                // Add to active map.
                 if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0, null))
                 {
-                    //MessageBox.Show("Error setting buffer layer in the map.");
-                    FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the map");
+                    FileFunctions.WriteLine(_logFile, "Error setting buffer layer in the active map");
                     _searchErrors = true;
                 }
 
-                // Turn labels off.
-                await _mapFunctions.SwitchLabelsAsync(_bufferLayerName, false);
+                // Add to other map windows.
+                foreach (Map map in mapWindows)
+                {
+                    if (!await SetLayerInMapAsync(_bufferLayerName, symbologyFile, 0, map))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error setting buffer layer in map: {map.Name}");
+                        _searchErrors = true;
+                    }
+                }
+
+                // Turn labels off in the active map.
+                if (!await _mapFunctions.SwitchLabelsAsync(_bufferLayerName, false))
+                {
+                    FileFunctions.WriteLine(_logFile, "Error turning off buffer labels in the active map");
+                    _searchErrors = true;
+                }
+
+                // Turn labels off in the other map windows.
+                foreach (Map map in mapWindows)
+                {
+                    if (!await _mapFunctions.SwitchLabelsAsync(_bufferLayerName, false, map))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error turning off buffer labels in map: {map.Name}");
+                        _searchErrors = true;
+                    }
+                }
+
 
                 FileFunctions.WriteLine(_logFile, "Buffer layer added to display");
             }
@@ -2061,9 +2098,14 @@ namespace DataSearches.UI
             {
                 try
                 {
-                    //TODO: Remove from all maps?
-                    // Remove the buffer layer from the active map.
+                    // Remove from active map.
                     await _mapFunctions.RemoveLayerAsync(_bufferLayerName, null);
+
+                    // Remove from other map windows.
+                    foreach (Map map in mapWindows)
+                    {
+                        await _mapFunctions.RemoveLayerAsync(_bufferLayerName, map);
+                    }
 
                     // Delete the buffer feature class.
                     await ArcGISFunctions.DeleteFeatureClassAsync(_bufferOutputFile);
@@ -2072,8 +2114,7 @@ namespace DataSearches.UI
                 }
                 catch
                 {
-                    //MessageBox.Show("Error deleting the buffer layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    FileFunctions.WriteLine(_logFile, "Error deleting the buffer layer");
+                    FileFunctions.WriteLine(_logFile, "Error removing the buffer layer");
                     _searchErrors = true;
                 }
             }
@@ -2085,15 +2126,39 @@ namespace DataSearches.UI
                 string searchlayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
                 string symbologyFile = _layerPath + "\\" + searchlayerFile;
 
+                // Add to active map.
                 if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0, null))
                 {
-                    //MessageBox.Show("Error setting search feature layer in the map.");
-                    FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the map");
+                    FileFunctions.WriteLine(_logFile, "Error setting search feature layer in the active map");
                     _searchErrors = true;
                 }
 
-                // Turn labels off.
-                await _mapFunctions.SwitchLabelsAsync(_searchLayerName, false);
+                // Add to other map windows.
+                foreach (Map map in mapWindows)
+                {
+                    if (!await SetLayerInMapAsync(_searchLayerName, symbologyFile, 0, map))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error setting search feature layer in map: {map.Name}");
+                        _searchErrors = true;
+                    }
+                }
+
+                // Turn labels off in the active map.
+                if (!await _mapFunctions.SwitchLabelsAsync(_searchLayerName, false))
+                {
+                    FileFunctions.WriteLine(_logFile, "Error turning off search feature labels in the active map");
+                    _searchErrors = true;
+                }
+
+                // Turn labels off in the other map windows.
+                foreach (Map map in mapWindows)
+                {
+                    if (!await _mapFunctions.SwitchLabelsAsync(_searchLayerName, false, map))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error turning off search feature labels in map: {map.Name}");
+                        _searchErrors = true;
+                    }
+                }
 
                 FileFunctions.WriteLine(_logFile, "Search feature layer added to display");
             }
@@ -2101,9 +2166,14 @@ namespace DataSearches.UI
             {
                 try
                 {
-                    //TODO: Remove from all maps?
-                    // Remove the search feature layer from the map.
+                    // Remove from active map.
                     await _mapFunctions.RemoveLayerAsync(_searchLayerName, null);
+
+                    // Remove from other map windows.
+                    foreach (Map map in mapWindows)
+                    {
+                        await _mapFunctions.RemoveLayerAsync(_searchLayerName, map);
+                    }
 
                     // Delete the search feature class.
                     string searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
@@ -2113,8 +2183,7 @@ namespace DataSearches.UI
                 }
                 catch
                 {
-                    //MessageBox.Show("Error deleting the search feature layer.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    FileFunctions.WriteLine(_logFile, "Error deleting the search feature layer");
+                    FileFunctions.WriteLine(_logFile, "Error removing the search feature layer");
                     _searchErrors = true;
                 }
             }
@@ -2671,7 +2740,7 @@ namespace DataSearches.UI
             }
 
             // Get the target map for the map name.
-            Map targetMap = await MapFunctions.GetMapFromNameAsync(mapMapName);
+            Map targetMap = await _mapFunctions.GetMapFromNameAsync(mapMapName);
             if (targetMap == null)
             {
                 //MessageBox.Show("Cannot find map " + mapMapName);
@@ -3430,7 +3499,8 @@ namespace DataSearches.UI
         private async Task<bool> KeepLayerAsync(string layerName, string outputFile, AddSelectedLayersOptions addSelectedLayersOption,
             string layerFileName, bool displayLabels, string labelClause, string labelColumn, Map targetMap)
         {
-            outputFile = outputFile + ".shp"; // Add the extension to the output file name.
+            // Add the extension to the output file name.
+            outputFile += ".shp";
 
             bool addToMap = addSelectedLayersOption != AddSelectedLayersOptions.No;
 

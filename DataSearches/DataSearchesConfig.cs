@@ -541,6 +541,41 @@ namespace DataSearches
                 throw new("Error parsing 'LayoutNames' string. Check for correct format.");
             }
 
+            // The list of zoom scales to use for all layouts, loaded from a semi-colon separated string.
+            try
+            {
+                rawText = _xmlDataSearches["ZoomScales"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'ZoomScales' in the XML profile.");
+            }
+
+            try
+            {
+                char[] chrSplit1Chars = [';'];
+                string[] layoutRawList = rawText.Split(chrSplit1Chars, StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (string rawEntry in layoutRawList)
+                {
+                    string trimmed = rawEntry.Trim();
+
+                    // Only add valid integers.
+                    if (int.TryParse(trimmed, out int parsedScale))
+                    {
+                        _zoomScales.Add(parsedScale);
+                    }
+                    else
+                    {
+                        throw new("The entries for 'ZoomScales' in the XML profile are not all numbers.");
+                    }
+                }
+            }
+            catch
+            {
+                throw new("Error parsing 'ZoomScales' string. Check for correct format.");
+            }
+
             // Are we keeping the search feature as a layer? Yes/No.
             try
             {
@@ -1453,6 +1488,13 @@ namespace DataSearches
         public List<string> LayoutNames
         {
             get { return _layoutNames; }
+        }
+
+        private List<int> _zoomScales = [];
+
+        public List<int> ZoomScales
+        {
+            get { return _zoomScales; }
         }
 
         private bool _keepSearchFeature;

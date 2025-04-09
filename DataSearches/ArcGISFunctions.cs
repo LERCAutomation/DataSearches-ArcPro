@@ -19,12 +19,14 @@
 // You should have received a copy of the GNU General Public License
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
+using ActiproSoftware.Windows.Controls.Editors;
 using ArcGIS.Core.CIM;
 using ArcGIS.Core.Data;
 using ArcGIS.Core.Data.DDL;
 using ArcGIS.Core.Data.Exceptions;
 using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ArcGIS.Core.Geometry;
+using ArcGIS.Core.Internal.Geometry;
 using ArcGIS.Desktop.Catalog;
 using ArcGIS.Desktop.Core;
 using ArcGIS.Desktop.Core.Geoprocessing;
@@ -34,6 +36,7 @@ using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Layouts.Utilities;
+using ArcGIS.Desktop.Internal.Mapping;
 using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using System;
@@ -74,15 +77,6 @@ namespace DataTools
                 _activeMap = null;
         }
 
-        public static async Task<MapFunctions> CreateAsync(string searchMapName)
-        {
-            var instance = new MapFunctions();
-
-            await instance.InitializeAsync(searchMapName);
-
-            return instance;
-        }
-
         /// <summary>
         /// Set the active map from the project by name.
         /// </summary>
@@ -109,6 +103,7 @@ namespace DataTools
         {
             get
             {
+                // If there is no active map, return null.
                 if (_activeMap == null)
                     return null;
                 else
@@ -134,42 +129,49 @@ namespace DataTools
         #region Map
 
         /// <summary>
-        /// Get the active map view.
+        /// Retrieves the currently active map view, if one is available.
         /// </summary>
-        /// <returns>MapView</returns>
+        /// <returns>
+        /// The active <see cref="MapView"/> instance, or <c>null</c> if no map view is active.
+        /// </returns>
         internal static MapView GetActiveMapView()
         {
-            // Get the active map view.
+            // Get the active map view from the ArcGIS Pro application.
             MapView mapView = MapView.Active;
-            if (mapView == null)
-                return null;
 
+            // Return the map view if available; otherwise, return null.
             return mapView;
         }
 
         /// <summary>
-        /// Get the map from the project by name.
+        /// Retrieves a map from the current project by its name.
         /// </summary>
-        /// <param name="mapName"></param>
-        /// <returns></returns>
-        internal static async Task<Map> GetMapFromNameAsync(string mapName)
+        /// <param name="mapName">The name of the map to retrieve.</param>
+        /// <returns>
+        /// A <see cref="Map"/> instance if found; otherwise, <c>null</c>.
+        /// </returns>
+        public async Task<Map> GetMapFromNameAsync(string mapName)
         {
+            // Return null if the input name is invalid.
             if (mapName == null)
+            {
+                TraceLog("GetMapFromNameAsync: No map name provided.");
                 return null;
+            }
 
             Map map = null;
 
+            // Run on the CIM thread to access project items safely.
             await QueuedTask.Run(() =>
             {
-                // Get the map from the project
+                // Search for the map project item by name and retrieve the associated Map object.
                 map = Project.Current.GetItems<MapProjectItem>()
-                .FirstOrDefault(m => m.Name == mapName)?.GetMap();
+                    .FirstOrDefault(m => m.Name == mapName)
+                    ?.GetMap();
             });
 
-            if (map != null)
-                return map;
-            else
-                return null;
+            // Return the found map, or null if not found.
+            return map;
         }
 
         /// <summary>
@@ -211,11 +213,14 @@ namespace DataTools
         /// <returns>
         /// A <see cref="MapView"/> instance if the map is open in a pane; otherwise, <c>null</c>.
         /// </returns>
-        internal static async Task<MapView> GetMapViewFromNameAsync(string mapName)
+        public async Task<MapView> GetMapViewFromNameAsync(string mapName)
         {
             // Return null if no map name was provided.
             if (mapName == null)
+            {
+                TraceLog("GetMapViewFromNameAsync: No map name provided.");
                 return null;
+            }
 
             // Use the background thread to get the map object from the project.
             Map map = await QueuedTask.Run(() =>
@@ -228,7 +233,10 @@ namespace DataTools
 
             // If the map was not found, return null.
             if (map == null)
+            {
+                TraceLog($"GetMapViewFromNameAsync: Map '{mapName}' not found in project.");
                 return null;
+            }
 
             // Access the UI thread to search for a pane showing the specified map.
             // Only UI thread can access FrameworkApplication.Panes.
@@ -237,36 +245,49 @@ namespace DataTools
                 .FirstOrDefault(p => p.MapView?.Map == map)
                 ?.MapView;
 
+            if (mapView == null)
+            {
+                TraceLog($"GetMapViewFromNameAsync: No MapView found for map '{map.Name}'.");
+            }
+
             // Return the found MapView or null if not found.
             return mapView;
         }
 
 
         /// <summary>
-        /// Get the map view from the map.
+        /// Gets the <see cref="MapView"/> associated with the specified <see cref="Map"/>.
         /// </summary>
-        /// <param name="mapName"></param>
-        /// <returns></returns>
-        internal static async Task<MapView> GetMapViewFromMapAsync(Map map)
+        /// <param name="map">The map to search for in open panes.</param>
+        /// <returns>
+        /// A task that returns the <see cref="MapView"/> displaying the map,
+        /// or <c>null</c> if no such map view is found.
+        /// </returns>
+        public async Task<MapView> GetMapViewFromMapAsync(Map map)
         {
             if (map == null)
+            {
+                TraceLog("GetMapViewFromMapAsync: No map provided.");
                 return null;
+            }
 
             MapView mapView = null;
 
             await QueuedTask.Run(() =>
             {
-                // Loop through all panes and find the first one showing the map
+                // Loop through all panes and find the first one showing the map.
                 mapView = FrameworkApplication.Panes
                     .OfType<IMapPane>()
                     .FirstOrDefault(p => p.MapView?.Map == map)
                     ?.MapView;
+
+                if (mapView == null)
+                {
+                    TraceLog($"GetMapViewFromMapAsync: No MapView found for map '{map.Name}'.");
+                }
             });
 
-            if (mapView != null)
-                return mapView;
-            else
-                return null;
+            return mapView;
         }
 
         /// <summary>
@@ -295,140 +316,152 @@ namespace DataTools
             mapViewToUse.DrawingPaused = pause;
         }
 
-
         /// <summary>
-        /// Create a new map and return the map name.
+        /// Creates a new map with the specified name and optionally sets it as the active map.
         /// </summary>
-        /// <param name="mapName"></param>
-        /// <returns>string</returns>
+        /// <param name="mapName">The name of the new map to create.</param>
+        /// <param name="setActive">If true, the new map will be set as active. Otherwise, the current map remains active.</param>
+        /// <returns>The name of the newly created map, or null if creation failed.</returns>
         public async Task<string> CreateMapAsync(string mapName, bool setActive = true)
         {
-            // If no map name is supplied.
             if (string.IsNullOrEmpty(mapName))
+            {
+                TraceLog("CreateMapAsync: map name is null or empty.");
                 return null;
+            }
 
-            // Get the current active pane.
-            var currentPane = ProApp.Panes.ActivePane;
-
+            // Save the current active pane.
+            Pane currentPane = ProApp.Panes.ActivePane;
             Map newMap = null;
-            MapView newMapView = null;
 
             try
             {
                 await QueuedTask.Run(() =>
                 {
-                    // Create a new map without a base map.
+                    // Create a new map without a basemap.
                     newMap = MapFactory.Instance.CreateMap(mapName, basemap: Basemap.None);
-
-                    // Create and activate new map pane.
-                    ProApp.Panes.CreateMapPaneAsync(newMap, MapViewingMode.Map);
                 });
 
-                // Get the active map view;
-                newMapView = GetActiveMapView();
+                // Create the map pane (this must be awaited as it's async).
+                var newPane = await ProApp.Panes.CreateMapPaneAsync(newMap, MapViewingMode.Map);
+
+                if (setActive)
+                {
+                    _activeMap = newMap;
+                }
+                else
+                {
+                    // Return to the previously active pane if available.
+                    currentPane?.Activate();
+                }
+
+                return newMap.Name;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                TraceLog($"CreateMapAsync: failed to create map '{mapName}'. Exception: {ex.Message}");
                 return null;
             }
-
-            if (setActive)
-            {
-                // Set the new map as the active map.
-                _activeMap = newMap;
-            }
-            else
-            {
-                // Switch back to the previous map pane.
-                currentPane?.Activate();
-            }
-
-            // Return the name of the new map.
-            return newMap.Name;
         }
 
         /// <summary>
-        /// Add a layer to the target map.
+        /// Adds a layer from a URL to the specified map, or the active map if none is provided.
         /// </summary>
-        /// <param name="url"></param>
-        /// <param name="index"></param>
-        /// <param name="layerName"></param>
-        /// <returns>bool</returns>
+        /// <param name="url">The URL of the layer to add.</param>
+        /// <param name="index">The index at which to insert the layer (default is 0).</param>
+        /// <param name="layerName">An optional custom name for the layer. If not provided, a name is derived from the URL.</param>
+        /// <param name="targetMap">The target map to which the layer will be added. Defaults to the active map if null.</param>
+        /// <returns>True if the layer was added successfully; otherwise, false.</returns>
         public async Task<bool> AddLayerToMapAsync(string url, int index = 0, string layerName = "", Map targetMap = null)
         {
-            // If no url is supplied.
+            // If the URL is null or whitespace, return false.
             if (string.IsNullOrWhiteSpace(url))
-                return false;
-
-            try
             {
-                await QueuedTask.Run(() =>
-                {
-                    Uri uri = new(url);
-
-                    // Use provided map or default to _activeMap.
-                    Map mapToUse = targetMap ?? _activeMap;
-
-                    // Check if the layer is already loaded (unlikely as the map is new).
-                    //string lastSegment = uri.Segments.Last();
-                    string lastSegment = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
-                    Layer existingLayer = mapToUse.Layers.FirstOrDefault(l => l.Name.Equals(lastSegment, StringComparison.OrdinalIgnoreCase));
-
-                    // If the layer is not loaded.
-                    if (existingLayer == null)
-                    {
-                        // Create and add the layer at specified index.
-                        Layer layer = LayerFactory.Instance.CreateLayer(uri, mapToUse, index, layerName);
-                    }
-                });
-            }
-            catch
-            {
-                // Handle Exception.
+                TraceLog("AddLayerToMapAsync: URL is null or empty.");
                 return false;
             }
 
-            return true;
-        }
-
-        /// <summary>
-        /// Add a standalone layer to the active map.
-        /// </summary>
-        /// <param name="url"></param>
-        /// <returns>bool</returns>
-        public async Task<bool> AddTableToMapAsync(string url, Map targetMap = null)
-        {
-            // If no url is supplied.
-            if (url == null)
-                return false;
-
-            // Use provided map or default to _activeMap.
+            // Use the provided map, or fall back to the active map if none is given.
             Map mapToUse = targetMap ?? _activeMap;
 
             try
             {
                 await QueuedTask.Run(() =>
                 {
+                    // Create a URI object from the input URL.
                     Uri uri = new(url);
 
-                    // Check if the layer is already loaded.
-                    StandaloneTable findTable = mapToUse.StandaloneTables.FirstOrDefault(t => t.Name == uri.Segments.Last());
+                    // Use the filename (without extension) as the default layer name if none is provided.
+                    string defaultName = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
+                    string nameToUse = string.IsNullOrWhiteSpace(layerName) ? defaultName : layerName;
 
-                    // If the layer is not loaded, add it.
-                    if (findTable == null)
-                    {
-                        StandaloneTable table = StandaloneTableFactory.Instance.CreateStandaloneTable(uri, mapToUse);
-                    }
+                    // Check whether a layer with the same name already exists in the map.
+                    bool layerExists = mapToUse.Layers
+                        .Any(l => l.Name.Equals(nameToUse, StringComparison.OrdinalIgnoreCase));
+
+                    // If not found, create and add the layer at the specified index.
+                    if (!layerExists)
+                        LayerFactory.Instance.CreateLayer(uri, mapToUse, index, nameToUse);
                 });
+
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log and return false if any exception occurs during the process.
+                TraceLog($"AddLayerToMapAsync: Failed to add layer from URL '{url}'. Exception: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Adds a standalone table to the specified map, or to the active map if none is provided.
+        /// </summary>
+        /// <param name="url">The URL or local path of the table to add.</param>
+        /// <param name="index">The index at which to insert the table in the standalone table collection (default is 0).</param>
+        /// <param name="tableName">An optional custom name for the table. If not provided, a name is derived from the URL.</param>
+        /// <param name="targetMap">The map to add the table to. If null, the active map is used.</param>
+        /// <returns>True if the table was added successfully; otherwise, false.</returns>
+        public async Task<bool> AddTableToMapAsync(string url, int index = 0, string tableName = "", Map targetMap = null)
+        {
+            // Validate the input URL.
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                TraceLog("AddTableToMapAsync: URL is null or empty.");
                 return false;
             }
 
-            return true;
+            // Use the provided map or fall back to the active map (guaranteed non-null).
+            Map mapToUse = targetMap ?? _activeMap;
+
+            try
+            {
+                await QueuedTask.Run(() =>
+                {
+                    // Create a URI from the provided URL.
+                    Uri uri = new(url);
+
+                    // Use the filename (without extension) as the default layer name if none is provided.
+                    string defaultName = System.IO.Path.GetFileNameWithoutExtension(uri.LocalPath);
+                    string nameToUse = string.IsNullOrWhiteSpace(tableName) ? defaultName : tableName;
+
+                    // Check if a table with the same name already exists in the map.
+                    bool tableExists = mapToUse.StandaloneTables
+                        .Any(t => t.Name.Equals(nameToUse, StringComparison.OrdinalIgnoreCase));
+
+                    // If not found, create and add the standalone table at the specified index.
+                    if (!tableExists)
+                        StandaloneTableFactory.Instance.CreateStandaloneTable(uri, mapToUse, index, nameToUse);
+                });
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return false.
+                TraceLog($"AddTableToMapAsync: Failed to add table from URL '{url}'. Exception: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>
@@ -440,12 +473,13 @@ namespace DataTools
         /// <param name="mapScaleOrDistance">Optional. The desired map scale or distance in map units.</param>
         /// <param name="targetMap">Optional. The target map to use. Defaults to the active map if null.</param>
         /// <returns>True if zoom was successful; otherwise, false.</returns>
-        public async Task<bool> ZoomToLayerAsync(
+        public async Task<bool> ZoomToFeatureInMapAsync(
             string layerName,
             long objectID,
             double? factor,
             double? mapScaleOrDistance,
-            Map targetMap = null)
+            Map targetMap = null,
+            List<int> validScales = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -500,7 +534,7 @@ namespace DataTools
         /// <param name="objectIDs">A list of object IDs to zoom to.</param>
         /// <param name="targetMap">Optional target map; defaults to _activeMap.</param>
         /// <returns>True if zoom succeeded; false otherwise.</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName,
+        public async Task<bool> ZoomToFeaturesInMapAsync(string layerName,
             IEnumerable<long> objectIDs,
             Map targetMap = null)
         {
@@ -550,70 +584,98 @@ namespace DataTools
         }
 
         /// <summary>
-        /// Zooms to the extent of a layer in a map view for a given ratio or scale.
+        /// Zooms to the extent of a layer in a map view for a given ratio or nearest valid scale.
         /// </summary>
         /// <param name="layerName">The name of the layer to zoom to.</param>
         /// <param name="selectedOnly">If true, zooms to selected features only.</param>
         /// <param name="ratio">Optional zoom ratio multiplier.</param>
         /// <param name="scale">Optional fixed scale to set after zooming.</param>
         /// <param name="targetMap">Optional map to use; defaults to _activeMap.</param>
+        /// <param name="validScales">Optional list of valid scales. If provided, the next scale up is chosen based on the current scale.</param>
         /// <returns>True if zoom succeeded; false otherwise.</returns>
-        public async Task<bool> ZoomToLayerAsync(string layerName,
+        public async Task<bool> ZoomToLayerInMapAsync(string layerName,
             bool selectedOnly,
             double? ratio = 1,
             double? scale = 10000,
-            Map targetMap = null)
+            Map targetMap = null,
+            List<int> validScales = null)
         {
-            // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
+            {
+                TraceLog("ZoomToLayerAsync: No layer name provided.");
                 return false;
+            }
 
-            // Check if the input ratio is valid.
             if (ratio.HasValue && ratio.Value <= 0)
+            {
+                TraceLog($"ZoomToLayerAsync: Invalid zoom ratio: {ratio}.");
                 return false;
+            }
 
-            // Check if the input scale is valid.
             if (scale.HasValue && scale.Value <= 0)
+            {
+                TraceLog($"ZoomToLayerAsync: Invalid scale: {scale}.");
                 return false;
+            }
 
-            // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
-
-            // Attempt to get the map view associated with the map.
             MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
             if (mapViewToUse == null)
+            {
+                TraceLog("ZoomToLayerAsync: Map view could not be found.");
                 return false;
+            }
 
-            // Locate the layer in the map.
             Layer targetLayer = FindLayer(layerName, mapToUse);
             if (targetLayer == null)
+            {
+                TraceLog($"ZoomToLayerAsync: Layer '{layerName}' not found in map.");
                 return false;
+            }
 
             try
             {
-                // Zoom to the layer extent or its selection.
+                // Zoom to the extent of the layer or its selection.
                 await mapViewToUse.ZoomToAsync(targetLayer, selectedOnly);
 
-                // Refine zoom using camera adjustments.
+                // Get the current camera.
                 var camera = mapViewToUse.Camera;
 
-                // Apply ratio or fixed scale (mutually exclusive).
-                if (ratio != 1)
+                // Apply zoom logic using ratio or fixed scale.
+                // Priority: ratio (with optional scale list) > fixed scale.
+
+                if (ratio.HasValue)
                 {
-                    camera.Scale *= (double)ratio;
+                    // If a list of valid scales is provided, use it to select the next scale up (i.e. zoom out).
+                    if (validScales != null && validScales.Count >= 2)
+                    {
+                        double currentScale = camera.Scale;
+                        double nextScale = GetNextScaleUp(currentScale, validScales);
+
+                        // Set the camera to the next scale in the list or extrapolated scale.
+                        camera.Scale = nextScale;
+                        TraceLog($"ZoomToLayerAsync: Zooming out using next scale from list: {nextScale} (current: {currentScale}).");
+                    }
+                    else
+                    {
+                        // No scale list provided — apply ratio directly to the current scale.
+                        camera.Scale *= ratio.Value;
+                        TraceLog($"ZoomToLayerAsync: Applying ratio-based scale: {camera.Scale}.");
+                    }
                 }
-                else if (scale > 0)
+                else if (scale.HasValue && scale.Value > 0)
                 {
-                    camera.Scale = (double)scale;
+                    // Ratio not specified — apply fixed scale if valid.
+                    camera.Scale = scale.Value;
+                    TraceLog($"ZoomToLayerAsync: Applying fixed scale: {camera.Scale}.");
                 }
 
-                // Apply the modified camera view.
-                await mapViewToUse.ZoomToAsync(camera,
-                    duration: null);
+
+                // Apply the modified camera.
+                await mapViewToUse.ZoomToAsync(camera, duration: null);
             }
             catch (Exception ex)
             {
-                // Handle exception.
                 TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
                 return false;
             }
@@ -626,117 +688,690 @@ namespace DataTools
         #region Layout
 
         /// <summary>
-        /// Update all of the text elements in a list of layout window names.
+        /// Updates specific text elements in all currently open layouts matching the provided names.
         /// </summary>
-        /// <param name="layoutNames"></param>
-        /// <param name="siteColumn"></param>
-        /// <param name="siteName"></param>
-        /// <param name="searchColumn"></param>
-        /// <param name="searchRef"></param>
-        /// <param name="radiusColumn"></param>
-        /// <param name="radiusText"></param>
-        /// <returns></returns>
-        public static async Task<bool> UpdateLayoutsTextAsync(List<string> layoutNames, string siteColumn, string siteName,
-            string searchColumn, string searchRef, string radiusColumn, string radiusText)
+        /// <param name="layoutNames">List of layout names to update.</param>
+        /// <param name="siteColumn">The name of the text element to update for the site name.</param>
+        /// <param name="siteName">The new site name text value.</param>
+        /// <param name="searchColumn">The name of the text element to update for the search reference.</param>
+        /// <param name="searchRef">The new search reference text value.</param>
+        /// <param name="radiusColumn">The name of the text element to update for the search radius.</param>
+        /// <param name="radiusText">The new search radius text value.</param>
+        /// <returns>True if all text updates succeeded across all open layouts; otherwise, false.</returns>
+        public async Task<bool> UpdateLayoutsTextAsync(
+            List<string> layoutNames,
+            string siteColumn,
+            string siteName,
+            string searchColumn,
+            string searchRef,
+            string radiusColumn,
+            string radiusText)
         {
             foreach (string layoutName in layoutNames)
             {
-                // Retrieve the layout item by name from the current project.
-                var layoutItem = Project.Current.GetItems<LayoutProjectItem>()
+                // Attempt to retrieve the layout item by name from the project.
+                LayoutProjectItem layoutItem = Project.Current
+                    .GetItems<LayoutProjectItem>()
                     .FirstOrDefault(item => item.Name == layoutName);
 
-                // Skip this layout if it does not exist.
                 if (layoutItem == null)
+                {
+                    TraceLog($"UpdateLayoutsTextAsync: Layout '{layoutName}' not found.");
                     continue;
+                }
 
-                // Get the layout object from the layout item on the QueuedTask thread.
-                Layout layout = null;
-                await QueuedTask.Run(() =>
-                {
-                    layout = layoutItem.GetLayout();
-                });
+                // Get the layout object from the layout item.
+                Layout layout = await QueuedTask.Run(() => layoutItem.GetLayout());
 
-                // Check if the layout is currently open in a layout pane.
-                bool isOpen = false;
-                await QueuedTask.Run(() =>
+                // Determine if the layout is currently open in a layout view.
+                bool isOpen = await QueuedTask.Run(() =>
                 {
-                    isOpen = ProApp.Panes
-                        .OfType<Pane>()
-                        .Where(p => p is ILayoutPane)
-                        .Cast<ILayoutPane>()
+                    return ProApp.Panes
+                        .OfType<ILayoutPane>()
                         .Any(lp => lp.LayoutView?.Layout == layout);
                 });
 
-                if (isOpen)
+                // Skip updates if the layout is not currently open.
+                if (!isOpen)
                 {
-                    // Update the site name text element in the layout.
-                    if (!await SetTextElementsAsync(layoutName, siteColumn, siteName))
-                        return false;
+                    TraceLog($"UpdateLayoutsTextAsync: Layout '{layoutName}' is not open. Skipping.");
+                    continue;
+                }
 
-                    // Update the search reference text element in the layout.
-                    if (!await SetTextElementsAsync(layoutName, searchColumn, searchRef))
-                        return false;
+                // Update the site name text element.
+                if (!await SetTextElementsAsync(layoutName, siteColumn, siteName))
+                {
+                    TraceLog($"UpdateLayoutsTextAsync: Failed to update site column in layout '{layoutName}'.");
+                    return false;
+                }
 
-                    // Update the search radius text element in the layout.
-                    if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
-                        return false;
+                // Update the search reference text element.
+                if (!await SetTextElementsAsync(layoutName, searchColumn, searchRef))
+                {
+                    TraceLog($"UpdateLayoutsTextAsync: Failed to update search column in layout '{layoutName}'.");
+                    return false;
+                }
+
+                // Update the search radius text element.
+                if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
+                {
+                    TraceLog($"UpdateLayoutsTextAsync: Failed to update radius column in layout '{layoutName}'.");
+                    return false;
                 }
             }
 
-            // Return true if all layout updates succeeded.
+            // All updates completed successfully.
             return true;
         }
 
         /// <summary>
-        /// Set a text element in a layout.
+        /// Updates the text content of a named text element in a specified layout.
         /// </summary>
-        /// <param name="layoutName"></param>
-        /// <param name="textName"></param>
-        /// <param name="textString"></param>
-        /// <returns></returns>
-        public static async Task<bool> SetTextElementsAsync(string layoutName, string textName, string textString)
+        /// <param name="layoutName">The name of the layout containing the text element.</param>
+        /// <param name="textName">The name of the text element to update.</param>
+        /// <param name="textString">The new string to set as the text element's content.</param>
+        /// <returns>True if the update was successful; otherwise, false.</returns>
+        public async Task<bool> SetTextElementsAsync(string layoutName, string textName, string textString)
         {
-            // Check there is an input layout name.
-            if (layoutName == null)
+            // Validate inputs.
+            if (string.IsNullOrWhiteSpace(layoutName))
+            {
+                TraceLog("SetTextElementsAsync: Layout name is null or empty.");
                 return false;
+            }
 
-            // Check there is an input text element name and value.
-            if ((textName == null) || (textString == null))
+            if (string.IsNullOrWhiteSpace(textName) || textString == null)
+            {
+                TraceLog("SetTextElementsAsync: Text element name or value is invalid.");
                 return false;
+            }
 
             try
             {
                 await QueuedTask.Run(() =>
                 {
+                    // Get the layout by name from the project.
                     Layout layout = Project.Current.GetItems<LayoutProjectItem>()
                                                    .FirstOrDefault(item => item.Name == layoutName)
                                                    ?.GetLayout();
 
-                    // If the text element is found
+                    if (layout == null)
+                    {
+                        TraceLog($"SetTextElementsAsync: Layout '{layoutName}' not found.");
+                        return;
+                    }
+
+                    // Attempt to find the specified text element in the layout.
                     if (layout.FindElement(textName) is TextElement textElement)
                     {
-                        // Get the CIM element
+                        // Get the text graphic from the element.
                         if (textElement.GetGraphic() is CIMTextGraphic cimTextGraphic)
                         {
-                            // Update the text string
+                            // Set the new text content.
                             cimTextGraphic.Text = textString;
 
-                            // Apply the change
+                            // Apply the updated graphic back to the text element.
                             textElement.SetGraphic(cimTextGraphic);
                         }
+                        else
+                        {
+                            TraceLog($"SetTextElementsAsync: Failed to get CIMTextGraphic for element '{textName}'.");
+                        }
+                    }
+                    else
+                    {
+                        TraceLog($"SetTextElementsAsync: Text element '{textName}' not found in layout '{layoutName}'.");
                     }
                 });
+
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log any unexpected exception and return false.
+                TraceLog($"SetTextElementsAsync: Exception occurred while updating text element '{textName}' in layout '{layoutName}'. Exception: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Zooms to a specific feature in a layout's map frame by ObjectID using a given scale or distance factor.
+        /// </summary>
+        /// <param name="layoutName">The name of the layout containing the map frame.</param>
+        /// <param name="layerName">The name of the feature layer to zoom to.</param>
+        /// <param name="objectID">The ObjectID of the feature to zoom to.</param>
+        /// <param name="ratio">Optional. Zoom ratio multiplier.</param>
+        /// <param name="scale">Optional. Fixed scale to set after zooming.</param>
+        /// <param name="mapFrameName">Optional. The name of the map frame. Defaults to "Map Frame".</param>
+        /// <param name="validScales">Optional. A list of valid scales. If provided, the next scale up is chosen based on the current scale.</param>
+        /// <returns>True if zoom was successful; otherwise, false.</returns>
+        public async Task<bool> ZoomToFeatureInLayoutAsync(
+            string layoutName,
+            string layerName,
+            long objectID,
+            double? ratio = null,
+            double? scale = null,
+            List<int> validScales = null,
+            string mapFrameName = "Map Frame")
+        {
+            // Validate required parameters.
+            if (string.IsNullOrWhiteSpace(layoutName))
+            {
+                TraceLog("ZoomToFeatureInLayoutAsync: Layout name is null or empty.");
                 return false;
             }
 
-            return true;
+            if (string.IsNullOrWhiteSpace(layerName))
+            {
+                TraceLog("ZoomToFeatureInLayoutAsync: Layer name is null or empty.");
+                return false;
+            }
+
+            if (objectID < 0)
+            {
+                TraceLog("ZoomToFeatureInLayoutAsync: Invalid ObjectID.");
+                return false;
+            }
+
+            if (ratio.HasValue && ratio.Value <= 0)
+            {
+                TraceLog($"ZoomToFeatureInLayoutAsync: Invalid factor value: {ratio}.");
+                return false;
+            }
+
+            if (scale.HasValue && scale.Value <= 0)
+            {
+                TraceLog($"ZoomToFeatureInLayoutAsync: Invalid mapScaleOrDistance value: {scale}.");
+                return false;
+            }
+
+            // Try to locate the layout by name.
+            LayoutProjectItem layoutItem = Project.Current
+                .GetItems<LayoutProjectItem>()
+                .FirstOrDefault(l => l.Name.Equals(layoutName, StringComparison.OrdinalIgnoreCase));
+
+            if (layoutItem == null)
+            {
+                TraceLog($"ZoomToFeatureInLayoutAsync: Layout '{layoutName}' not found.");
+                return false;
+            }
+
+            return await QueuedTask.Run(() =>
+            {
+                try
+                {
+                    // Open the layout.
+                    Layout layout = layoutItem.GetLayout();
+                    if (layout == null)
+                    {
+                        TraceLog($"ZoomToFeatureInLayoutAsync: Layout '{layoutName}' could not be opened.");
+                        return false;
+                    }
+
+                    // Locate the named map frame.
+                    MapFrame mapFrame = layout.FindElement(mapFrameName) as MapFrame;
+                    if (mapFrame == null)
+                    {
+                        TraceLog($"ZoomToFeatureInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
+                        return false;
+                    }
+
+                    Map map = mapFrame.Map;
+                    if (map == null)
+                    {
+                        TraceLog($"ZoomToFeatureInLayoutAsync: Map in map frame '{mapFrameName}' is null.");
+                        return false;
+                    }
+
+                    // Locate the feature layer by name.
+                    var layer = FindLayer(layerName, map);
+                    if (layer is not FeatureLayer featureLayer)
+                    {
+                        TraceLog($"ZoomToFeatureInLayoutAsync: Feature layer '{layerName}' not found in map.");
+                        return false;
+                    }
+
+                    // Query the feature geometry by ObjectID.
+                    var queryFilter = new QueryFilter
+                    {
+                        ObjectIDs = new List<long> { objectID }
+                    };
+
+                    RowCursor cursor = featureLayer.Search(queryFilter);
+                    if (!cursor.MoveNext())
+                    {
+                        TraceLog($"ZoomToFeatureInLayoutAsync: No feature found with ObjectID {objectID} in layer '{layerName}'.");
+                        return false;
+                    }
+
+                    using var row = cursor.Current as Feature;
+                    Geometry geometry = row?.GetShape();
+
+                    if (geometry == null || geometry.IsEmpty)
+                    {
+                        TraceLog($"ZoomToFeatureInLayoutAsync: Geometry is null or empty for ObjectID {objectID}.");
+                        return false;
+                    }
+
+                    // Get the envelope of the geometry.
+                    Envelope extent = geometry.Extent;
+
+                    // Set the camera extent on the map frame.
+                    mapFrame.SetCamera(extent);
+
+                    // Apply zoom ratio or scale to map frame.
+                    ApplyZoomToMapFrame(mapFrame, ratio, scale, validScales);
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    TraceLog($"ZoomToFeatureInLayoutAsync: Exception occurred while zooming to feature. Exception: {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Zooms to the extent of specified object IDs in a feature layer within a layout's map frame.
+        /// </summary>
+        /// <param name="layoutName">The name of the layout containing the map frame.</param>
+        /// <param name="layerName">The name of the layer containing the objects.</param>
+        /// <param name="objectIDs">A list of object IDs to zoom to.</param>
+        /// <param name="ratio">Optional. Zoom ratio multiplier.</param>
+        /// <param name="scale">Optional. Fixed scale to set after zooming.</param>
+        /// <param name="mapFrameName">Optional. The name of the map frame. Defaults to "Map Frame".</param>
+        /// <param name="validScales">Optional. A list of valid scales. If provided, the next scale up is chosen based on the current scale.</param>
+        /// <returns>True if zoom succeeded; false otherwise.</returns>
+        public async Task<bool> ZoomToFeaturesInLayoutAsync(
+            string layoutName,
+            string layerName,
+            IEnumerable<long> objectIDs,
+            double? ratio = 1,
+            double? scale = 10000,
+            List<int> validScales = null,
+            string mapFrameName = "Map Frame")
+
+        {
+            // Validate inputs.
+            if (string.IsNullOrWhiteSpace(layoutName))
+            {
+                TraceLog("ZoomToFeaturesInLayoutAsync: Layout name is null or empty.");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(layerName))
+            {
+                TraceLog("ZoomToFeaturesInLayoutAsync: Layer name is null or empty.");
+                return false;
+            }
+
+            if (objectIDs == null || !objectIDs.Any())
+            {
+                TraceLog("ZoomToFeaturesInLayoutAsync: Object ID list is null or empty.");
+                return false;
+            }
+
+            if (ratio.HasValue && ratio.Value <= 0)
+            {
+                TraceLog($"ZoomToFeaturesInLayoutAsync: Invalid ratio value: {ratio}.");
+                return false;
+            }
+
+            if (scale.HasValue && scale.Value <= 0)
+            {
+                TraceLog($"ZoomToFeaturesInLayoutAsync: Invalid scale value: {scale}.");
+                return false;
+            }
+
+            // Try to find the layout.
+            LayoutProjectItem layoutItem = Project.Current
+                .GetItems<LayoutProjectItem>()
+                .FirstOrDefault(l => l.Name.Equals(layoutName, StringComparison.OrdinalIgnoreCase));
+
+            if (layoutItem == null)
+            {
+                TraceLog($"ZoomToFeaturesInLayoutAsync: Layout '{layoutName}' not found.");
+                return false;
+            }
+
+            return await QueuedTask.Run(() =>
+            {
+                try
+                {
+                    // Open layout from the project item.
+                    Layout layout = layoutItem.GetLayout();
+                    if (layout == null)
+                    {
+                        TraceLog($"ZoomToFeaturesInLayoutAsync: Layout '{layoutName}' could not be opened.");
+                        return false;
+                    }
+
+                    // Get the map frame from the layout.
+                    MapFrame mapFrame = layout.FindElement(mapFrameName) as MapFrame;
+                    if (mapFrame == null)
+                    {
+                        TraceLog($"ZoomToFeaturesInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
+                        return false;
+                    }
+
+                    Map map = mapFrame.Map;
+                    if (map == null)
+                    {
+                        TraceLog($"ZoomToFeaturesInLayoutAsync: Map in map frame '{mapFrameName}' is null.");
+                        return false;
+                    }
+
+                    // Find the feature layer.
+                    var layer = FindLayer(layerName, map);
+                    if (layer is not FeatureLayer featureLayer)
+                    {
+                        TraceLog($"ZoomToFeaturesInLayoutAsync: Feature layer '{layerName}' not found in map.");
+                        return false;
+                    }
+
+                    // Set up query filter for the object IDs.
+                    var filter = new QueryFilter
+                    {
+                        ObjectIDs = objectIDs.ToList()
+                    };
+
+                    // Search for the features and build the combined extent.
+                    Envelope combinedExtent = null;
+
+                    using RowCursor cursor = featureLayer.Search(filter, null);
+                    while (cursor.MoveNext())
+                    {
+                        using var row = cursor.Current as Feature;
+                        Geometry shape = row?.GetShape();
+                        if (shape != null && !shape.IsEmpty)
+                        {
+                            Envelope shapeExtent = shape.Extent;
+                            if (combinedExtent == null)
+                            {
+                                combinedExtent = shapeExtent;
+                            }
+                            else
+                            {
+                                combinedExtent = combinedExtent.Union(shapeExtent);
+                            }
+                        }
+                    }
+
+                    if (combinedExtent == null || combinedExtent.IsEmpty)
+                    {
+                        TraceLog($"ZoomToFeaturesInLayoutAsync: No valid geometries found for layer '{layerName}'.");
+                        return false;
+                    }
+
+                    // Apply the combined extent to the map frame.
+                    mapFrame.SetCamera(combinedExtent);
+
+                    // Apply zoom logic using camera scale strategy.
+                    ApplyZoomToMapFrame(mapFrame, ratio, scale, validScales);
+
+                    return true;
+
+                }
+                catch (Exception ex)
+                {
+                    TraceLog($"ZoomToFeaturesInLayoutAsync: Exception occurred while zooming to features. Exception: {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Zooms to the extent of a layer in a layout's map frame using the given layout and map frame name.
+        /// </summary>
+        /// <param name="layoutName">The name of the layout containing the map frame.</param>
+        /// <param name="layerName">The name of the layer to zoom to.</param>
+        /// <param name="selectedOnly">If true, zooms to selected features only.</param>
+        /// <param name="ratio">Optional zoom ratio multiplier.</param>
+        /// <param name="scale">Optional fixed scale to set after zooming.</param>
+        /// <param name="mapFrameName">Optional name of the map frame to use; defaults to "Map Frame".</param>
+        /// <returns>True if zoom succeeded; false otherwise.</returns>
+        public async Task<bool> ZoomToLayerInLayoutAsync(string layoutName,
+            string layerName,
+            bool selectedOnly,
+            double? ratio = 1,
+            double? scale = 10000,
+            List<int> validScales = null,
+            string mapFrameName = "Map Frame")
+        {
+            // Validate layout and layer names.
+            if (string.IsNullOrWhiteSpace(layoutName))
+            {
+                TraceLog("ZoomToLayerInLayoutAsync: Layout name is null or empty.");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(layerName))
+            {
+                TraceLog("ZoomToLayerInLayoutAsync: Layer name is null or empty.");
+                return false;
+            }
+
+            // Validate zoom ratio.
+            if (ratio.HasValue && ratio.Value <= 0)
+            {
+                TraceLog($"ZoomToLayerInLayoutAsync: Invalid ratio value: {ratio}.");
+                return false;
+            }
+
+            // Validate scale.
+            if (scale.HasValue && scale.Value <= 0)
+            {
+                TraceLog($"ZoomToLayerInLayoutAsync: Invalid scale value: {scale}.");
+                return false;
+            }
+
+            // Attempt to find the layout item in the project.
+            LayoutProjectItem layoutItem = Project.Current
+                .GetItems<LayoutProjectItem>()
+                .FirstOrDefault(l => l.Name.Equals(layoutName, StringComparison.OrdinalIgnoreCase));
+
+            if (layoutItem == null)
+            {
+                TraceLog($"ZoomToLayerInLayoutAsync: Layout '{layoutName}' not found.");
+                return false;
+            }
+
+            return await QueuedTask.Run(() =>
+            {
+                try
+                {
+                    // Open the layout from the layout item.
+                    Layout layout = layoutItem.GetLayout();
+                    if (layout == null)
+                    {
+                        TraceLog($"ZoomToLayerInLayoutAsync: Layout '{layoutName}' could not be opened.");
+                        return false;
+                    }
+
+                    // Find the named map frame in the layout.
+                    if (layout.FindElement(mapFrameName) is not MapFrame mapFrame)
+                    {
+                        TraceLog($"ZoomToLayerInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
+                        return false;
+                    }
+
+                    Map map = mapFrame.Map;
+                    if (map == null)
+                    {
+                        TraceLog($"ZoomToLayerInLayoutAsync: Map in map frame '{mapFrameName}' is null.");
+                        return false;
+                    }
+
+                    // Find the target layer in the map.
+                    Layer targetLayer = FindLayer(layerName, map);
+                    if (targetLayer == null)
+                    {
+                        TraceLog($"ZoomToLayerInLayoutAsync: Layer '{layerName}' not found in map.");
+                        return false;
+                    }
+
+                    // Get extent of the layer or selection.
+                    Envelope extent = selectedOnly
+                        ? GetSelectedExtent(targetLayer)
+                        : targetLayer.QueryExtent();
+
+                    if (extent == null || extent.IsEmpty)
+                    {
+                        TraceLog($"ZoomToLayerInLayoutAsync: No extent found for layer '{layerName}'.");
+                        return false;
+                    }
+
+                    // Apply the extent to the map frame.
+                    mapFrame.SetCamera(extent);
+
+                    // Apply zoom logic using camera scale strategy.
+                    ApplyZoomToMapFrame(mapFrame, ratio, scale, validScales);
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    TraceLog($"ZoomToLayerInLayoutAsync: Exception occurred while zooming to layer '{layerName}' in layout '{layoutName}'. Exception: {ex.Message}");
+                    return false;
+                }
+            });
         }
 
         #endregion Layout
+
+        #region Map & Layout Helpers
+
+        /// <summary>
+        /// Expands the given envelope by a scale factor relative to its center.
+        /// </summary>
+        /// <param name="envelope">The original envelope to expand.</param>
+        /// <param name="ratio">The scale ratio to apply (e.g. 1.5 will enlarge the envelope by 50%).</param>
+        /// <returns>An expanded envelope centered on the original.</returns>
+        private Envelope ExpandEnvelope(Envelope envelope, double ratio)
+        {
+            // Calculate the original width and height.
+            double width = envelope.Width;
+            double height = envelope.Height;
+
+            // Compute the amount to expand in each direction.
+            double expandWidth = width * (ratio - 1) / 2;
+            double expandHeight = height * (ratio - 1) / 2;
+
+            // Return the newly expanded envelope, maintaining the spatial reference.
+            return EnvelopeBuilder.CreateEnvelope(
+                envelope.XMin - expandWidth,
+                envelope.YMin - expandHeight,
+                envelope.XMax + expandWidth,
+                envelope.YMax + expandHeight,
+                envelope.SpatialReference);
+        }
+
+        /// <summary>
+        /// Gets the extent of selected features in a feature layer.
+        /// </summary>
+        /// <param name="layer">The layer to evaluate, must be a FeatureLayer.</param>
+        /// <returns>
+        /// The extent of the selected features, or null if there are no selections or the layer is not a FeatureLayer.
+        /// </returns>
+        private Envelope GetSelectedExtent(Layer layer)
+        {
+            // Ensure the layer is a feature layer.
+            if (layer is FeatureLayer featureLayer)
+            {
+                // Check if there are selected features.
+                var selection = featureLayer.GetSelection();
+                if (selection.GetCount() == 0)
+                    return null;
+
+                // Query and return the extent of selected features only.
+                return featureLayer.QueryExtent(true);
+            }
+
+            // Layer is not a feature layer or does not support selection.
+            return null;
+        }
+
+        /// <summary>
+        /// Returns the next scale up (i.e. more zoomed out) from the list of valid scales,
+        /// or extrapolates if current scale exceeds the largest in the list.
+        /// </summary>
+        /// <param name="currentScale">The current map scale.</param>
+        /// <param name="scaleList">A list of valid scales in ascending order.</param>
+        /// <returns>The next scale up from the list, or extrapolated value.</returns>
+        private double GetNextScaleUp(double currentScale, List<int> scaleList)
+        {
+            if (scaleList == null || scaleList.Count < 2)
+                throw new ArgumentException("Scale list must contain at least two values.");
+
+            scaleList.Sort();
+
+            foreach (var s in scaleList)
+            {
+                if (s > currentScale)
+                    return s;
+            }
+
+            // Extrapolate using the final gap.
+            int count = scaleList.Count;
+            int last = scaleList[count - 1];
+            int secondLast = scaleList[count - 2];
+            int gap = last - secondLast;
+
+            return last + gap;
+        }
+
+        /// <summary>
+        /// Applies zoom to a map frame based on ratio, fixed scale, or the next available scale from a scale list.
+        /// </summary>
+        /// <param name="mapFrame">The map frame to update.</param>
+        /// <param name="ratio">Optional zoom ratio to apply to the current scale.</param>
+        /// <param name="scale">Optional fixed scale to apply.</param>
+        /// <param name="validScales">Optional list of allowed scales to use for zooming out.</param>
+        private void ApplyZoomToMapFrame(MapFrame mapFrame,
+            double? ratio,
+            double? scale,
+            List<int> validScales = null)
+        {
+            if (mapFrame == null)
+                return;
+
+            Camera camera = mapFrame.Camera;
+
+            if (ratio.HasValue)
+            {
+                // Zoom using the next scale up from the scale list if provided.
+                if (validScales != null && validScales.Count >= 2)
+                {
+                    double currentScale = camera.Scale;
+                    double nextScale = GetNextScaleUp(currentScale, validScales);
+                    camera.Scale = nextScale;
+                    mapFrame.SetCamera(camera);
+
+                    TraceLog($"ApplyZoomToMapFrame: Zooming out using next scale from list: {nextScale} (current: {currentScale}).");
+                }
+                else
+                {
+                    // No scale list — apply ratio directly.
+                    camera.Scale *= ratio.Value;
+                    mapFrame.SetCamera(camera);
+
+                    TraceLog($"ApplyZoomToMapFrame: Applying ratio-based scale: {camera.Scale}.");
+                }
+            }
+            else if (scale.HasValue && scale.Value > 0)
+            {
+                // No ratio — use fixed scale.
+                camera.Scale = scale.Value;
+                mapFrame.SetCamera(camera);
+
+                TraceLog($"ApplyZoomToMapFrame: Applying fixed scale: {camera.Scale}.");
+            }
+        }
+
+        #endregion Map & Layout Helpers
+
+        //TODO: Finish improving the code and add more comments.
 
         #region Layers
 
