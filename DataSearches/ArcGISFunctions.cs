@@ -77,21 +77,6 @@ namespace DataTools
                 _activeMap = null;
         }
 
-        /// <summary>
-        /// Set the active map from the project by name.
-        /// </summary>
-        private async Task InitializeAsync(string searchMapName)
-        {
-            // Get the search map from the project by name.
-            Map searchMap = await GetMapFromNameAsync(searchMapName);
-
-            // Open the map in a new pane if it's not already open, and activate it.
-            await ActivateMapAsync(searchMap);
-
-            // Set the active map.
-            _activeMap = MapView.Active.Map;
-        }
-
         #endregion Constructor
 
         #region Properties
@@ -178,7 +163,7 @@ namespace DataTools
         /// Opens the specified map in a new pane if it's not already open, and activates it.
         /// </summary>
         /// <param name="map">The Map object to activate or open.</param>
-        internal static async Task ActivateMapAsync(Map map)
+        internal static async Task OpenMapAsync(Map map)
         {
             // Check if a pane is already open for this map.
             var pane = ProApp.Panes
@@ -206,14 +191,60 @@ namespace DataTools
         }
 
         /// <summary>
-        /// Retrieves the <see cref="MapView"/> associated with the specified map name,
+        /// Activates the pane displaying the specified <see cref="Map"/> and returns its associated <see cref="MapView"/>.
+        /// Falls back to the internally stored active map if no map is provided.
+        /// </summary>
+        /// <param name="targetMap">The map to activate, or <c>null</c> to use the internally stored active map.</param>
+        /// <returns>
+        /// The <see cref="MapView"/> associated with the activated pane, or <c>null</c> if not found.
+        /// </returns>
+        public async Task<MapView> ActivateMapAsync(Map targetMap)
+        {
+            // Use the provided map or fall back to the internally stored active map.
+            Map mapToUse = targetMap ?? _activeMap;
+
+            if (mapToUse == null)
+            {
+                TraceLog("ActivateMapAsync: No map provided and no fallback map available.");
+                return null;
+            }
+
+            // Search for an open map pane whose MapView references the target map.
+            var pane = FrameworkApplication.Panes
+                .OfType<IMapPane>()
+                .FirstOrDefault(p => p.MapView?.Map == mapToUse);
+
+            if (pane == null)
+            {
+                TraceLog($"ActivateMapAsync: No open pane found for map '{mapToUse.Name}'.");
+                return null;
+            }
+
+            // Activate the pane.
+            (pane as Pane)?.Activate();
+
+            // Allow time for the view to initialize after activation.
+            await Task.Delay(150);
+
+            var mapView = pane.MapView;
+
+            if (mapView == null)
+            {
+                TraceLog($"ActivateMapAsync: MapView is null after activating pane for map '{mapToUse.Name}'.");
+            }
+
+            return mapView;
+        }
+
+        /// <summary>
+        /// Retrieves the <see cref="MapView"/> associated with the specified map pane caption,
         /// if the map is currently open in a pane.
         /// </summary>
-        /// <param name="mapName">The name of the map to find the view for.</param>
+        /// <param name="mapName">The name of the map pane (caption) to find the view for.</param>
         /// <returns>
-        /// A <see cref="MapView"/> instance if the map is open in a pane; otherwise, <c>null</c>.
+        /// A <see cref="MapView"/> instance if the map caption is found in an open pane; otherwise, <c>null</c>.
         /// </returns>
-        public async Task<MapView> GetMapViewFromNameAsync(string mapName)
+        public MapView GetMapViewFromName(string mapName)
         {
             // Return null if no map name was provided.
             if (mapName == null)
@@ -222,38 +253,21 @@ namespace DataTools
                 return null;
             }
 
-            // Use the background thread to get the map object from the project.
-            Map map = await QueuedTask.Run(() =>
-            {
-                // Search the project's map items by name and retrieve the corresponding Map.
-                return Project.Current.GetItems<MapProjectItem>()
-                    .FirstOrDefault(m => m.Name == mapName)
-                    ?.GetMap();
-            });
-
-            // If the map was not found, return null.
-            if (map == null)
-            {
-                TraceLog($"GetMapViewFromNameAsync: Map '{mapName}' not found in project.");
-                return null;
-            }
-
             // Access the UI thread to search for a pane showing the specified map.
             // Only UI thread can access FrameworkApplication.Panes.
             MapView mapView = FrameworkApplication.Panes
                 .OfType<IMapPane>()
-                .FirstOrDefault(p => p.MapView?.Map == map)
+                .FirstOrDefault(p => p.Caption.Equals(mapName, StringComparison.OrdinalIgnoreCase))
                 ?.MapView;
 
             if (mapView == null)
             {
-                TraceLog($"GetMapViewFromNameAsync: No MapView found for map '{map.Name}'.");
+                TraceLog($"GetMapViewFromNameAsync: No MapView found for with caption '{mapName}'.");
             }
 
             // Return the found MapView or null if not found.
             return mapView;
         }
-
 
         /// <summary>
         /// Gets the <see cref="MapView"/> associated with the specified <see cref="Map"/>.
@@ -297,13 +311,13 @@ namespace DataTools
         /// <param name="targetMap">
         /// Optional map to control drawing for. If <c>null</c>, the internally tracked active map is used.
         /// </param>
-        public async Task PauseDrawingAsync(bool pause, Map targetMap = null)
+        public void PauseDrawing(bool pause, Map targetMap = null)
         {
             // Use the provided map or fall back to the internally stored active map.
             Map mapToUse = targetMap ?? _activeMap;
 
             // Attempt to retrieve the MapView for the specified map.
-            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
+            MapView mapViewToUse = GetMapViewFromName(mapToUse.Name);
             if (mapViewToUse == null)
             {
                 // Log if the view could not be found — the map may not be open.
@@ -478,8 +492,7 @@ namespace DataTools
             long objectID,
             double? factor,
             double? mapScaleOrDistance,
-            Map targetMap = null,
-            List<int> validScales = null)
+            Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -497,7 +510,7 @@ namespace DataTools
             Map mapToUse = targetMap ?? _activeMap;
 
             // Get the map view associated with the map.
-            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
+            MapView mapViewToUse = GetMapViewFromName(mapToUse.Name);
             if (mapViewToUse == null)
                 return false;
 
@@ -520,7 +533,7 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Handle exception.
-                TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
+                TraceLog($"ZoomToFeatureInMapAsync failed: {ex.Message}");
                 return false;
             }
 
@@ -541,14 +554,14 @@ namespace DataTools
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
             {
-                TraceLog("ZoomToLayerAsync: No layer name provided.");
+                TraceLog("ZoomToFeaturesInMapAsync: No layer name provided.");
                 return false;
             }
 
             // Check if there are any input objects.
             if (objectIDs == null || !objectIDs.Any())
             {
-                TraceLog("ZoomToLayerAsync: No object IDs provided.");
+                TraceLog("ZoomToFeaturesInMapAsync: No object IDs provided.");
                 return false;
             }
 
@@ -556,7 +569,7 @@ namespace DataTools
             Map mapToUse = targetMap ?? _activeMap;
 
             // Get the map view associated with the map.
-            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
+            MapView mapViewToUse = GetMapViewFromName(mapToUse.Name);
             if (mapViewToUse == null)
                 return false;
 
@@ -576,7 +589,7 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Handle exception.
-                TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
+                TraceLog($"ZoomToFeaturesInMapAsync failed: {ex.Message}");
                 return false;
             }
 
@@ -591,45 +604,43 @@ namespace DataTools
         /// <param name="ratio">Optional zoom ratio multiplier.</param>
         /// <param name="scale">Optional fixed scale to set after zooming.</param>
         /// <param name="targetMap">Optional map to use; defaults to _activeMap.</param>
-        /// <param name="validScales">Optional list of valid scales. If provided, the next scale up is chosen based on the current scale.</param>
         /// <returns>True if zoom succeeded; false otherwise.</returns>
         public async Task<bool> ZoomToLayerInMapAsync(string layerName,
             bool selectedOnly,
             double? ratio = 1,
             double? scale = 10000,
-            Map targetMap = null,
-            List<int> validScales = null)
+            Map targetMap = null)
         {
             if (string.IsNullOrEmpty(layerName))
             {
-                TraceLog("ZoomToLayerAsync: No layer name provided.");
+                TraceLog("ZoomToLayerInMapAsync: No layer name provided.");
                 return false;
             }
 
             if (ratio.HasValue && ratio.Value <= 0)
             {
-                TraceLog($"ZoomToLayerAsync: Invalid zoom ratio: {ratio}.");
+                TraceLog($"ZoomToLayerInMapAsync: Invalid zoom ratio: {ratio}.");
                 return false;
             }
 
             if (scale.HasValue && scale.Value <= 0)
             {
-                TraceLog($"ZoomToLayerAsync: Invalid scale: {scale}.");
+                TraceLog($"ZoomToLayerInMapAsync: Invalid scale: {scale}.");
                 return false;
             }
 
             Map mapToUse = targetMap ?? _activeMap;
-            MapView mapViewToUse = await GetMapViewFromNameAsync(mapToUse.Name);
+            MapView mapViewToUse = GetMapViewFromName(mapToUse.Name);
             if (mapViewToUse == null)
             {
-                TraceLog("ZoomToLayerAsync: Map view could not be found.");
+                TraceLog("ZoomToLayerInMapAsync: Map view could not be found.");
                 return false;
             }
 
             Layer targetLayer = FindLayer(layerName, mapToUse);
             if (targetLayer == null)
             {
-                TraceLog($"ZoomToLayerAsync: Layer '{layerName}' not found in map.");
+                TraceLog($"ZoomToLayerInMapAsync: Layer '{layerName}' not found in map.");
                 return false;
             }
 
@@ -641,42 +652,22 @@ namespace DataTools
                 // Get the current camera.
                 var camera = mapViewToUse.Camera;
 
-                // Apply zoom logic using ratio or fixed scale.
-                // Priority: ratio (with optional scale list) > fixed scale.
-
+                // Apply ratio or fixed scale (mutually exclusive).
                 if (ratio.HasValue)
                 {
-                    // If a list of valid scales is provided, use it to select the next scale up (i.e. zoom out).
-                    if (validScales != null && validScales.Count >= 2)
-                    {
-                        double currentScale = camera.Scale;
-                        double nextScale = GetNextScaleUp(currentScale, validScales);
-
-                        // Set the camera to the next scale in the list or extrapolated scale.
-                        camera.Scale = nextScale;
-                        TraceLog($"ZoomToLayerAsync: Zooming out using next scale from list: {nextScale} (current: {currentScale}).");
-                    }
-                    else
-                    {
-                        // No scale list provided — apply ratio directly to the current scale.
-                        camera.Scale *= ratio.Value;
-                        TraceLog($"ZoomToLayerAsync: Applying ratio-based scale: {camera.Scale}.");
-                    }
+                    camera.Scale *= (double)ratio;
                 }
-                else if (scale.HasValue && scale.Value > 0)
+                else if (scale > 0)
                 {
-                    // Ratio not specified — apply fixed scale if valid.
-                    camera.Scale = scale.Value;
-                    TraceLog($"ZoomToLayerAsync: Applying fixed scale: {camera.Scale}.");
+                    camera.Scale = (double)scale;
                 }
-
 
                 // Apply the modified camera.
                 await mapViewToUse.ZoomToAsync(camera, duration: null);
             }
             catch (Exception ex)
             {
-                TraceLog($"ZoomToLayerAsync failed: {ex.Message}");
+                TraceLog($"ZoomToLayerInMapAsync failed: {ex.Message}");
                 return false;
             }
 
@@ -686,6 +677,48 @@ namespace DataTools
         #endregion Map
 
         #region Layout
+
+        /// <summary>
+        /// Activates the pane displaying the specified <see cref="Layout"/> and returns its associated <see cref="LayoutView"/>.
+        /// </summary>
+        /// <param name="targetLayout">The layout to activate, or <c>null</c> to use the internally stored active layout.</param>
+        /// <returns>
+        /// The <see cref="LayoutView"/> associated with the activated pane, or <c>null</c> if not found.
+        /// </returns>
+        public async Task<LayoutView> ActivateLayoutAsync(Layout targetLayout)
+        {
+            if (targetLayout == null)
+            {
+                TraceLog("ActivateLayoutAsync: No layout provided and no fallback layout available.");
+                return null;
+            }
+
+            // Search for an open layout pane whose LayoutView references the target layout.
+            var pane = FrameworkApplication.Panes
+                .OfType<ILayoutPane>()
+                .FirstOrDefault(p => p.LayoutView?.Layout == targetLayout);
+
+            if (pane == null)
+            {
+                TraceLog($"ActivateLayoutAsync: No open pane found for layout '{targetLayout.Name}'.");
+                return null;
+            }
+
+            // Activate the pane.
+            (pane as Pane)?.Activate();
+
+            // Allow time for the view to initialize after activation.
+            await Task.Delay(150);
+
+            var layoutView = pane.LayoutView;
+
+            if (layoutView == null)
+            {
+                TraceLog($"ActivateLayoutAsync: LayoutView is null after activating pane for layout '{targetLayout.Name}'.");
+            }
+
+            return layoutView;
+        }
 
         /// <summary>
         /// Updates specific text elements in all currently open layouts matching the provided names.
@@ -829,7 +862,7 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Log any unexpected exception and return false.
-                TraceLog($"SetTextElementsAsync: Exception occurred while updating text element '{textName}' in layout '{layoutName}'. Exception: {ex.Message}");
+                TraceLog($"SetTextElementsAsync: Exception while updating text element '{textName}' in layout '{layoutName}'. Exception: {ex.Message}");
                 return false;
             }
         }
@@ -909,8 +942,7 @@ namespace DataTools
                     }
 
                     // Locate the named map frame.
-                    MapFrame mapFrame = layout.FindElement(mapFrameName) as MapFrame;
-                    if (mapFrame == null)
+                    if (layout.FindElement(mapFrameName) is not MapFrame mapFrame)
                     {
                         TraceLog($"ZoomToFeatureInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
                         return false;
@@ -934,7 +966,7 @@ namespace DataTools
                     // Query the feature geometry by ObjectID.
                     var queryFilter = new QueryFilter
                     {
-                        ObjectIDs = new List<long> { objectID }
+                        ObjectIDs = [objectID]
                     };
 
                     RowCursor cursor = featureLayer.Search(queryFilter);
@@ -1048,8 +1080,7 @@ namespace DataTools
                     }
 
                     // Get the map frame from the layout.
-                    MapFrame mapFrame = layout.FindElement(mapFrameName) as MapFrame;
-                    if (mapFrame == null)
+                    if (layout.FindElement(mapFrameName) is not MapFrame mapFrame)
                     {
                         TraceLog($"ZoomToFeaturesInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
                         return false;
@@ -1241,31 +1272,6 @@ namespace DataTools
         #endregion Layout
 
         #region Map & Layout Helpers
-
-        /// <summary>
-        /// Expands the given envelope by a scale factor relative to its center.
-        /// </summary>
-        /// <param name="envelope">The original envelope to expand.</param>
-        /// <param name="ratio">The scale ratio to apply (e.g. 1.5 will enlarge the envelope by 50%).</param>
-        /// <returns>An expanded envelope centered on the original.</returns>
-        private Envelope ExpandEnvelope(Envelope envelope, double ratio)
-        {
-            // Calculate the original width and height.
-            double width = envelope.Width;
-            double height = envelope.Height;
-
-            // Compute the amount to expand in each direction.
-            double expandWidth = width * (ratio - 1) / 2;
-            double expandHeight = height * (ratio - 1) / 2;
-
-            // Return the newly expanded envelope, maintaining the spatial reference.
-            return EnvelopeBuilder.CreateEnvelope(
-                envelope.XMin - expandWidth,
-                envelope.YMin - expandHeight,
-                envelope.XMax + expandWidth,
-                envelope.YMax + expandHeight,
-                envelope.SpatialReference);
-        }
 
         /// <summary>
         /// Gets the extent of selected features in a feature layer.
@@ -2495,8 +2501,7 @@ namespace DataTools
 
             try
             {
-                BasicFeatureLayer basicFeatureLayer = featureLayer as BasicFeatureLayer;
-                esriGeometryType shapeType = basicFeatureLayer.ShapeType;
+                esriGeometryType shapeType = featureLayer.ShapeType;
 
                 return shapeType switch
                 {
