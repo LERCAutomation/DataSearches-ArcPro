@@ -644,14 +644,14 @@ namespace DataSearches
                 _defaultKeepSelectedLayers = false;
                 rawText = _xmlDataSearches["DefaultKeepSelectedLayers"].InnerText;
                 if (string.IsNullOrEmpty(rawText))
-                    _defaultKeepSelectedLayers = false;
+                    _defaultKeepSelectedLayers = null;
                 else if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
                     _defaultKeepSelectedLayers = true;
             }
             catch
             {
                 // This is an optional node
-                _defaultKeepSelectedLayers = false;
+                _defaultKeepSelectedLayers = null;
             }
 
             // The default option (position in the list) for whether selected map layers should be added to the map window.
@@ -1532,9 +1532,9 @@ namespace DataSearches
             get { return _addSelectedLayersOptions; }
         }
 
-        private bool _defaultKeepSelectedLayers;
+        private bool? _defaultKeepSelectedLayers;
 
-        public bool DefaultKeepSelectedLayers
+        public bool? DefaultKeepSelectedLayers
         {
             get { return _defaultKeepSelectedLayers; }
         }

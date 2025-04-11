@@ -42,6 +42,19 @@ namespace DataSearches.UI
     /// </summary>
     internal class DockpaneMainViewModel : DockPane, INotifyPropertyChanged
     {
+        #region Enums
+
+        public enum SearchStatuses
+        {
+            NotStarted,
+            Initialising,
+            Running,
+            Completing,
+            Cancelled
+        }
+
+        #endregion Enums
+
         #region Fields
 
         private DockpaneMainViewModel _dockPane;
@@ -53,6 +66,7 @@ namespace DataSearches.UI
         private bool _projectClosedEventsSubscribed;
 
         private MapView _activeMapView;
+        private Pane _activePane;
 
         #endregion Fields
 
@@ -192,7 +206,8 @@ namespace DataSearches.UI
         {
             get
             {
-                return !_searchCancelled
+                return (_searchStatus == SearchStatuses.Initialising
+                    || _searchStatus == SearchStatuses.Running)
                     && _processStatus != null;
             }
         }
@@ -333,26 +348,15 @@ namespace DataSearches.UI
             set { _layersListLoading = value; }
         }
 
-        private bool _searchRunning;
+        private SearchStatuses _searchStatus;
 
         /// <summary>
-        /// Is the search running?
+        /// What is the status of the search process?
         /// </summary>
-        public bool SearchRunning
+        public SearchStatuses SearchStatus
         {
-            get { return _searchRunning; }
-            set { _searchRunning = value; }
-        }
-
-        private bool _searchCancelled = false;
-
-        /// <summary>
-        /// Has the search been cancelled?
-        /// </summary>
-        public bool SearchCancelled
-        {
-            get { return _searchCancelled; }
-            set { _searchCancelled = value; }
+            get { return _searchStatus; }
+            set { _searchStatus = value; }
         }
 
         private string _helpURL;
@@ -384,6 +388,12 @@ namespace DataSearches.UI
 
         private void OnActiveMapViewChanged(ActiveMapViewChangedEventArgs obj)
         {
+            // Ignore map view changes whilst search is initialising
+            // or completing as that's probably the add-in switching panes.
+            if ((_searchStatus == SearchStatuses.Initialising)
+                || (SearchStatus == SearchStatuses.Completing))
+                return;
+
             if (MapView.Active == null)
             {
                 DockpaneVisibility = Visibility.Hidden;
@@ -399,8 +409,9 @@ namespace DataSearches.UI
                 if (MapView.Active != _activeMapView)
                     _paneH2VM?.LoadLayersAsync(false);
 
-                // Save the active map view.
+                // Save the active map view and pane.
                 _activeMapView = MapView.Active;
+                _activePane = FrameworkApplication.Panes.ActivePane;
             }
         }
 
@@ -703,7 +714,7 @@ namespace DataSearches.UI
         private void CancelCommandClick(object param)
         {
             // Cancel the search.
-            _searchCancelled = true;
+            _searchStatus = SearchStatuses.Cancelled;
 
             OnPropertyChanged(nameof(CancelButtonEnabled));
         }

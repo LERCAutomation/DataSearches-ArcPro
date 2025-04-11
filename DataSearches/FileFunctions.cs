@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 
 namespace DataTools
@@ -345,20 +346,24 @@ namespace DataTools
         /// <returns>bool</returns>
         public static bool WriteLine(string logFile, string logLine)
         {
-            // Check input first.
+            // Check log file name has been supplied.
             if (string.IsNullOrEmpty(logFile))
                 return false;
 
             try
             {
-                // Add the date and time to the start of the text.
-                logLine = DateTime.Now.ToString() + " : " + logLine;
+                // Write to the Trace log if it is not null (the date and time will be added later).
+                if (logLine != null)
+                    TraceLog(logLine);
 
-                // Open the log file.= with shared access.
-                using StreamWriter myWriter = new(new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.ReadWrite));
+                //// Add the date and time to the start of the text.
+                //logLine = DateTime.Now.ToString() + " : " + logLine;
 
-                // Write the line to the end of the log file.
-                myWriter.WriteLine(logLine);
+                //// Open the log file.= with shared access.
+                //using StreamWriter myWriter = new(new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.ReadWrite));
+
+                //// Write the line to the end of the log file.
+                //myWriter.WriteLine(logLine);
             }
             catch
             {
@@ -366,6 +371,15 @@ namespace DataTools
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Writes any message to the Trace log with a timestamp.
+        /// </summary>
+        /// <param name="message"></param>
+        private static void TraceLog(string message)
+        {
+            Trace.WriteLine($"{DateTime.Now:G} : {message}");
         }
 
         #endregion Logfile

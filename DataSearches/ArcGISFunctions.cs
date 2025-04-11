@@ -39,6 +39,7 @@ using ArcGIS.Desktop.Internal.Layouts.Utilities;
 using ArcGIS.Desktop.Internal.Mapping;
 using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
+using Microsoft.Identity.Client.Extensions.Msal;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -104,7 +105,7 @@ namespace DataTools
         /// Writes any message to the Trace log with a timestamp.
         /// </summary>
         /// <param name="message"></param>
-        private void TraceLog(string message)
+        private static void TraceLog(string message)
         {
             Trace.WriteLine($"{DateTime.Now:G} : {message}");
         }
@@ -140,7 +141,7 @@ namespace DataTools
             // Return null if the input name is invalid.
             if (mapName == null)
             {
-                TraceLog("GetMapFromNameAsync: No map name provided.");
+                TraceLog("GetMapFromNameAsync error: No map name provided.");
                 return null;
             }
 
@@ -157,6 +158,57 @@ namespace DataTools
 
             // Return the found map, or null if not found.
             return map;
+        }
+
+        /// <summary>
+        /// Resolves the <see cref="Map"/> associated with a map pane using its caption, activating the pane if needed.
+        /// </summary>
+        /// <param name="mapViewCaption">The caption of the map pane (tab title in ArcGIS Pro).</param>
+        /// <returns>
+        /// The corresponding <see cref="Map"/> if the pane is open and initialized; otherwise, <c>null</c>.
+        /// </returns>
+        public async Task<Map> GetMapFromCaptionAsync(string mapViewCaption)
+        {
+            if (string.IsNullOrWhiteSpace(mapViewCaption))
+            {
+                TraceLog("GetMapFromCaptionAsync error: No caption provided.");
+                return null;
+            }
+
+            // Find the map pane by caption (regardless of activation state).
+            var pane = FrameworkApplication.Panes
+                .OfType<IMapPane>()
+                .FirstOrDefault(p => (p as Pane)?.Caption.Equals(mapViewCaption.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+
+            if (pane == null)
+            {
+                TraceLog($"GetMapFromCaptionAsync error: No map pane found for caption '{mapViewCaption}'.");
+                return null;
+            }
+
+            // Activate the pane to ensure MapView is fully initialized.
+            (pane as Pane)?.Activate();
+
+            // Retry loop: wait for MapView?.Map to be non-null (up to 5 seconds).
+            const int maxWaitMs = 5000;
+            const int delayIntervalMs = 200;
+            int elapsedMs = 0;
+
+            while (elapsedMs < maxWaitMs)
+            {
+                var map = pane.MapView?.Map;
+                if (map != null)
+                {
+                    return map;
+                }
+
+                await Task.Delay(delayIntervalMs);
+                elapsedMs += delayIntervalMs;
+            }
+
+            TraceLog($"GetMapFromCaptionAsync error: MapView is still null after waiting {maxWaitMs}ms for pane '{mapViewCaption}'.");
+
+            return null;
         }
 
         /// <summary>
@@ -205,7 +257,7 @@ namespace DataTools
 
             if (mapToUse == null)
             {
-                TraceLog("ActivateMapAsync: No map provided and no fallback map available.");
+                TraceLog("ActivateMapAsync error: No map provided and no fallback map available.");
                 return null;
             }
 
@@ -216,24 +268,31 @@ namespace DataTools
 
             if (pane == null)
             {
-                TraceLog($"ActivateMapAsync: No open pane found for map '{mapToUse.Name}'.");
+                TraceLog($"ActivateMapAsync error: No open pane found for map '{mapToUse.Name}'.");
                 return null;
             }
 
             // Activate the pane.
             (pane as Pane)?.Activate();
 
-            // Allow time for the view to initialize after activation.
-            await Task.Delay(150);
+            // Retry loop: wait for MapView to be non-null (up to 5 seconds).
+            const int maxWaitMs = 5000;
+            const int delayIntervalMs = 200;
+            int elapsedMs = 0;
 
-            var mapView = pane.MapView;
-
-            if (mapView == null)
+            while (elapsedMs < maxWaitMs)
             {
-                TraceLog($"ActivateMapAsync: MapView is null after activating pane for map '{mapToUse.Name}'.");
+                var mapView = pane.MapView;
+                if (mapView != null)
+                    return mapView;
+
+                await Task.Delay(delayIntervalMs);
+                elapsedMs += delayIntervalMs;
             }
 
-            return mapView;
+            TraceLog($"ActivateMapAsync error: MapView is still null after waiting {maxWaitMs}ms for map '{mapToUse.Name}'.");
+
+            return null;
         }
 
         /// <summary>
@@ -249,7 +308,7 @@ namespace DataTools
             // Return null if no map name was provided.
             if (mapName == null)
             {
-                TraceLog("GetMapViewFromNameAsync: No map name provided.");
+                TraceLog("GetMapViewFromNameAsync error: No map name provided.");
                 return null;
             }
 
@@ -262,7 +321,7 @@ namespace DataTools
 
             if (mapView == null)
             {
-                TraceLog($"GetMapViewFromNameAsync: No MapView found for with caption '{mapName}'.");
+                TraceLog($"GetMapViewFromNameAsync error: No MapView found for with caption '{mapName}'.");
             }
 
             // Return the found MapView or null if not found.
@@ -281,7 +340,7 @@ namespace DataTools
         {
             if (map == null)
             {
-                TraceLog("GetMapViewFromMapAsync: No map provided.");
+                TraceLog("GetMapViewFromMapAsync error: No map provided.");
                 return null;
             }
 
@@ -297,7 +356,7 @@ namespace DataTools
 
                 if (mapView == null)
                 {
-                    TraceLog($"GetMapViewFromMapAsync: No MapView found for map '{map.Name}'.");
+                    TraceLog($"GetMapViewFromMapAsync error: No MapView found for map '{map.Name}'.");
                 }
             });
 
@@ -321,7 +380,7 @@ namespace DataTools
             if (mapViewToUse == null)
             {
                 // Log if the view could not be found — the map may not be open.
-                TraceLog("PauseDrawingAsync: MapView not found.");
+                TraceLog("PauseDrawingAsync error: MapView not found.");
                 return;
             }
 
@@ -340,7 +399,7 @@ namespace DataTools
         {
             if (string.IsNullOrEmpty(mapName))
             {
-                TraceLog("CreateMapAsync: map name is null or empty.");
+                TraceLog("CreateMapAsync error: Map name is null or empty.");
                 return null;
             }
 
@@ -373,7 +432,8 @@ namespace DataTools
             }
             catch (Exception ex)
             {
-                TraceLog($"CreateMapAsync: failed to create map '{mapName}'. Exception: {ex.Message}");
+                // Log the exception and return null.
+                TraceLog($"CreateMapAsync error: Failed to create map '{mapName}', Exception: {ex.Message}");
                 return null;
             }
         }
@@ -391,7 +451,7 @@ namespace DataTools
             // If the URL is null or whitespace, return false.
             if (string.IsNullOrWhiteSpace(url))
             {
-                TraceLog("AddLayerToMapAsync: URL is null or empty.");
+                TraceLog("AddLayerToMapAsync error: URL is null or empty.");
                 return false;
             }
 
@@ -423,7 +483,7 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Log and return false if any exception occurs during the process.
-                TraceLog($"AddLayerToMapAsync: Failed to add layer from URL '{url}'. Exception: {ex.Message}");
+                TraceLog($"AddLayerToMapAsync error: Failed to add layer from URL '{url}', Exception: {ex.Message}");
                 return false;
             }
         }
@@ -441,7 +501,7 @@ namespace DataTools
             // Validate the input URL.
             if (string.IsNullOrWhiteSpace(url))
             {
-                TraceLog("AddTableToMapAsync: URL is null or empty.");
+                TraceLog("AddTableToMapAsync error: URL is null or empty.");
                 return false;
             }
 
@@ -473,7 +533,7 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Log the exception and return false.
-                TraceLog($"AddTableToMapAsync: Failed to add table from URL '{url}'. Exception: {ex.Message}");
+                TraceLog($"AddTableToMapAsync error: Failed to add table from URL '{url}', Exception: {ex.Message}");
                 return false;
             }
         }
@@ -532,8 +592,8 @@ namespace DataTools
             }
             catch (Exception ex)
             {
-                // Handle exception.
-                TraceLog($"ZoomToFeatureInMapAsync failed: {ex.Message}");
+                // Log the exception and return false.
+                TraceLog($"ZoomToFeatureInMapAsync error: Exception {ex.Message}");
                 return false;
             }
 
@@ -554,14 +614,14 @@ namespace DataTools
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
             {
-                TraceLog("ZoomToFeaturesInMapAsync: No layer name provided.");
+                TraceLog("ZoomToFeaturesInMapAsync error: No layer name provided.");
                 return false;
             }
 
             // Check if there are any input objects.
             if (objectIDs == null || !objectIDs.Any())
             {
-                TraceLog("ZoomToFeaturesInMapAsync: No object IDs provided.");
+                TraceLog("ZoomToFeaturesInMapAsync error: No object IDs provided.");
                 return false;
             }
 
@@ -588,8 +648,8 @@ namespace DataTools
             }
             catch (Exception ex)
             {
-                // Handle exception.
-                TraceLog($"ZoomToFeaturesInMapAsync failed: {ex.Message}");
+                // Log the exception and return false.
+                TraceLog($"ZoomToFeaturesInMapAsync error: Exception {ex.Message}");
                 return false;
             }
 
@@ -613,19 +673,19 @@ namespace DataTools
         {
             if (string.IsNullOrEmpty(layerName))
             {
-                TraceLog("ZoomToLayerInMapAsync: No layer name provided.");
+                TraceLog("ZoomToLayerInMapAsync error: No layer name provided.");
                 return false;
             }
 
             if (ratio.HasValue && ratio.Value <= 0)
             {
-                TraceLog($"ZoomToLayerInMapAsync: Invalid zoom ratio: {ratio}.");
+                TraceLog($"ZoomToLayerInMapAsync error: Invalid zoom ratio: {ratio}.");
                 return false;
             }
 
             if (scale.HasValue && scale.Value <= 0)
             {
-                TraceLog($"ZoomToLayerInMapAsync: Invalid scale: {scale}.");
+                TraceLog($"ZoomToLayerInMapAsync error: Invalid scale: {scale}.");
                 return false;
             }
 
@@ -633,14 +693,14 @@ namespace DataTools
             MapView mapViewToUse = GetMapViewFromName(mapToUse.Name);
             if (mapViewToUse == null)
             {
-                TraceLog("ZoomToLayerInMapAsync: Map view could not be found.");
+                TraceLog("ZoomToLayerInMapAsync error: Map view could not be found.");
                 return false;
             }
 
             Layer targetLayer = FindLayer(layerName, mapToUse);
             if (targetLayer == null)
             {
-                TraceLog($"ZoomToLayerInMapAsync: Layer '{layerName}' not found in map.");
+                TraceLog($"ZoomToLayerInMapAsync error: Layer '{layerName}' not found in map.");
                 return false;
             }
 
@@ -667,7 +727,8 @@ namespace DataTools
             }
             catch (Exception ex)
             {
-                TraceLog($"ZoomToLayerInMapAsync failed: {ex.Message}");
+                // Log the exception and return false.
+                TraceLog($"ZoomToLayerInMapAsync error: Exception {ex.Message}");
                 return false;
             }
 
@@ -677,6 +738,57 @@ namespace DataTools
         #endregion Map
 
         #region Layout
+
+        /// <summary>
+        /// Resolves the <see cref="Layout"/> associated with a layout pane using its caption, activating the pane if needed.
+        /// </summary>
+        /// <param name="layoutViewCaption">The caption of the layout pane (tab title in ArcGIS Pro).</param>
+        /// <returns>
+        /// The corresponding <see cref="Layout"/> if the pane is open and initialized; otherwise, <c>null</c>.
+        /// </returns>
+        public async Task<Layout> GetLayoutFromCaptionAsync(string layoutViewCaption)
+        {
+            if (string.IsNullOrWhiteSpace(layoutViewCaption))
+            {
+                TraceLog("GetLayoutFromCaptionAsync error: No caption provided.");
+                return null;
+            }
+
+            // Find the layout pane by caption.
+            var pane = FrameworkApplication.Panes
+                .OfType<ILayoutPane>()
+                .FirstOrDefault(p => (p as Pane)?.Caption.Equals(layoutViewCaption.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+
+            if (pane == null)
+            {
+                TraceLog($"GetLayoutFromCaptionAsync error: No layout pane found for caption '{layoutViewCaption}'.");
+                return null;
+            }
+
+            // Activate the pane to force view initialization.
+            (pane as Pane)?.Activate();
+
+            // Retry loop: wait for LayoutView?.Layout to be non-null (up to 5 seconds).
+            const int maxWaitMs = 5000;
+            const int delayIntervalMs = 200;
+            int elapsedMs = 0;
+
+            while (elapsedMs < maxWaitMs)
+            {
+                var layout = pane.LayoutView?.Layout;
+                if (layout != null)
+                {
+                    return layout;
+                }
+
+                await Task.Delay(delayIntervalMs);
+                elapsedMs += delayIntervalMs;
+            }
+
+            TraceLog($"GetLayoutFromCaptionAsync error: Layout is still null after waiting {maxWaitMs}ms for pane '{layoutViewCaption}'.");
+
+            return null;
+        }
 
         /// <summary>
         /// Activates the pane displaying the specified <see cref="Layout"/> and returns its associated <see cref="LayoutView"/>.
@@ -689,7 +801,7 @@ namespace DataTools
         {
             if (targetLayout == null)
             {
-                TraceLog("ActivateLayoutAsync: No layout provided and no fallback layout available.");
+                TraceLog("ActivateLayoutAsync error: No layout provided and no fallback layout available.");
                 return null;
             }
 
@@ -700,43 +812,56 @@ namespace DataTools
 
             if (pane == null)
             {
-                TraceLog($"ActivateLayoutAsync: No open pane found for layout '{targetLayout.Name}'.");
+                TraceLog($"ActivateLayoutAsync error: No open pane found for layout '{targetLayout.Name}'.");
                 return null;
             }
 
             // Activate the pane.
             (pane as Pane)?.Activate();
 
-            // Allow time for the view to initialize after activation.
-            await Task.Delay(150);
+            // Retry loop: wait for LayoutView to be non-null (up to 5 seconds).
+            const int maxWaitMs = 5000;
+            const int delayIntervalMs = 200;
+            int elapsedMs = 0;
 
-            var layoutView = pane.LayoutView;
-
-            if (layoutView == null)
+            while (elapsedMs < maxWaitMs)
             {
-                TraceLog($"ActivateLayoutAsync: LayoutView is null after activating pane for layout '{targetLayout.Name}'.");
+                var layoutView = pane.LayoutView;
+                if (layoutView != null)
+                {
+                    return layoutView;
+                }
+
+                await Task.Delay(delayIntervalMs);
+                elapsedMs += delayIntervalMs;
             }
 
-            return layoutView;
+            TraceLog($"ActivateLayoutAsync error: LayoutView is still null after waiting {maxWaitMs}ms for layout '{targetLayout.Name}'.");
+
+            return null;
         }
 
         /// <summary>
         /// Updates specific text elements in all currently open layouts matching the provided names.
         /// </summary>
         /// <param name="layoutNames">List of layout names to update.</param>
-        /// <param name="siteColumn">The name of the text element to update for the site name.</param>
+        /// <param name="siteNameColumn">The name of the text element to update for the site name.</param>
         /// <param name="siteName">The new site name text value.</param>
-        /// <param name="searchColumn">The name of the text element to update for the search reference.</param>
+        /// <param name="searchRefColumn">The name of the text element to update for the search reference.</param>
         /// <param name="searchRef">The new search reference text value.</param>
+        /// <param name="organisationColumn">The name of the text element to update for the organisation.</param>
+        /// <param name="organisationText">The new organisation value.</param>
         /// <param name="radiusColumn">The name of the text element to update for the search radius.</param>
         /// <param name="radiusText">The new search radius text value.</param>
         /// <returns>True if all text updates succeeded across all open layouts; otherwise, false.</returns>
         public async Task<bool> UpdateLayoutsTextAsync(
             List<string> layoutNames,
-            string siteColumn,
+            string siteNameColumn,
             string siteName,
-            string searchColumn,
+            string searchRefColumn,
             string searchRef,
+            string organisationColumn,
+            string organisationText,
             string radiusColumn,
             string radiusText)
         {
@@ -749,7 +874,7 @@ namespace DataTools
 
                 if (layoutItem == null)
                 {
-                    TraceLog($"UpdateLayoutsTextAsync: Layout '{layoutName}' not found.");
+                    TraceLog($"UpdateLayoutsTextAsync error: Layout '{layoutName}' not found.");
                     continue;
                 }
 
@@ -767,29 +892,48 @@ namespace DataTools
                 // Skip updates if the layout is not currently open.
                 if (!isOpen)
                 {
-                    TraceLog($"UpdateLayoutsTextAsync: Layout '{layoutName}' is not open. Skipping.");
+                    TraceLog($"UpdateLayoutsTextAsync error: Layout '{layoutName}' is not open. Skipping.");
                     continue;
                 }
 
                 // Update the site name text element.
-                if (!await SetTextElementsAsync(layoutName, siteColumn, siteName))
+                if (!string.IsNullOrWhiteSpace(siteNameColumn))
                 {
-                    TraceLog($"UpdateLayoutsTextAsync: Failed to update site column in layout '{layoutName}'.");
-                    return false;
+                    if (!await SetTextElementsAsync(layoutName, siteNameColumn, siteName))
+                    {
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{siteNameColumn}' in layout '{layoutName}'.");
+                        return false;
+                    }
                 }
 
                 // Update the search reference text element.
-                if (!await SetTextElementsAsync(layoutName, searchColumn, searchRef))
+                if (!string.IsNullOrWhiteSpace(searchRefColumn))
                 {
-                    TraceLog($"UpdateLayoutsTextAsync: Failed to update search column in layout '{layoutName}'.");
-                    return false;
+                    if (!await SetTextElementsAsync(layoutName, searchRefColumn, searchRef))
+                    {
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{searchRefColumn}' in layout '{layoutName}'.");
+                        return false;
+                    }
+                }
+
+                // Update the organisation text element.
+                if (!string.IsNullOrWhiteSpace(organisationColumn))
+                {
+                    if (!await SetTextElementsAsync(layoutName, organisationColumn, organisationText))
+                    {
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{organisationColumn}' in layout '{layoutName}'.");
+                        return false;
+                    }
                 }
 
                 // Update the search radius text element.
-                if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
+                if (!string.IsNullOrWhiteSpace(radiusColumn))
                 {
-                    TraceLog($"UpdateLayoutsTextAsync: Failed to update radius column in layout '{layoutName}'.");
-                    return false;
+                    if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
+                    {
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{radiusColumn}' in layout '{layoutName}'.");
+                        return false;
+                    }
                 }
             }
 
@@ -809,15 +953,17 @@ namespace DataTools
             // Validate inputs.
             if (string.IsNullOrWhiteSpace(layoutName))
             {
-                TraceLog("SetTextElementsAsync: Layout name is null or empty.");
+                TraceLog("SetTextElementsAsync error: Layout name is null or empty.");
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(textName) || textString == null)
+            if (string.IsNullOrWhiteSpace(textName))
             {
-                TraceLog("SetTextElementsAsync: Text element name or value is invalid.");
+                TraceLog("SetTextElementsAsync error: Text element name is invalid.");
                 return false;
             }
+
+            bool success = false;
 
             try
             {
@@ -830,7 +976,7 @@ namespace DataTools
 
                     if (layout == null)
                     {
-                        TraceLog($"SetTextElementsAsync: Layout '{layoutName}' not found.");
+                        TraceLog($"SetTextElementsAsync error: Layout '{layoutName}' not found.");
                         return;
                     }
 
@@ -848,21 +994,25 @@ namespace DataTools
                         }
                         else
                         {
-                            TraceLog($"SetTextElementsAsync: Failed to get CIMTextGraphic for element '{textName}'.");
+                            TraceLog($"SetTextElementsAsync error: Failed to get CIMTextGraphic for element '{textName}'.");
+                            return;
                         }
                     }
-                    else
-                    {
-                        TraceLog($"SetTextElementsAsync: Text element '{textName}' not found in layout '{layoutName}'.");
-                    }
+                    //else
+                    //{
+                    //    TraceLog($"SetTextElementsAsync error: Text element '{textName}' not found in layout '{layoutName}'.");
+                    //    return;
+                    //}
+
+                    success = true;
                 });
 
-                return true;
+                return success;
             }
             catch (Exception ex)
             {
                 // Log any unexpected exception and return false.
-                TraceLog($"SetTextElementsAsync: Exception while updating text element '{textName}' in layout '{layoutName}'. Exception: {ex.Message}");
+                TraceLog($"SetTextElementsAsync error: Failed tp update text element '{textName}' in layout '{layoutName}', Exception: {ex.Message}");
                 return false;
             }
         }
@@ -890,31 +1040,31 @@ namespace DataTools
             // Validate required parameters.
             if (string.IsNullOrWhiteSpace(layoutName))
             {
-                TraceLog("ZoomToFeatureInLayoutAsync: Layout name is null or empty.");
+                TraceLog("ZoomToFeatureInLayoutAsync error: Layout name is null or empty.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(layerName))
             {
-                TraceLog("ZoomToFeatureInLayoutAsync: Layer name is null or empty.");
+                TraceLog("ZoomToFeatureInLayoutAsync error: Layer name is null or empty.");
                 return false;
             }
 
             if (objectID < 0)
             {
-                TraceLog("ZoomToFeatureInLayoutAsync: Invalid ObjectID.");
+                TraceLog("ZoomToFeatureInLayoutAsync error: Invalid ObjectID.");
                 return false;
             }
 
             if (ratio.HasValue && ratio.Value <= 0)
             {
-                TraceLog($"ZoomToFeatureInLayoutAsync: Invalid factor value: {ratio}.");
+                TraceLog($"ZoomToFeatureInLayoutAsync error: Invalid factor value: {ratio}.");
                 return false;
             }
 
             if (scale.HasValue && scale.Value <= 0)
             {
-                TraceLog($"ZoomToFeatureInLayoutAsync: Invalid mapScaleOrDistance value: {scale}.");
+                TraceLog($"ZoomToFeatureInLayoutAsync error: Invalid mapScaleOrDistance value: {scale}.");
                 return false;
             }
 
@@ -925,7 +1075,7 @@ namespace DataTools
 
             if (layoutItem == null)
             {
-                TraceLog($"ZoomToFeatureInLayoutAsync: Layout '{layoutName}' not found.");
+                TraceLog($"ZoomToFeatureInLayoutAsync error: Layout '{layoutName}' not found.");
                 return false;
             }
 
@@ -937,21 +1087,21 @@ namespace DataTools
                     Layout layout = layoutItem.GetLayout();
                     if (layout == null)
                     {
-                        TraceLog($"ZoomToFeatureInLayoutAsync: Layout '{layoutName}' could not be opened.");
+                        TraceLog($"ZoomToFeatureInLayoutAsync error: Layout '{layoutName}' could not be opened.");
                         return false;
                     }
 
                     // Locate the named map frame.
                     if (layout.FindElement(mapFrameName) is not MapFrame mapFrame)
                     {
-                        TraceLog($"ZoomToFeatureInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
+                        TraceLog($"ZoomToFeatureInLayoutAsync error: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
                         return false;
                     }
 
                     Map map = mapFrame.Map;
                     if (map == null)
                     {
-                        TraceLog($"ZoomToFeatureInLayoutAsync: Map in map frame '{mapFrameName}' is null.");
+                        TraceLog($"ZoomToFeatureInLayoutAsync error: Map in map frame '{mapFrameName}' is null.");
                         return false;
                     }
 
@@ -959,7 +1109,7 @@ namespace DataTools
                     var layer = FindLayer(layerName, map);
                     if (layer is not FeatureLayer featureLayer)
                     {
-                        TraceLog($"ZoomToFeatureInLayoutAsync: Feature layer '{layerName}' not found in map.");
+                        TraceLog($"ZoomToFeatureInLayoutAsync error: Feature layer '{layerName}' not found in map.");
                         return false;
                     }
 
@@ -972,7 +1122,7 @@ namespace DataTools
                     RowCursor cursor = featureLayer.Search(queryFilter);
                     if (!cursor.MoveNext())
                     {
-                        TraceLog($"ZoomToFeatureInLayoutAsync: No feature found with ObjectID {objectID} in layer '{layerName}'.");
+                        TraceLog($"ZoomToFeatureInLayoutAsync error: No feature found with ObjectID {objectID} in layer '{layerName}'.");
                         return false;
                     }
 
@@ -981,7 +1131,7 @@ namespace DataTools
 
                     if (geometry == null || geometry.IsEmpty)
                     {
-                        TraceLog($"ZoomToFeatureInLayoutAsync: Geometry is null or empty for ObjectID {objectID}.");
+                        TraceLog($"ZoomToFeatureInLayoutAsync error: Geometry is null or empty for ObjectID {objectID}.");
                         return false;
                     }
 
@@ -998,7 +1148,8 @@ namespace DataTools
                 }
                 catch (Exception ex)
                 {
-                    TraceLog($"ZoomToFeatureInLayoutAsync: Exception occurred while zooming to feature. Exception: {ex.Message}");
+                    // Log any unexpected exception and return false.
+                    TraceLog($"ZoomToFeatureInLayoutAsync error: Problem while zooming to feature. Exception: {ex.Message}");
                     return false;
                 }
             });
@@ -1028,31 +1179,31 @@ namespace DataTools
             // Validate inputs.
             if (string.IsNullOrWhiteSpace(layoutName))
             {
-                TraceLog("ZoomToFeaturesInLayoutAsync: Layout name is null or empty.");
+                TraceLog("ZoomToFeaturesInLayoutAsync error: Layout name is null or empty.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(layerName))
             {
-                TraceLog("ZoomToFeaturesInLayoutAsync: Layer name is null or empty.");
+                TraceLog("ZoomToFeaturesInLayoutAsync error: Layer name is null or empty.");
                 return false;
             }
 
             if (objectIDs == null || !objectIDs.Any())
             {
-                TraceLog("ZoomToFeaturesInLayoutAsync: Object ID list is null or empty.");
+                TraceLog("ZoomToFeaturesInLayoutAsync error: Object ID list is null or empty.");
                 return false;
             }
 
             if (ratio.HasValue && ratio.Value <= 0)
             {
-                TraceLog($"ZoomToFeaturesInLayoutAsync: Invalid ratio value: {ratio}.");
+                TraceLog($"ZoomToFeaturesInLayoutAsync error: Invalid ratio value: {ratio}.");
                 return false;
             }
 
             if (scale.HasValue && scale.Value <= 0)
             {
-                TraceLog($"ZoomToFeaturesInLayoutAsync: Invalid scale value: {scale}.");
+                TraceLog($"ZoomToFeaturesInLayoutAsync error: Invalid scale value: {scale}.");
                 return false;
             }
 
@@ -1063,7 +1214,7 @@ namespace DataTools
 
             if (layoutItem == null)
             {
-                TraceLog($"ZoomToFeaturesInLayoutAsync: Layout '{layoutName}' not found.");
+                TraceLog($"ZoomToFeaturesInLayoutAsync error: Layout '{layoutName}' not found.");
                 return false;
             }
 
@@ -1075,21 +1226,21 @@ namespace DataTools
                     Layout layout = layoutItem.GetLayout();
                     if (layout == null)
                     {
-                        TraceLog($"ZoomToFeaturesInLayoutAsync: Layout '{layoutName}' could not be opened.");
+                        TraceLog($"ZoomToFeaturesInLayoutAsync error: Layout '{layoutName}' could not be opened.");
                         return false;
                     }
 
                     // Get the map frame from the layout.
                     if (layout.FindElement(mapFrameName) is not MapFrame mapFrame)
                     {
-                        TraceLog($"ZoomToFeaturesInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
+                        TraceLog($"ZoomToFeaturesInLayoutAsync error: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
                         return false;
                     }
 
                     Map map = mapFrame.Map;
                     if (map == null)
                     {
-                        TraceLog($"ZoomToFeaturesInLayoutAsync: Map in map frame '{mapFrameName}' is null.");
+                        TraceLog($"ZoomToFeaturesInLayoutAsync error: Map in map frame '{mapFrameName}' is null.");
                         return false;
                     }
 
@@ -1097,7 +1248,7 @@ namespace DataTools
                     var layer = FindLayer(layerName, map);
                     if (layer is not FeatureLayer featureLayer)
                     {
-                        TraceLog($"ZoomToFeaturesInLayoutAsync: Feature layer '{layerName}' not found in map.");
+                        TraceLog($"ZoomToFeaturesInLayoutAsync error: Feature layer '{layerName}' not found in map.");
                         return false;
                     }
 
@@ -1131,7 +1282,7 @@ namespace DataTools
 
                     if (combinedExtent == null || combinedExtent.IsEmpty)
                     {
-                        TraceLog($"ZoomToFeaturesInLayoutAsync: No valid geometries found for layer '{layerName}'.");
+                        TraceLog($"ZoomToFeaturesInLayoutAsync error: No valid geometries found for layer '{layerName}'.");
                         return false;
                     }
 
@@ -1146,7 +1297,8 @@ namespace DataTools
                 }
                 catch (Exception ex)
                 {
-                    TraceLog($"ZoomToFeaturesInLayoutAsync: Exception occurred while zooming to features. Exception: {ex.Message}");
+                    // Log any unexpected exception and return false.
+                    TraceLog($"ZoomToFeaturesInLayoutAsync error: Problem while zooming to features. Exception: {ex.Message}");
                     return false;
                 }
             });
@@ -1155,14 +1307,14 @@ namespace DataTools
         /// <summary>
         /// Zooms to the extent of a layer in a layout's map frame using the given layout and map frame name.
         /// </summary>
-        /// <param name="layoutName">The name of the layout containing the map frame.</param>
+        /// <param name="layout">The layout containing the map frame.</param>
         /// <param name="layerName">The name of the layer to zoom to.</param>
         /// <param name="selectedOnly">If true, zooms to selected features only.</param>
         /// <param name="ratio">Optional zoom ratio multiplier.</param>
         /// <param name="scale">Optional fixed scale to set after zooming.</param>
         /// <param name="mapFrameName">Optional name of the map frame to use; defaults to "Map Frame".</param>
         /// <returns>True if zoom succeeded; false otherwise.</returns>
-        public async Task<bool> ZoomToLayerInLayoutAsync(string layoutName,
+        public async Task<bool> ZoomToLayerInLayoutAsync(Layout layout,
             string layerName,
             bool selectedOnly,
             double? ratio = 1,
@@ -1171,40 +1323,29 @@ namespace DataTools
             string mapFrameName = "Map Frame")
         {
             // Validate layout and layer names.
-            if (string.IsNullOrWhiteSpace(layoutName))
+            if (layout == null)
             {
-                TraceLog("ZoomToLayerInLayoutAsync: Layout name is null or empty.");
+                TraceLog("ZoomToLayerInLayoutAsync error: Layout is null.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(layerName))
             {
-                TraceLog("ZoomToLayerInLayoutAsync: Layer name is null or empty.");
+                TraceLog("ZoomToLayerInLayoutAsync error: Layer name is null or empty.");
                 return false;
             }
 
             // Validate zoom ratio.
             if (ratio.HasValue && ratio.Value <= 0)
             {
-                TraceLog($"ZoomToLayerInLayoutAsync: Invalid ratio value: {ratio}.");
+                TraceLog($"ZoomToLayerInLayoutAsync error: Invalid ratio value: {ratio}.");
                 return false;
             }
 
             // Validate scale.
             if (scale.HasValue && scale.Value <= 0)
             {
-                TraceLog($"ZoomToLayerInLayoutAsync: Invalid scale value: {scale}.");
-                return false;
-            }
-
-            // Attempt to find the layout item in the project.
-            LayoutProjectItem layoutItem = Project.Current
-                .GetItems<LayoutProjectItem>()
-                .FirstOrDefault(l => l.Name.Equals(layoutName, StringComparison.OrdinalIgnoreCase));
-
-            if (layoutItem == null)
-            {
-                TraceLog($"ZoomToLayerInLayoutAsync: Layout '{layoutName}' not found.");
+                TraceLog($"ZoomToLayerInLayoutAsync error: Invalid scale value: {scale}.");
                 return false;
             }
 
@@ -1212,25 +1353,17 @@ namespace DataTools
             {
                 try
                 {
-                    // Open the layout from the layout item.
-                    Layout layout = layoutItem.GetLayout();
-                    if (layout == null)
-                    {
-                        TraceLog($"ZoomToLayerInLayoutAsync: Layout '{layoutName}' could not be opened.");
-                        return false;
-                    }
-
                     // Find the named map frame in the layout.
                     if (layout.FindElement(mapFrameName) is not MapFrame mapFrame)
                     {
-                        TraceLog($"ZoomToLayerInLayoutAsync: Map frame '{mapFrameName}' not found in layout '{layoutName}'.");
+                        TraceLog($"ZoomToLayerInLayoutAsync error: Map frame '{mapFrameName}' not found in layout '{layout.Name}'.");
                         return false;
                     }
 
                     Map map = mapFrame.Map;
                     if (map == null)
                     {
-                        TraceLog($"ZoomToLayerInLayoutAsync: Map in map frame '{mapFrameName}' is null.");
+                        TraceLog($"ZoomToLayerInLayoutAsync error: Map in map frame '{mapFrameName}' is null.");
                         return false;
                     }
 
@@ -1238,7 +1371,7 @@ namespace DataTools
                     Layer targetLayer = FindLayer(layerName, map);
                     if (targetLayer == null)
                     {
-                        TraceLog($"ZoomToLayerInLayoutAsync: Layer '{layerName}' not found in map.");
+                        TraceLog($"ZoomToLayerInLayoutAsync error: Layer '{layerName}' not found in map.");
                         return false;
                     }
 
@@ -1249,7 +1382,7 @@ namespace DataTools
 
                     if (extent == null || extent.IsEmpty)
                     {
-                        TraceLog($"ZoomToLayerInLayoutAsync: No extent found for layer '{layerName}'.");
+                        TraceLog($"ZoomToLayerInLayoutAsync error: No extent found for layer '{layerName}'.");
                         return false;
                     }
 
@@ -1263,7 +1396,8 @@ namespace DataTools
                 }
                 catch (Exception ex)
                 {
-                    TraceLog($"ZoomToLayerInLayoutAsync: Exception occurred while zooming to layer '{layerName}' in layout '{layoutName}'. Exception: {ex.Message}");
+                    // Log any unexpected exception and return false.
+                    TraceLog($"ZoomToLayerInLayoutAsync error: Problem while zooming to layer '{layerName}' in layout '{layout.Name}', Exception: {ex.Message}");
                     return false;
                 }
             });
@@ -1300,11 +1434,11 @@ namespace DataTools
 
         /// <summary>
         /// Returns the next scale up (i.e. more zoomed out) from the list of valid scales,
-        /// or extrapolates if current scale exceeds the largest in the list.
+        /// or extrapolates using the final gap until the value exceeds the current scale.
         /// </summary>
         /// <param name="currentScale">The current map scale.</param>
         /// <param name="scaleList">A list of valid scales in ascending order.</param>
-        /// <returns>The next scale up from the list, or extrapolated value.</returns>
+        /// <returns>The next scale up from the list or extrapolated value.</returns>
         private double GetNextScaleUp(double currentScale, List<int> scaleList)
         {
             if (scaleList == null || scaleList.Count < 2)
@@ -1318,13 +1452,20 @@ namespace DataTools
                     return s;
             }
 
-            // Extrapolate using the final gap.
+            // Extrapolate using the final gap until the value exceeds the current scale.
             int count = scaleList.Count;
             int last = scaleList[count - 1];
             int secondLast = scaleList[count - 2];
             int gap = last - secondLast;
 
-            return last + gap;
+            double extrapolated = last;
+
+            while (extrapolated <= currentScale)
+            {
+                extrapolated += gap;
+            }
+
+            return extrapolated;
         }
 
         /// <summary>
@@ -1342,36 +1483,38 @@ namespace DataTools
             if (mapFrame == null)
                 return;
 
-            Camera camera = mapFrame.Camera;
-
-            if (ratio.HasValue)
+            try
             {
-                // Zoom using the next scale up from the scale list if provided.
-                if (validScales != null && validScales.Count >= 2)
-                {
-                    double currentScale = camera.Scale;
-                    double nextScale = GetNextScaleUp(currentScale, validScales);
-                    camera.Scale = nextScale;
-                    mapFrame.SetCamera(camera);
+                Camera camera = mapFrame.Camera;
 
-                    TraceLog($"ApplyZoomToMapFrame: Zooming out using next scale from list: {nextScale} (current: {currentScale}).");
+                if (ratio.HasValue)
+                {
+                    // Zoom using the next scale up from the scale list if provided.
+                    if (validScales != null && validScales.Count >= 2)
+                    {
+                        double currentScale = camera.Scale;
+                        double nextScale = GetNextScaleUp(currentScale, validScales);
+                        camera.Scale = nextScale;
+                        mapFrame.SetCamera(camera);
+                    }
+                    else
+                    {
+                        // No scale list — apply ratio directly.
+                        camera.Scale *= ratio.Value;
+                        mapFrame.SetCamera(camera);
+                    }
                 }
-                else
+                else if (scale.HasValue && scale.Value > 0)
                 {
-                    // No scale list — apply ratio directly.
-                    camera.Scale *= ratio.Value;
+                    // No ratio — use fixed scale.
+                    camera.Scale = scale.Value;
                     mapFrame.SetCamera(camera);
-
-                    TraceLog($"ApplyZoomToMapFrame: Applying ratio-based scale: {camera.Scale}.");
                 }
             }
-            else if (scale.HasValue && scale.Value > 0)
+            catch (Exception ex)
             {
-                // No ratio — use fixed scale.
-                camera.Scale = scale.Value;
-                mapFrame.SetCamera(camera);
-
-                TraceLog($"ApplyZoomToMapFrame: Applying fixed scale: {camera.Scale}.");
+                // Log any unexpected exception.
+                TraceLog($"ApplyZoomToMapFrame error: Exception {ex.Message}");
             }
         }
 
@@ -1391,7 +1534,7 @@ namespace DataTools
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
             {
-                TraceLog("FindLayer: No layer name provided.");
+                TraceLog("FindLayer error: No layer name provided.");
                 return null;
             }
 
@@ -1409,8 +1552,8 @@ namespace DataTools
             }
             catch (Exception ex)
             {
-                // Handle exception.
-                TraceLog($"FindLayer failed: {ex.Message}");
+                // Log the exception and return null.
+                TraceLog($"FindLayer error: Exception {ex.Message}");
                 return null;
             }
         }
@@ -1445,9 +1588,10 @@ namespace DataTools
                         return index;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle exception.
+                // Log the exception and return 0.
+                TraceLog($"FindLayerIndex error: Exception {ex.Message}");
                 return 0;
             }
 
@@ -1477,9 +1621,10 @@ namespace DataTools
                 if (layer != null)
                     return await RemoveLayerAsync(layer, mapToUse);
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle exception.
+                // Log the exception and return false.
+                TraceLog($"RemoveLayerAsync error: Exception {ex.Message}");
                 return false;
             }
 
@@ -1509,9 +1654,10 @@ namespace DataTools
                         mapToUse.RemoveLayer(layer);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"RemoveLayerAsync error: Exception {ex.Message}");
                 return false;
             }
 
@@ -1625,9 +1771,10 @@ namespace DataTools
                     await Project.Current.SaveEditsAsync();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"AddIncrementalNumbersAsync error: Exception {ex.Message}");
                 return -1;
             }
 
@@ -1726,9 +1873,10 @@ namespace DataTools
                     return await Project.Current.SaveEditsAsync();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"UpdateFeaturesAsync error: Exception {ex.Message}");
                 return false;
             }
 
@@ -1780,9 +1928,10 @@ namespace DataTools
                     return false;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"SelectLayerByLocationAsync error: Exception occurred while selecting features. TargetLayer: {targetLayer}, SearchLayer: {searchLayer}, Exception: {ex.Message}");
                 return false;
             }
 
@@ -1937,9 +2086,10 @@ namespace DataTools
                     featureLayer.Select(queryFilter, selectionMethod);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"SelectLayerByAttributesAsync error: Exception occurred while selecting features. Layer: {layerName}, WhereClause: {whereClause}, Exception: {ex.Message}");
                 return false;
             }
 
@@ -1971,9 +2121,10 @@ namespace DataTools
                     featureLayer.ClearSelection();
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"ClearLayerSelectionAsync error: Exception occurred while clearing selection. Layer: {layerName}, Exception: {ex.Message}");
                 return false;
             }
 
@@ -2003,9 +2154,10 @@ namespace DataTools
                 // Select the features matching the search clause.
                 selectedCount = featureLayer.SelectionCount;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"GetSelectedFeatureCount error: Exception occurred while counting selected features. Layer: {layerName}, Exception: {ex.Message}");
                 return -1;
             }
 
@@ -2050,9 +2202,10 @@ namespace DataTools
 
                 return fields;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return null.
+                TraceLog($"GetFCFieldsAsync error: Exception occurred while getting fields. Layer: {layerPath}, Exception: {ex.Message}");
                 return null;
             }
         }
@@ -2095,9 +2248,10 @@ namespace DataTools
 
                 return fields;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return null.
+                TraceLog($"GetTableFieldsAsync error: Exception occurred while getting fields. Layer: {layerPath}, Exception {ex.Message}");
                 return null;
             }
         }
@@ -2182,9 +2336,10 @@ namespace DataTools
 
                 return fldFound;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"FieldExistsAsync error: Exception occurred while checking field existence. Layer: {layerPath}, Field: {fieldName}, Exception {ex.Message}");
                 return false;
             }
         }
@@ -2272,9 +2427,10 @@ namespace DataTools
 
                 return fldIsNumeric;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"FieldIsNumericAsync error: Exception occurred while checking field type. Layer: {layerName}, Field: {fieldName}, Exception {ex.Message}");
                 return false;
             }
         }
@@ -2334,9 +2490,10 @@ namespace DataTools
 
                 return rowLength;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return 0.
+                TraceLog($"GetFCRowLengthAsync error: Exception occurred while getting row length. Layer: {layerName}, Exception {ex.Message}");
                 return 0;
             }
         }
@@ -2404,9 +2561,10 @@ namespace DataTools
                     return false;
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"KeepSelectedFieldsAsync error: Exception occurred while deleting fields. Layer: {layerName}, Exception {ex.Message}");
                 return false;
             }
 
@@ -2445,9 +2603,10 @@ namespace DataTools
                     layerParent = grouplayer.Parent;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return null.
+                TraceLog($"GetLayerPath error: Exception occurred while getting layer path. Layer: {layer.Name}, Exception: {ex.Message}");
                 return null;
             }
 
@@ -2481,9 +2640,10 @@ namespace DataTools
                 // Get the full layer path.
                 return GetLayerPath(layer);
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return null.
+                TraceLog($"GetLayerPath error: Exception occurred while getting layer path. Layer: {layerName}, Exception {ex.Message}");
                 return null;
             }
         }
@@ -2518,9 +2678,10 @@ namespace DataTools
                     _ => "other",
                 };
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Handle the exception.
+                // Log the exception and return null.
+                TraceLog($"GetFeatureClassType error: Exception occurred while getting feature class type. Layer: {featureLayer.Name}, Exception {ex.Message}");
                 return null;
             }
         }
@@ -2549,9 +2710,10 @@ namespace DataTools
 
                 return GetFeatureClassType(layer);
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return null.
+                TraceLog($"GetFeatureClassType error: Exception occurred while getting feature class type. Layer: {layerName}, Exception: {ex.Message}");
                 return null;
             }
         }
@@ -2589,9 +2751,10 @@ namespace DataTools
                         return groupLayer;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle exception.
+                // Log the exception and return null.
+                TraceLog($"FindGroupLayer error: Exception occurred while finding group layer. Layer: {layerName}, Exception {ex.Message}");
                 return null;
             }
 
@@ -2631,9 +2794,10 @@ namespace DataTools
                         groupLayer = LayerFactory.Instance.CreateGroupLayer(mapToUse, 0, groupLayerName);
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Handle Exception.
+                    // Log the exception and return false.
+                    TraceLog($"MoveToGroupLayerAsync error: Exception occurred while creating group layer. Layer: {layer.Name}, GroupLayer: {groupLayerName}, Exception: {ex.Message}");
                     return false;
                 }
             }
@@ -2650,9 +2814,10 @@ namespace DataTools
                     groupLayer.SetExpanded(true);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"MoveToGroupLayerAsync error: Exception occurred while moving layer to group layer. Layer: { layer.Name}, GroupLayer: { groupLayerName}, Exception {ex.Message}");
                 return false;
             }
 
@@ -2690,9 +2855,10 @@ namespace DataTools
                     mapToUse.RemoveLayer(groupLayer);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"RemoveGroupLayerAsync error: Exception occurred while removing group layer. GroupLayer: {groupLayerName}, Exception {ex.Message}");
                 return false;
             }
 
@@ -2732,9 +2898,10 @@ namespace DataTools
                         return table;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle exception.
+                // Log the exception and return null.
+                TraceLog($"FindTable error: Exception occurred while finding table. Table: {tableName}, Exception: {ex.Message}");
                 return null;
             }
 
@@ -2768,9 +2935,10 @@ namespace DataTools
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle exception.
+                // Log the exception and return false.
+                TraceLog($"RemoveTableAsync error: Exception occurred while removing table. Table: {tableName}, Exception {ex.Message}");
                 return false;
             }
         }
@@ -2797,9 +2965,10 @@ namespace DataTools
                     mapToUse.RemoveStandaloneTable(table);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"RemoveTableAsync error: Exception occurred while removing table. Table: {table.Name}, Exception: {ex.Message}");
                 return false;
             }
 
@@ -2880,9 +3049,10 @@ namespace DataTools
                         featureLayer.SetLabelVisibility(lyrxLabelVisible);
                     });
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Handle Exception.
+                    // Log the exception and return false.
+                    TraceLog($"ApplySymbologyFromLayerFileAsync error: Exception occurred while applying symbology. Layer: {layerName}, LayerFile: {layerFile}, Exception: {ex.Message}");
                     return false;
                 }
             }
@@ -2956,9 +3126,10 @@ namespace DataTools
                     featureLayer.SetLabelVisibility(displayLabels);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"LabelLayerAsync error: Exception occurred while labeling layer. Layer: {layerName}, LabelColumn: {labelColumn}, Exception: {ex.Message}");
                 return false;
             }
 
@@ -2991,9 +3162,10 @@ namespace DataTools
                     featureLayer.SetLabelVisibility(displayLabels);
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return false.
+                TraceLog($"SwitchLabelsAsync error: Exception occurred while switching labels. Layer: {layerName}, DisplayLabels: {displayLabels}, Exception {ex.Message}");
                 return false;
             }
 
@@ -3064,9 +3236,10 @@ namespace DataTools
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"CopyFCToTextFileAsync error: Exception occurred while copying feature class to text file. Layer: {inputLayer}, OutFile: {outFile}, Exception: {ex.Message}");
                 return -1;
             }
 
@@ -3195,9 +3368,10 @@ namespace DataTools
                     rowCursor = null;
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"CopyFCToTextFileAsync error: Exception occurred while copying feature class to text file. Layer: {inputLayer}, OutFile: {outFile}, Exception: {ex.Message}");
                 return -1;
             }
             finally
@@ -3274,9 +3448,10 @@ namespace DataTools
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"CopyTableToTextFileAsync error: Exception occurred while copying table to text file. Layer: {inputLayer}, OutFile: {outFile}, Exception: {ex.Message}");
                 return -1;
             }
 
@@ -3402,9 +3577,10 @@ namespace DataTools
                     rowCursor = null;
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"CopyTableToTextFileAsync error: Exception occurred while copying table to text file. Layer: {inputLayer}, OutFile: {outFile}, Exception {ex.Message}");
                 return -1;
             }
             finally
@@ -3539,9 +3715,10 @@ namespace DataTools
                     FileFunctions.WriteEmptyTextFile(outFile, header);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"CopyToTextFileAsync error: Exception occurred while copying table to text file. Layer: {inputLayer}, OutFile: {outFile}, Exception: {ex.Message}");
                 return -1;
             }
 
@@ -3627,9 +3804,10 @@ namespace DataTools
                     rowCursor = null;
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // Handle Exception.
+                // Log the exception and return -1.
+                TraceLog($"CopyToTextFileAsync error: Exception occurred while copying table to text file. Layer: {inputLayer}, OutFile: {outFile}, Exception: {ex.Message}");
                 return -1;
             }
             finally
