@@ -541,6 +541,56 @@ namespace DataSearches
                 throw new("Error parsing 'LayoutNames' string. Check for correct format.");
             }
 
+            // The text element name in each layout used to store the search reference.
+            try
+            {
+                _searchRefElement = _xmlDataSearches["SearchRefElement"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'SearchRefElement' in the XML profile.");
+            }
+
+            // The text element name in each layout used to store the site name.
+            try
+            {
+                _siteNameElement = _xmlDataSearches["SiteNameElement"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'SiteNameElement' in the XML profile.");
+            }
+
+            // The text element name in each layout used to store the organisation.
+            try
+            {
+                _organisationElement = _xmlDataSearches["OrganisationElement"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'OrganisationElement' in the XML profile.");
+            }
+
+            // The text element name in each layout used to store the radius.
+            try
+            {
+                _radiusElement = _xmlDataSearches["RadiusElement"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'RadiusElement' in the XML profile.");
+            }
+
+            // The text element names and contents in each layout used to store the bespoke texts.
+            try
+            {
+                _bespokeElements = _xmlDataSearches["BespokeElements"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'BespokeElements' in the XML profile.");
+            }
+
             // The list of zoom scales to use for all layouts, loaded from a semi-colon separated string.
             try
             {
@@ -1488,6 +1538,41 @@ namespace DataSearches
         public List<string> LayoutNames
         {
             get { return _layoutNames; }
+        }
+
+        private string _searchRefElement;
+
+        public string SearchRefElement
+        {
+            get { return _searchRefElement; }
+        }
+
+        private string _siteNameElement;
+
+        public string SiteNameElement
+        {
+            get { return _siteNameElement; }
+        }
+
+        private string _organisationElement;
+
+        public string OrganisationElement
+        {
+            get { return _organisationElement; }
+        }
+
+        private string _radiusElement;
+
+        public string RadiusElement
+        {
+            get { return _radiusElement; }
+        }
+
+        private string _bespokeElements;
+
+        public string BespokeElements
+        {
+            get { return _bespokeElements; }
         }
 
         private List<int> _zoomScales = [];

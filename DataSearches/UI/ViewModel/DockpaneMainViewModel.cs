@@ -66,7 +66,6 @@ namespace DataSearches.UI
         private bool _projectClosedEventsSubscribed;
 
         private MapView _activeMapView;
-        private Pane _activePane;
 
         #endregion Fields
 
@@ -409,9 +408,8 @@ namespace DataSearches.UI
                 if (MapView.Active != _activeMapView)
                     _paneH2VM?.LoadLayersAsync(false);
 
-                // Save the active map view and pane.
+                // Save the active map view.
                 _activeMapView = MapView.Active;
-                _activePane = FrameworkApplication.Panes.ActivePane;
             }
         }
 

@@ -39,6 +39,7 @@ using ArcGIS.Desktop.Internal.Layouts.Utilities;
 using ArcGIS.Desktop.Internal.Mapping;
 using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
+using DataSearches.UI;
 using Microsoft.Identity.Client.Extensions.Msal;
 using System;
 using System.Collections.Generic;
@@ -575,7 +576,7 @@ namespace DataTools
                 return false;
 
             // Find the target feature layer.
-            var targetLayer = FindLayer(layerName, mapToUse);
+            var targetLayer = await FindLayerAsync(layerName, mapToUse);
             if (targetLayer is not FeatureLayer featureLayer)
                 return false;
 
@@ -634,7 +635,7 @@ namespace DataTools
                 return false;
 
             // Find the target feature layer.
-            var targetLayer = FindLayer(layerName, mapToUse);
+            var targetLayer = await FindLayerAsync(layerName, mapToUse);
             if (targetLayer is not FeatureLayer featureLayer)
                 return false;
 
@@ -697,7 +698,7 @@ namespace DataTools
                 return false;
             }
 
-            Layer targetLayer = FindLayer(layerName, mapToUse);
+            Layer targetLayer = await FindLayerAsync(layerName, mapToUse);
             if (targetLayer == null)
             {
                 TraceLog($"ZoomToLayerInMapAsync error: Layer '{layerName}' not found in map.");
@@ -845,25 +846,29 @@ namespace DataTools
         /// Updates specific text elements in all currently open layouts matching the provided names.
         /// </summary>
         /// <param name="layoutNames">List of layout names to update.</param>
-        /// <param name="siteNameColumn">The name of the text element to update for the site name.</param>
+        /// <param name="siteNameElement">The name of the text element to update for the site name.</param>
         /// <param name="siteName">The new site name text value.</param>
-        /// <param name="searchRefColumn">The name of the text element to update for the search reference.</param>
+        /// <param name="searchRefElement">The name of the text element to update for the search reference.</param>
         /// <param name="searchRef">The new search reference text value.</param>
-        /// <param name="organisationColumn">The name of the text element to update for the organisation.</param>
+        /// <param name="organisationElement">The name of the text element to update for the organisation.</param>
         /// <param name="organisationText">The new organisation value.</param>
-        /// <param name="radiusColumn">The name of the text element to update for the search radius.</param>
+        /// <param name="radiusElement">The name of the text element to update for the search radius.</param>
         /// <param name="radiusText">The new search radius text value.</param>
+        /// <param name="bespokeElementNames">List of bespoke text element names to update.</param>
+        /// <param name="bespokeContents">List of bespoke text values to set for the corresponding elements.</param>
         /// <returns>True if all text updates succeeded across all open layouts; otherwise, false.</returns>
         public async Task<bool> UpdateLayoutsTextAsync(
             List<string> layoutNames,
-            string siteNameColumn,
-            string siteName,
-            string searchRefColumn,
+            string searchRefElement,
             string searchRef,
-            string organisationColumn,
+            string siteNameElement,
+            string siteName,
+            string organisationElement,
             string organisationText,
-            string radiusColumn,
-            string radiusText)
+            string radiusElement,
+            string radiusText,
+            List<string> bespokeElementNames,
+            List<string> bespokeContents)
         {
             foreach (string layoutName in layoutNames)
             {
@@ -896,43 +901,62 @@ namespace DataTools
                     continue;
                 }
 
-                // Update the site name text element.
-                if (!string.IsNullOrWhiteSpace(siteNameColumn))
+                // Update the search reference text element.
+                if (!string.IsNullOrWhiteSpace(searchRefElement))
                 {
-                    if (!await SetTextElementsAsync(layoutName, siteNameColumn, siteName))
+                    if (!await SetTextElementsAsync(layoutName, searchRefElement, searchRef))
                     {
-                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{siteNameColumn}' in layout '{layoutName}'.");
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{searchRefElement}' in layout '{layoutName}'.");
                         return false;
                     }
                 }
 
-                // Update the search reference text element.
-                if (!string.IsNullOrWhiteSpace(searchRefColumn))
+                // Update the site name text element.
+                if (!string.IsNullOrWhiteSpace(siteNameElement))
                 {
-                    if (!await SetTextElementsAsync(layoutName, searchRefColumn, searchRef))
+                    if (!await SetTextElementsAsync(layoutName, siteNameElement, siteName))
                     {
-                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{searchRefColumn}' in layout '{layoutName}'.");
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{siteNameElement}' in layout '{layoutName}'.");
                         return false;
                     }
                 }
 
                 // Update the organisation text element.
-                if (!string.IsNullOrWhiteSpace(organisationColumn))
+                if (!string.IsNullOrWhiteSpace(organisationElement))
                 {
-                    if (!await SetTextElementsAsync(layoutName, organisationColumn, organisationText))
+                    if (!await SetTextElementsAsync(layoutName, organisationElement, organisationText))
                     {
-                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{organisationColumn}' in layout '{layoutName}'.");
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{organisationElement}' in layout '{layoutName}'.");
                         return false;
                     }
                 }
 
                 // Update the search radius text element.
-                if (!string.IsNullOrWhiteSpace(radiusColumn))
+                if (!string.IsNullOrWhiteSpace(radiusElement))
                 {
-                    if (!await SetTextElementsAsync(layoutName, radiusColumn, radiusText))
+                    if (!await SetTextElementsAsync(layoutName, radiusElement, radiusText))
                     {
-                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{radiusColumn}' in layout '{layoutName}'.");
+                        TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{radiusElement}' in layout '{layoutName}'.");
                         return false;
+                    }
+                }
+
+                // Update the bespoke text elements.
+                for (int i = 0; i < bespokeElementNames.Count; i++)
+                {
+                    string bespokeElement = bespokeElementNames[i];
+                    string bespokeContent = bespokeContents[i];
+
+                    // Update the bespoke text element.
+                    if (!string.IsNullOrWhiteSpace(bespokeElement))
+                    {
+                        // We assume SetTextElementsAsync accepts a single content string here.
+                        // If it needs a list, wrap bespokeContent in a new List<string>.
+                        if (!await SetTextElementsAsync(layoutName, bespokeElement, bespokeContent))
+                        {
+                            TraceLog($"UpdateLayoutsTextAsync error: Failed to update '{bespokeElement}' in layout '{layoutName}'.");
+                            return false;
+                        }
                     }
                 }
             }
@@ -1079,7 +1103,7 @@ namespace DataTools
                 return false;
             }
 
-            return await QueuedTask.Run(() =>
+            return await QueuedTask.Run(async () =>
             {
                 try
                 {
@@ -1106,7 +1130,7 @@ namespace DataTools
                     }
 
                     // Locate the feature layer by name.
-                    var layer = FindLayer(layerName, map);
+                    var layer = await FindLayerAsync(layerName, map);
                     if (layer is not FeatureLayer featureLayer)
                     {
                         TraceLog($"ZoomToFeatureInLayoutAsync error: Feature layer '{layerName}' not found in map.");
@@ -1218,7 +1242,7 @@ namespace DataTools
                 return false;
             }
 
-            return await QueuedTask.Run(() =>
+            return await QueuedTask.Run(async () =>
             {
                 try
                 {
@@ -1245,7 +1269,7 @@ namespace DataTools
                     }
 
                     // Find the feature layer.
-                    var layer = FindLayer(layerName, map);
+                    var layer = await FindLayerAsync(layerName, map);
                     if (layer is not FeatureLayer featureLayer)
                     {
                         TraceLog($"ZoomToFeaturesInLayoutAsync error: Feature layer '{layerName}' not found in map.");
@@ -1349,7 +1373,7 @@ namespace DataTools
                 return false;
             }
 
-            return await QueuedTask.Run(() =>
+            return await QueuedTask.Run(async () =>
             {
                 try
                 {
@@ -1368,7 +1392,7 @@ namespace DataTools
                     }
 
                     // Find the target layer in the map.
-                    Layer targetLayer = FindLayer(layerName, map);
+                    Layer targetLayer = await FindLayerAsync(layerName, map);
                     if (targetLayer == null)
                     {
                         TraceLog($"ZoomToLayerInLayoutAsync error: Layer '{layerName}' not found in map.");
@@ -1376,9 +1400,12 @@ namespace DataTools
                     }
 
                     // Get extent of the layer or selection.
-                    Envelope extent = selectedOnly
-                        ? GetSelectedExtent(targetLayer)
-                        : targetLayer.QueryExtent();
+                    Envelope extent;
+
+                    if (selectedOnly)
+                        extent = await GetSelectedExtentAsync(targetLayer);
+                    else
+                        extent = await QueuedTask.Run(() => targetLayer.QueryExtent());
 
                     if (extent == null || extent.IsEmpty)
                     {
@@ -1414,22 +1441,22 @@ namespace DataTools
         /// <returns>
         /// The extent of the selected features, or null if there are no selections or the layer is not a FeatureLayer.
         /// </returns>
-        private Envelope GetSelectedExtent(Layer layer)
+        private async Task<Envelope> GetSelectedExtentAsync(Layer layer)
         {
             // Ensure the layer is a feature layer.
-            if (layer is FeatureLayer featureLayer)
+            if (layer is not FeatureLayer featureLayer)
+                return null;
+
+            return await QueuedTask.Run(() =>
             {
-                // Check if there are selected features.
+                // Get the current selection.
                 var selection = featureLayer.GetSelection();
                 if (selection.GetCount() == 0)
                     return null;
 
-                // Query and return the extent of selected features only.
+                // Return the extent of selected features.
                 return featureLayer.QueryExtent(true);
-            }
-
-            // Layer is not a feature layer or does not support selection.
-            return null;
+            });
         }
 
         /// <summary>
@@ -1529,7 +1556,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>FeatureLayer</returns>
-        internal FeatureLayer FindLayer(string layerName, Map targetMap = null)
+        internal async Task<FeatureLayer> FindLayerAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -1543,12 +1570,12 @@ namespace DataTools
 
             try
             {
-                // Search all layers by name, including within group layers.
-                var featureLayer = mapToUse.FindLayers(layerName, true)
-                                           .OfType<FeatureLayer>()
-                                           .FirstOrDefault();
-
-                return featureLayer;
+                return await QueuedTask.Run(() =>
+                {
+                    return mapToUse.FindLayers(layerName, true)
+                                   .OfType<FeatureLayer>()
+                                   .FirstOrDefault();
+                });
             }
             catch (Exception ex)
             {
@@ -1561,9 +1588,10 @@ namespace DataTools
         /// <summary>
         /// Find the position index for a feature layer by name in the active map.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <returns>int</returns>
-        internal int FindLayerIndex(string layerName, Map targetMap = null)
+        /// <param name="layerName">The name of the layer to find.</param>
+        /// <param name="targetMap">The map to search; if null, the active map is used.</param>
+        /// <returns>The index of the layer, or 0 if not found.</returns>
+        internal async Task<int> FindLayerIndexAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -1572,30 +1600,30 @@ namespace DataTools
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
-            // Finds layers by name and returns a read only list of feature layers.
-            IEnumerable<FeatureLayer> layers = mapToUse.FindLayers(layerName, true).OfType<FeatureLayer>();
-
-            // If no layers are loaded.
-            if (layers == null)
-                return 0;
-
             try
             {
-                for (int index = 0; index < mapToUse.Layers.Count; index++)
+                // Run on the CIM thread to safely access layer properties and collection.
+                return await QueuedTask.Run(() =>
                 {
-                    // Get the index of the first feature layer found by name.
-                    if (mapToUse.Layers[index].Name == layerName)
-                        return index;
-                }
+                    // Iterate through all layers in the map.
+                    for (int index = 0; index < mapToUse.Layers.Count; index++)
+                    {
+                        // Get the index of the first feature layer found by name.
+                        // Access to Layer.Name must occur on the CIM thread.
+                        if (mapToUse.Layers[index].Name == layerName)
+                            return index;
+                    }
+
+                    // If no layer matched, return 0 as the default.
+                    return 0;
+                });
             }
             catch (Exception ex)
             {
                 // Log the exception and return 0.
-                TraceLog($"FindLayerIndex error: Exception {ex.Message}");
+                TraceLog($"FindLayerIndexAsync error: Exception {ex.Message}");
                 return 0;
             }
-
-            return 0;
         }
 
         /// <summary>
@@ -1615,7 +1643,7 @@ namespace DataTools
             try
             {
                 // Find the layer in the active map.
-                FeatureLayer layer = FindLayer(layerName, mapToUse);
+                FeatureLayer layer = await FindLayerAsync(layerName, mapToUse);
 
                 // Remove the layer.
                 if (layer != null)
@@ -1690,7 +1718,7 @@ namespace DataTools
                 return -1;
 
             // Get the feature layer.
-            FeatureLayer outputFeaturelayer = FindLayer(outputLayerName, null);
+            FeatureLayer outputFeaturelayer = await FindLayerAsync(outputLayerName, null);
             if (outputFeaturelayer == null)
                 return -1;
 
@@ -1812,7 +1840,7 @@ namespace DataTools
                 return false;
 
             // Get the feature layer.
-            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+            FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
             if (featureLayer == null)
                 return false;
@@ -1909,7 +1937,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.SelectLayerByLocation", parameters);  // Useful for debugging.
@@ -2069,7 +2097,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -2110,7 +2138,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -2136,7 +2164,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>long</returns>
-        public long GetSelectedFeatureCount(string layerName, Map targetMap = null)
+        public async Task<long> GetSelectedFeatureCountAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -2146,13 +2174,13 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
                 if (featureLayer == null)
                     return -1;
 
                 // Select the features matching the search clause.
-                selectedCount = featureLayer.SelectionCount;
+                selectedCount = await QueuedTask.Run(() => featureLayer.SelectionCount);
             }
             catch (Exception ex)
             {
@@ -2178,7 +2206,7 @@ namespace DataTools
             try
             {
                 // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerPath, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerPath, targetMap);
 
                 if (featureLayer == null)
                     return null;
@@ -2302,7 +2330,7 @@ namespace DataTools
             try
             {
                 // Find the feature layer by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerPath, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerPath, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -2382,7 +2410,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
                 if (featureLayer == null)
                     return false;
@@ -2449,7 +2477,7 @@ namespace DataTools
             try
             {
                 // Find the feature layerName by name if it exists. Only search existing layers.
-                FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+                FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
                 if (featureLayer == null)
                     return 0;
@@ -2542,7 +2570,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.DeleteField", parameters);  // Useful for debugging.
@@ -2577,41 +2605,49 @@ namespace DataTools
         /// </summary>
         /// <param name="layer"></param>
         /// <returns>string</returns>
-        public string GetLayerPath(Layer layer)
+        public Task<string> GetLayerPathAsync(Layer layer)
         {
-            // Check there is an input layer.
-            if (layer == null)
-                return null;
-
-            string layerPath = "";
-
-            try
+            return QueuedTask.Run(async () =>
             {
-                // Get the parent for the layer.
-                ILayerContainer layerParent = layer.Parent;
+                // Check there is an input layer.
+                if (layer == null)
+                    return null;
 
-                // Loop while the parent is a group layer.
-                while (layerParent is GroupLayer)
+                string layerPath = "";
+
+                try
                 {
-                    // Get the parent layer.
-                    Layer grouplayer = (Layer)layerParent;
-
-                    // Append the parent name to the full layer path.
-                    layerPath = grouplayer.Name + "/" + layerPath;
-
                     // Get the parent for the layer.
-                    layerParent = grouplayer.Parent;
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log the exception and return null.
-                TraceLog($"GetLayerPath error: Exception occurred while getting layer path. Layer: {layer.Name}, Exception: {ex.Message}");
-                return null;
-            }
+                    ILayerContainer layerParent = layer.Parent;
 
-            // Append the layer name to it's full path.
-            return layerPath + layer.Name;
+                    // Loop while the parent is a group layer.
+                    while (layerParent is GroupLayer)
+                    {
+                        // Get the parent layer.
+                        Layer groupLayer = (Layer)layerParent;
+
+                        // Append the parent name to the full layer path.
+                        // Access to groupLayer.Name must occur on the CIM thread.
+                        layerPath = groupLayer.Name + "/" + layerPath;
+
+                        // Get the parent for the layer.
+                        layerParent = groupLayer.Parent;
+                    }
+
+                    // Append the layer name to its full path.
+                    // Access to Layer.Name must occur on the CIM thread.
+                    layerPath += layer.Name;
+                }
+                catch (Exception ex)
+                {
+                    // Access to Layer.Name must occur on the CIM thread.
+                    string safeLayerName = await QueuedTask.Run(() => layer.Name);
+                    TraceLog($"GetLayerPathAsync error: Exception occurred while getting layer path. Layer: {safeLayerName}, Exception: {ex.Message}");
+                    return null;
+                }
+
+                return layerPath;
+            });
         }
 
         /// <summary>
@@ -2620,7 +2656,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>string</returns>
-        public string GetLayerPath(string layerName, Map targetMap = null)
+        public async Task<string> GetLayerPathAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -2631,19 +2667,15 @@ namespace DataTools
 
             try
             {
-                // Find the layer in the active map.
-                FeatureLayer layer = FindLayer(layerName, mapToUse);
-
+                FeatureLayer layer = await FindLayerAsync(layerName, mapToUse);
                 if (layer == null)
                     return null;
 
-                // Get the full layer path.
-                return GetLayerPath(layer);
+                return await GetLayerPathAsync(layer);
             }
             catch (Exception ex)
             {
-                // Log the exception and return null.
-                TraceLog($"GetLayerPath error: Exception occurred while getting layer path. Layer: {layerName}, Exception {ex.Message}");
+                TraceLog($"GetLayerPathAsync error: Exception occurred while getting layer path. Layer: {layerName}, Exception {ex.Message}");
                 return null;
             }
         }
@@ -2653,7 +2685,7 @@ namespace DataTools
         /// </summary>
         /// <param name="featureLayer"></param>
         /// <returns>string: point, line, polygon</returns>
-        public string GetFeatureClassType(FeatureLayer featureLayer)
+        public async Task<string> GetFeatureClassTypeAsync(FeatureLayer featureLayer)
         {
             // Check there is an input feature layer.
             if (featureLayer == null)
@@ -2661,7 +2693,7 @@ namespace DataTools
 
             try
             {
-                esriGeometryType shapeType = featureLayer.ShapeType;
+                esriGeometryType shapeType = await QueuedTask.Run(() => featureLayer.ShapeType);
 
                 return shapeType switch
                 {
@@ -2681,7 +2713,9 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Log the exception and return null.
-                TraceLog($"GetFeatureClassType error: Exception occurred while getting feature class type. Layer: {featureLayer.Name}, Exception {ex.Message}");
+                // Access to Layer.Name must occur on the CIM thread.
+                string safeLayerName = await QueuedTask.Run(() => featureLayer.Name);
+                TraceLog($"GetFeatureClassTypeAsync error: Exception occurred while getting shape type. Layer: {safeLayerName}, Exception: {ex.Message}");
                 return null;
             }
         }
@@ -2691,7 +2725,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layerName"></param>
         /// <returns>string: point, line, polygon</returns>
-        public string GetFeatureClassType(string layerName, Map targetMap = null)
+        public async Task<string> GetFeatureClassTypeAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input feature layer name.
             if (string.IsNullOrEmpty(layerName))
@@ -2703,12 +2737,12 @@ namespace DataTools
             try
             {
                 // Find the layer in the active map.
-                FeatureLayer layer = FindLayer(layerName, mapToUse);
+                FeatureLayer layer = await FindLayerAsync(layerName, mapToUse);
 
                 if (layer == null)
                     return null;
 
-                return GetFeatureClassType(layer);
+                return await GetFeatureClassTypeAsync(layer);
             }
             catch (Exception ex)
             {
@@ -2797,7 +2831,8 @@ namespace DataTools
                 catch (Exception ex)
                 {
                     // Log the exception and return false.
-                    TraceLog($"MoveToGroupLayerAsync error: Exception occurred while creating group layer. Layer: {layer.Name}, GroupLayer: {groupLayerName}, Exception: {ex.Message}");
+                    string safeLayerName = await QueuedTask.Run(() => layer.Name);
+                    TraceLog($"MoveToGroupLayerAsync error: Exception occurred while creating group layer. Layer: {safeLayerName}, GroupLayer: {groupLayerName}, Exception: {ex.Message}");
                     return false;
                 }
             }
@@ -2817,7 +2852,8 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Log the exception and return false.
-                TraceLog($"MoveToGroupLayerAsync error: Exception occurred while moving layer to group layer. Layer: { layer.Name}, GroupLayer: { groupLayerName}, Exception {ex.Message}");
+                string safeLayerName = await QueuedTask.Run(() => layer.Name);
+                TraceLog($"MoveToGroupLayerAsync error: Exception occurred while moving layer to group layer. Layer: {safeLayerName}, GroupLayer: {groupLayerName}, Exception {ex.Message}");
                 return false;
             }
 
@@ -2968,7 +3004,8 @@ namespace DataTools
             catch (Exception ex)
             {
                 // Log the exception and return false.
-                TraceLog($"RemoveTableAsync error: Exception occurred while removing table. Table: {table.Name}, Exception: {ex.Message}");
+                string safeTableName = await QueuedTask.Run(() => table.Name);
+                TraceLog($"RemoveTableAsync error: Exception occurred while removing table. Table: {safeTableName}, Exception: {ex.Message}");
                 return false;
             }
 
@@ -2985,21 +3022,23 @@ namespace DataTools
         /// <param name="layerName"></param>
         /// <param name="layerFile"></param>
         /// <returns>bool</returns>
-        public async Task<bool> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile, Map targetMap = null)
+        public async Task<string> ApplySymbologyFromLayerFileAsync(string layerName, string layerFile, Map targetMap = null)
         {
             // Check there is an input layer name.
             if (string.IsNullOrEmpty(layerName))
-                return false;
+                return null;
 
             // Check the lyrx file exists.
             if (!FileFunctions.FileExists(layerFile))
-                return false;
+                return null;
+
+            string nameFromLyrx = null;
 
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
             // Find the layer in the active map.
-            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+            FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
             if (featureLayer != null)
             {
@@ -3016,6 +3055,11 @@ namespace DataTools
 
                         // Get the layer definition from the CIM layer document.
                         CIMFeatureLayer lyrxLayerDefn = (CIMFeatureLayer)lyrxCIMLyrDoc.LayerDefinitions[0];
+
+                        // Set the name of the layer in the map to match the name from the lyrx file.
+                        nameFromLyrx = lyrxLayerDefn.Name;
+                        if (!string.IsNullOrEmpty(nameFromLyrx))
+                            featureLayer.SetName(nameFromLyrx);
 
                         // Get the renderer from the layer definition.
                         //CIMSimpleRenderer rendererFromLayerFile = ((CIMFeatureLayer)cimLyrDoc.LayerDefinitions[0]).Renderer as CIMSimpleRenderer;
@@ -3053,10 +3097,12 @@ namespace DataTools
                 {
                     // Log the exception and return false.
                     TraceLog($"ApplySymbologyFromLayerFileAsync error: Exception occurred while applying symbology. Layer: {layerName}, LayerFile: {layerFile}, Exception: {ex.Message}");
-                    return false;
+                    return null;
                 }
             }
-            return true;
+
+            // Return the name of the layer from the lyrx file.
+            return nameFromLyrx;
         }
 
         /// <summary>
@@ -3085,7 +3131,7 @@ namespace DataTools
                 return false;
 
             // Get the input feature layer.
-            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+            FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
             if (featureLayer == null)
                 return false;
@@ -3149,7 +3195,7 @@ namespace DataTools
                 return false;
 
             // Get the input feature layer.
-            FeatureLayer featureLayer = FindLayer(layerName, targetMap);
+            FeatureLayer featureLayer = await FindLayerAsync(layerName, targetMap);
 
             if (featureLayer == null)
                 return false;
@@ -3211,7 +3257,7 @@ namespace DataTools
             try
             {
                 // Get the input feature layer.
-                inputFeaturelayer = FindLayer(inputLayer, targetMap);
+                inputFeaturelayer = await FindLayerAsync(inputLayer, targetMap);
 
                 if (inputFeaturelayer == null)
                     return -1;
@@ -3728,7 +3774,7 @@ namespace DataTools
             int intLineCount = 0;
             try
             {
-                await QueuedTask.Run(() =>
+                await QueuedTask.Run(async () =>
                 {
                     // Create a row cursor.
                     RowCursor rowCursor;
@@ -3738,7 +3784,7 @@ namespace DataTools
                         FeatureLayer inputFC;
 
                         // Get the input feature layer.
-                        inputFC = FindLayer(inputLayer, targetMap);
+                        inputFC = await FindLayerAsync(inputLayer, targetMap);
 
                         /// Get the underlying table for the input layer.
                         using FeatureClass featureClass = inputFC.GetFeatureClass();
@@ -3925,7 +3971,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.Delete", parameters);  // Useful for debugging.
@@ -3988,7 +4034,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.AddField", parameters);  // Useful for debugging.
@@ -4043,7 +4089,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.AlterField", parameters);  // Useful for debugging.
@@ -4098,7 +4144,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.CalculateField", parameters);  // Useful for debugging.
@@ -4150,7 +4196,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; //| GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("management.CalculateGeometryAttributes", parameters);  // Useful for debugging.
@@ -4347,7 +4393,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4405,7 +4451,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4460,7 +4506,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4528,7 +4574,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4598,7 +4644,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4659,7 +4705,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4713,7 +4759,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -4772,7 +4818,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
 
             //Geoprocessing.OpenToolDialog("analysis.Near", parameters);  // Useful for debugging.
@@ -5255,7 +5301,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -5372,7 +5418,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
@@ -5429,7 +5475,7 @@ namespace DataTools
             // Make a value array of the environments to be passed to the tool.
             var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
 
-            // Set the geprocessing flags.
+            // Set the geoprocessing flags.
             GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
             if (addToMap)
                 executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
