@@ -686,7 +686,7 @@ namespace DataTools
 
             if (scale.HasValue && scale.Value <= 0)
             {
-                TraceLog($"ZoomToLayerInMapAsync error: Invalid scale: {scale}.");
+                TraceLog($"ZoomToLayerInMapAsync error: Invalid zoom scale: {scale}.");
                 return false;
             }
 
@@ -718,7 +718,7 @@ namespace DataTools
                 {
                     camera.Scale *= (double)ratio;
                 }
-                else if (scale > 0)
+                else if (scale.HasValue)
                 {
                     camera.Scale = (double)scale;
                 }

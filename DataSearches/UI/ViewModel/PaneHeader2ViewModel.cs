@@ -112,9 +112,9 @@ namespace DataSearches.UI
         private int _defaultOverwriteLabels;
         private int _defaultCombinedSitesTable;
 
-        private List<string> _bufferUnitOptionsDisplay;
-        private List<string> _bufferUnitOptionsProcess;
-        private List<string> _bufferUnitOptionsShort;
+        private List<string> _bufferUnitOptionsDisplay = ["Centimetres", "Metres", "Kilometres", "Feet", "Yards", "Miles"];
+        private List<string> _bufferUnitOptionsProcess = ["Centimeters", "Meters", "Kilometers", "Feet", "Yards", "Miles"];
+        private List<string> _bufferUnitOptionsShort = ["cm", "m", "km", "ft", "yds", "mi"];
 
         private List<MapLayer> _mapLayers;
 
@@ -240,10 +240,6 @@ namespace DataSearches.UI
             _defaultAddSelectedLayers = _toolConfig.DefaultAddSelectedLayers;
             _defaultOverwriteLabels = _toolConfig.DefaultOverwriteLabels;
             _defaultCombinedSitesTable = _toolConfig.DefaultCombinedSitesTable;
-
-            _bufferUnitOptionsDisplay = _toolConfig.BufferUnitOptionsDisplay;
-            _bufferUnitOptionsProcess = _toolConfig.BufferUnitOptionsProcess;
-            _bufferUnitOptionsShort = _toolConfig.BufferUnitOptionsShort;
 
             _updateTable = _toolConfig.UpdateTable;
 
@@ -1023,7 +1019,7 @@ namespace DataSearches.UI
             }
         }
 
-        private List<string> _addToMapList;
+        private List<string> _addToMapList = ["No", "Yes - Without labels", "Yes - With labels"];
 
         /// <summary>
         /// Get/Set the options for whether the output layers will be added
@@ -1067,7 +1063,7 @@ namespace DataSearches.UI
             }
         }
 
-        private List<string> _overwriteLabelsList;
+        private List<string> _overwriteLabelsList = ["No", "Yes - Reset each layer", "Yes - Reset each group", "Yes - Do not reset"];
 
         /// <summary>
         /// Get/Set the search site name.
@@ -1107,7 +1103,7 @@ namespace DataSearches.UI
             }
         }
 
-        private List<string> _combinedSitesList;
+        private List<string> _combinedSitesList = ["None", "Append to existing table", "Overwrite existing table"];
 
         /// <summary>
         /// Get/Set the search site name.
@@ -1414,7 +1410,7 @@ namespace DataSearches.UI
 
             // Buffer size and units.
             BufferSizeText = _toolConfig.DefaultBufferSize.ToString();
-            BufferUnitsList = _toolConfig.BufferUnitOptionsDisplay;
+            BufferUnitsList = _bufferUnitOptionsDisplay;
             if (_toolConfig.DefaultBufferUnit > 0)
                 SelectedBufferUnitsIndex = _toolConfig.DefaultBufferUnit - 1;
 
@@ -1422,16 +1418,13 @@ namespace DataSearches.UI
             KeepSelectedLayers = _toolConfig.DefaultKeepSelectedLayers != null && (bool)_toolConfig.DefaultKeepSelectedLayers;
 
             // Add layers to map.
-            AddToMapList = _toolConfig.AddSelectedLayersOptions;
-            SelectedAddToMap = _toolConfig.DefaultAddSelectedLayers < 1 ? _toolConfig.AddSelectedLayersOptions[0] : _toolConfig.AddSelectedLayersOptions[_toolConfig.DefaultAddSelectedLayers - 1];
+            SelectedAddToMap = _toolConfig.DefaultAddSelectedLayers < 1 ? AddToMapList[0] : AddToMapList[_toolConfig.DefaultAddSelectedLayers - 1];
 
             // Overwrite map layers.
-            OverwriteLabelsList = _toolConfig.OverwriteLabelOptions;
-            SelectedOverwriteLabels = _toolConfig.DefaultOverwriteLabels < 1 ? _toolConfig.OverwriteLabelOptions[0] : _toolConfig.OverwriteLabelOptions[_toolConfig.DefaultOverwriteLabels - 1];
+            SelectedOverwriteLabels = _toolConfig.DefaultOverwriteLabels < 1 ? OverwriteLabelsList[0] : OverwriteLabelsList[_toolConfig.DefaultOverwriteLabels - 1];
 
             // Combined sites table.
-            CombinedSitesList = _toolConfig.CombinedSitesTableOptions;
-            SelectedCombinedSites = _toolConfig.DefaultCombinedSitesTable <1 ? _toolConfig.CombinedSitesTableOptions[0] : _toolConfig.CombinedSitesTableOptions[_toolConfig.DefaultCombinedSitesTable - 1];
+            SelectedCombinedSites = _toolConfig.DefaultCombinedSitesTable <1 ? CombinedSitesList[0] : CombinedSitesList[_toolConfig.DefaultCombinedSitesTable - 1];
 
             // Log file.
             ClearLogFile = _toolConfig.DefaultClearLogFile;
@@ -1642,7 +1635,8 @@ namespace DataSearches.UI
             string radiusElement = _toolConfig.RadiusElement;
             string bespokeElements = _toolConfig.BespokeElements;
 
-            // List of zoom scales for the layout windows.
+            // Zoom ratio and list of zoom scales for the layout windows.
+            double zoomRatio = _toolConfig.ZoomRatio;
             List<int> zoomScales = _toolConfig.ZoomScales;
 
             // What is the selected buffer unit?
@@ -1722,6 +1716,32 @@ namespace DataSearches.UI
 
             // Replace any standard strings in the bespoke elements.
             bespokeElements = StringFunctions.ReplaceSearchStrings(bespokeElements, reference, siteName, shortRef, subref, radius);
+
+            // Set the date variables.
+            DateTime dateNow = DateTime.Now;
+            string dateDD = dateNow.ToString("dd");
+            string dateMM = dateNow.ToString("MM");
+            string dateMMM = dateNow.ToString("MMM");
+            string dateMMMM = dateNow.ToString("MMMM");
+            string dateYY = dateNow.ToString("yy");
+            double dateQtr = (Math.Ceiling(dateNow.Month / 3.0 + 2) % 4) + 1;
+            string dateQQ = dateQtr.ToString("00");
+            string dateYYYY = dateNow.ToString("yyyy");
+            string dateFFFF = StringFunctions.FinancialYear(dateNow);
+
+            // Replace any date variables in the bespoke elements.
+            bespokeElements = bespokeElements.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            bespokeElements = bespokeElements.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+
+            // Replace any date variables in the file and folder variables.
+            _saveFolder = _saveFolder.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _saveFolder = _saveFolder.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _extractFolder = _extractFolder.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _extractFolder = _extractFolder.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _gisFolder = _gisFolder.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _gisFolder = _gisFolder.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _logFileName = _logFileName.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _logFileName = _logFileName.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
 
             // Split the bespoke elements into pairs of element names and contents.
             List<string> bespokeElementNames = [];
@@ -2043,11 +2063,11 @@ namespace DataSearches.UI
                     _searchErrors = true;
                     return false;
                 }
-                else
-                {
-                    // Remove the buffer layer from all maps.
-                    await RemoveLayerFromAllMapsAsync(bufferLayerName, _bufferOutputFile, mapWindows);
-                }
+            }
+            else
+            {
+                // Remove the buffer layer from all maps.
+                await RemoveLayerFromAllMapsAsync(bufferLayerName, _bufferOutputFile, mapWindows);
             }
 
             string searchLayerName = _searchLayerName;
@@ -2062,13 +2082,13 @@ namespace DataSearches.UI
                     _searchErrors = true;
                     return false;
                 }
-                else
-                {
-                    string searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
+            }
+            else
+            {
+                string searchOutputFile = _outputPath + "\\" + _searchLayerName + ".shp";
 
-                    // Remove the search feature layer from all maps.
-                    await RemoveLayerFromAllMapsAsync(searchLayerName, searchOutputFile, mapWindows);
-                }
+                // Remove the search feature layer from all maps.
+                await RemoveLayerFromAllMapsAsync(searchLayerName, searchOutputFile, mapWindows);
             }
 
             // Indicate the search is completing.
@@ -2077,12 +2097,8 @@ namespace DataSearches.UI
             // Zoom to the buffer layer extent (or the search layer extent if there is no buffer).
             string targetLayer = bufferSize == "0" ? searchLayerName : bufferLayerName;
 
-            // Set the zoom ratio and scale.
-            double zoomRatio = bufferSize == "0" ? 1 : 1.05;
-            double zoomScale = 10000;
-
             // Zoom in to the search layer map.
-            if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, zoomScale, null))
+            if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, null))
             {
                 FileFunctions.WriteLine(_logFile, "Error zooming in active map");
                 _searchErrors = true;
@@ -2102,7 +2118,7 @@ namespace DataSearches.UI
                     return false;
                 }
 
-                if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, zoomScale, map))
+                if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, map))
                 {
                     FileFunctions.WriteLine(_logFile, $"Error zooming in map: {map.Name}");
                     _searchErrors = true;
@@ -2124,7 +2140,7 @@ namespace DataSearches.UI
                 }
 
                 if (!await _mapFunctions.ZoomToLayerInLayoutAsync(layout, targetLayer, selectedOnly: false,
-                    ratio: zoomRatio, scale: zoomScale, validScales: zoomScales, mapFrameName: "Map Frame"))
+                    ratio: zoomRatio, scale: null, validScales: zoomScales, mapFrameName: "Map Frame"))
                 {
                     FileFunctions.WriteLine(_logFile, $"Error zooming in layout: {layout}");
                     _searchErrors = true;

@@ -316,9 +316,9 @@ namespace DataSearches
             try
             {
                 rawText = _xmlDataSearches["DefaultBufferSize"].InnerText;
-                bool blResult = Double.TryParse(rawText, out double i);
+                bool blResult = double.TryParse(rawText, out double i);
                 if (blResult)
-                    _defaultBufferSize = (int)i;
+                    _defaultBufferSize = i;
                 else
                 {
                     throw new("The entry for 'DefaultBufferSize' in the XML profile is not a number.");
@@ -330,44 +330,16 @@ namespace DataSearches
                 _defaultBufferSize = 0;
             }
 
-            // The options for the buffer units. It is not recommended that these are changed.
-            try
-            {
-                rawText = _xmlDataSearches["BufferUnitOptions"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate 'BufferUnitOptions' in the XML profile.");
-            }
-            try
-            {
-                char[] chrSplit1Chars = ['$'];
-                string[] liRawList = rawText.Split(chrSplit1Chars);
-
-                char[] chrSplit2Chars = [';'];
-                foreach (string strEntry in liRawList)
-                {
-                    string[] strSplitEntry = strEntry.Split(chrSplit2Chars);
-                    BufferUnitOptionsDisplay.Add(strSplitEntry[0]);
-                    BufferUnitOptionsProcess.Add(strSplitEntry[1]);
-                    BufferUnitOptionsShort.Add(strSplitEntry[2]);
-                }
-            }
-            catch
-            {
-                throw new("Error parsing 'BufferUnitOptions' string. Check for correct format.");
-            }
-
             // The default option (position in the list) to use for the buffer units.
             try
             {
                 rawText = _xmlDataSearches["DefaultBufferUnit"].InnerText;
-                bool blResult = Double.TryParse(rawText, out double i);
+                bool blResult = int.TryParse(rawText, out int i);
                 if (blResult)
-                    _defaultBufferUnit = (int)i;
+                    _defaultBufferUnit = i;
                 else
                 {
-                    throw new("The entry for 'DefaultBufferUnit' in the XML profile is not a number.");
+                    throw new("The entry for 'DefaultBufferUnit' in the XML profile is not an integer.");
                 }
             }
             catch
@@ -591,6 +563,24 @@ namespace DataSearches
                 throw new("Could not locate 'BespokeElements' in the XML profile.");
             }
 
+            // The ratio that map and layout windows will be zoomed out after zooming to a layer extent.
+            try
+            {
+                rawText = _xmlDataSearches["ZoomRatio"].InnerText;
+                bool blResult = double.TryParse(rawText, out double i);
+                if (blResult)
+                    _zoomRatio = i;
+                else
+                {
+                    throw new("The entry for 'ZoomRatio' in the XML profile is not a number.");
+                }
+            }
+            catch
+            {
+                // This is an optional node
+                _zoomRatio = 0;
+            }
+
             // The list of zoom scales to use for all layouts, loaded from a semi-colon separated string.
             try
             {
@@ -669,25 +659,6 @@ namespace DataSearches
                 throw new("Could not locate 'AggregateColumns' in the XML profile.");
             }
 
-            // The options for showing the selected tables.
-            try
-            {
-                rawText = _xmlDataSearches["AddSelectedLayersOptions"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate 'AddSelectedLayersOptions' in the XML profile.");
-            }
-            try
-            {
-                char[] chrSplitChars = [';'];
-                _addSelectedLayersOptions = [.. rawText.Split(chrSplitChars)];
-            }
-            catch
-            {
-                throw new("Error parsing 'AddSelectedLayersOptions' string. Check for correct format.");
-            }
-
             // The default option for whether selected map layers should be kept.
             try
             {
@@ -732,25 +703,6 @@ namespace DataSearches
                 throw new("Could not locate 'GroupLayerName' in the XML profile.");
             }
 
-            // The options for overwritting the map labels.
-            try
-            {
-                rawText = _xmlDataSearches["OverwriteLabelOptions"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate 'OverwriteLabelOptions' in the XML profile.");
-            }
-            try
-            {
-                char[] chrSplitChars = [';'];
-                _overwriteLabelOptions = [.. rawText.Split(chrSplitChars)];
-            }
-            catch
-            {
-                throw new("Error parsing 'OverwriteLabelOptions' string. Check for correct format.");
-            }
-
             // Whether any map label columns should be overwritten (default setting).
             try
             {
@@ -777,25 +729,6 @@ namespace DataSearches
             catch
             {
                 throw new("Could not locate 'AreaMeasurementUnit' in the XML profile.");
-            }
-
-            // Options for filling out the Combined Sites table dropdown (do not change).
-            try
-            {
-                rawText = _xmlDataSearches["CombinedSitesTableOptions"].InnerText;
-            }
-            catch
-            {
-                throw new("Could not locate 'CombinedSitesTableOptions' in the XML profile.");
-            }
-            try
-            {
-                char[] chrSplitChars = [';'];
-                _combinedSitesTableOptions = [.. rawText.Split(chrSplitChars)];
-            }
-            catch
-            {
-                throw new("Error parsing 'CombinedSitesTableOptions' string. Check for correct format.");
             }
 
             // Whether a combined sites table should be created by default.
@@ -1421,32 +1354,11 @@ namespace DataSearches
             get { return _defaultOpenLogFile; }
         }
 
-        private int _defaultBufferSize;
+        private double _defaultBufferSize;
 
-        public int DefaultBufferSize
+        public double DefaultBufferSize
         {
             get { return _defaultBufferSize; }
-        }
-
-        private readonly List<string> _bufferUnitOptionsDisplay = [];
-
-        public List<string> BufferUnitOptionsDisplay
-        {
-            get { return _bufferUnitOptionsDisplay; }
-        }
-
-        private readonly List<string> _bufferUnitOptionsProcess = [];
-
-        public List<string> BufferUnitOptionsProcess
-        {
-            get { return _bufferUnitOptionsProcess; }
-        }
-
-        private readonly List<string> _bufferUnitOptionsShort = [];
-
-        public List<string> BufferUnitOptionsShort
-        {
-            get { return _bufferUnitOptionsShort; }
         }
 
         private int _defaultBufferUnit;
@@ -1575,6 +1487,12 @@ namespace DataSearches
             get { return _bespokeElements; }
         }
 
+        private double _zoomRatio;
+        public double ZoomRatio
+        {
+            get { return _zoomRatio; }
+        }
+
         private List<int> _zoomScales = [];
 
         public List<int> ZoomScales
@@ -1610,13 +1528,6 @@ namespace DataSearches
             get { return _aggregateColumns; }
         }
 
-        private List<string> _addSelectedLayersOptions = [];
-
-        public List<string> AddSelectedLayersOptions
-        {
-            get { return _addSelectedLayersOptions; }
-        }
-
         private bool? _defaultKeepSelectedLayers;
 
         public bool? DefaultKeepSelectedLayers
@@ -1638,13 +1549,6 @@ namespace DataSearches
             get { return _groupLayerName; }
         }
 
-        private List<string> _overwriteLabelOptions = [];
-
-        public List<string> OverwriteLabelOptions
-        {
-            get { return _overwriteLabelOptions; }
-        }
-
         private int _defaultOverwriteLabels;
 
         public int DefaultOverwriteLabels
@@ -1657,13 +1561,6 @@ namespace DataSearches
         public string AreaMeasurementUnit
         {
             get { return _areaMeasurementUnit; }
-        }
-
-        private List<string> _combinedSitesTableOptions = [];
-
-        public List<string> CombinedSitesTableOptions
-        {
-            get { return _combinedSitesTableOptions; }
         }
 
         private int _defaultCombinedSitesTable;
