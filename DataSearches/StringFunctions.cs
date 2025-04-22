@@ -235,7 +235,7 @@ namespace DataTools
         /// <param name="shortRef"></param>
         /// <param name="subRef"></param>
         /// <returns>string</returns>
-        public static string ReplaceSearchStrings(string rawName, string reference, string siteName, string shortRef, string subRef, string radius = "")
+        public static string ReplaceSearchStrings(string rawName, string reference, string siteName, string shortRef, string subRef, string radius = "", string organisation = "")
         {
             string cleanName = rawName;
             cleanName = cleanName.Replace("%ref%", reference);
@@ -243,6 +243,7 @@ namespace DataTools
             cleanName = cleanName.Replace("%subref%", subRef);
             cleanName = cleanName.Replace("%sitename%", siteName);
             cleanName = cleanName.Replace("%radius%", radius);
+            cleanName = cleanName.Replace("%organisation%", organisation);
 
             // Take account of the occurrence of dangling underscores (if no site name was given).
             if (cleanName.Substring(cleanName.Length - 1, 1) == "_")

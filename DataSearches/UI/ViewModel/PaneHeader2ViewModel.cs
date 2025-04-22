@@ -221,9 +221,6 @@ namespace DataSearches.UI
         /// </summary>
         private void InitializeComponent()
         {
-            //// Create a new map functions object.
-            //_mapFunctions = new(_toolConfig.SearchMapName);
-
             // Get the relevant config file settings.
             _repChar = _toolConfig.RepChar;
 
@@ -1705,17 +1702,17 @@ namespace DataSearches.UI
             string radius = bufferSize + bufferUnitShort;
 
             // Replace any standard strings in the variables.
-            _saveFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.SaveFolder, reference, siteName, shortRef, subref, radius);
-            _extractFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.ExtractFolder, reference, siteName, shortRef, subref, radius);
-            _gisFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.GISFolder, reference, siteName, shortRef, subref, radius);
-            _logFileName = StringFunctions.ReplaceSearchStrings(_toolConfig.LogFileName, reference, siteName, shortRef, subref, radius);
-            _combinedSitesTableName = StringFunctions.ReplaceSearchStrings(_toolConfig.CombinedSitesTableName, reference, siteName, shortRef, subref, radius);
-            _bufferPrefix = StringFunctions.ReplaceSearchStrings(_toolConfig.BufferPrefix, reference, siteName, shortRef, subref, radius);
-            _searchLayerName = StringFunctions.ReplaceSearchStrings(_toolConfig.SearchOutputName, reference, siteName, shortRef, subref, radius);
-            _groupLayerName = StringFunctions.ReplaceSearchStrings(_toolConfig.GroupLayerName, reference, siteName, shortRef, subref, radius);
+            _saveFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.SaveFolder, reference, siteName, shortRef, subref, radius, organisation);
+            _extractFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.ExtractFolder, reference, siteName, shortRef, subref, radius, organisation);
+            _gisFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.GISFolder, reference, siteName, shortRef, subref, radius, organisation);
+            _logFileName = StringFunctions.ReplaceSearchStrings(_toolConfig.LogFileName, reference, siteName, shortRef, subref, radius, organisation);
+            _combinedSitesTableName = StringFunctions.ReplaceSearchStrings(_toolConfig.CombinedSitesTableName, reference, siteName, shortRef, subref, radius, organisation);
+            _bufferPrefix = StringFunctions.ReplaceSearchStrings(_toolConfig.BufferPrefix, reference, siteName, shortRef, subref, radius, organisation);
+            _searchLayerName = StringFunctions.ReplaceSearchStrings(_toolConfig.SearchOutputName, reference, siteName, shortRef, subref, radius, organisation);
+            _groupLayerName = StringFunctions.ReplaceSearchStrings(_toolConfig.GroupLayerName, reference, siteName, shortRef, subref, radius, organisation);
 
             // Replace any standard strings in the bespoke elements.
-            bespokeElements = StringFunctions.ReplaceSearchStrings(bespokeElements, reference, siteName, shortRef, subref, radius);
+            bespokeElements = StringFunctions.ReplaceSearchStrings(bespokeElements, reference, siteName, shortRef, subref, radius, organisation);
 
             // Set the date variables.
             DateTime dateNow = DateTime.Now;
@@ -2022,7 +2019,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Starting analysis for '" + selectedLayer.NodeName + "' (" + layerNum + " of " + layerCount + ")");
 
                 // Loop through the map layers, processing each one.
-                success = await ProcessMapLayerAsync(selectedLayer, reference, siteName, shortRef, subref, radius, areaMeasureUnit, keepSelectedLayers, addSelectedLayersOption, overwriteLabelOption, combinedSitesTableOption);
+                success = await ProcessMapLayerAsync(selectedLayer, reference, siteName, shortRef, subref, radius, organisation, areaMeasureUnit, keepSelectedLayers, addSelectedLayersOption, overwriteLabelOption, combinedSitesTableOption);
 
                 // Keep track of any errors.
                 if (!success)
@@ -2826,7 +2823,7 @@ namespace DataSearches.UI
         /// <param name="combinedSitesTableOption"></param>
         /// <returns></returns>
         private async Task<bool> ProcessMapLayerAsync(MapLayer selectedLayer, string reference, string siteName,
-            string shortRef, string subref, string radius, string areaMeasureUnit,
+            string shortRef, string subref, string radius, string organisation, string areaMeasureUnit,
             bool keepSelectedLayers,
             AddSelectedLayersOptions addSelectedLayersOption,
             OverwriteLabelOptions overwriteLabelOption,
@@ -2867,8 +2864,8 @@ namespace DataSearches.UI
             string mapCombinedSitesOrderColumns = selectedLayer.CombinedSitesOrderByColumns;
 
             // Deal with wildcards in the output names.
-            mapOutputName = StringFunctions.ReplaceSearchStrings(mapOutputName, reference, siteName, shortRef, subref, radius);
-            mapTableOutputName = StringFunctions.ReplaceSearchStrings(mapTableOutputName, reference, siteName, shortRef, subref, radius);
+            mapOutputName = StringFunctions.ReplaceSearchStrings(mapOutputName, reference, siteName, shortRef, subref, radius, organisation);
+            mapTableOutputName = StringFunctions.ReplaceSearchStrings(mapTableOutputName, reference, siteName, shortRef, subref, radius, organisation);
 
             // Remove any illegal characters from the names.
             mapOutputName = StringFunctions.StripIllegals(mapOutputName, _repChar);
