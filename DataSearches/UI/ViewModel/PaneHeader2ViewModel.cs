@@ -2136,6 +2136,9 @@ namespace DataSearches.UI
 
                         return false;
                     }
+
+                    // Remove the annotation group layer from the map if it is empty.
+                    await _mapFunctions.RemoveGroupLayerAsync($"{_groupLayerName}_Anno", map);
                 }
             }
 
