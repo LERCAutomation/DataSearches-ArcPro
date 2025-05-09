@@ -166,7 +166,6 @@ namespace DataSearches.UI
 
         private string _logFile;
 
-        private Geodatabase _tempGDB;
         private string _tempMasterLayerName;
         private string _tempMasterOutputFile;
         private string _tempFCLayerName;
@@ -1878,7 +1877,7 @@ namespace DataSearches.UI
             }
 
             // Prepare the temporary geodatabase
-            if (!await PrepareTemporaryGDBAsync(_outputPath))
+            if (!await PrepareTemporaryGDBAsync())
             {
                 _searchErrors = true;
                 return false;
@@ -2129,6 +2128,23 @@ namespace DataSearches.UI
                 // Convert labels to annotation if required.
                 if (convertLabelsToAnnotation)
                 {
+                    // Create the annotation file geodatabase if it doesn't exist.
+                    string annoGDBName = _gisPath + @"\Anno.gdb";
+                    Geodatabase annoGDB = null;
+                    if (!FileFunctions.DirExists(annoGDBName))
+                    {
+                        annoGDB = ArcGISFunctions.CreateFileGeodatabase(annoGDBName);
+                        if (annoGDB == null)
+                        {
+                            FileFunctions.WriteLine(_logFile, "Error creating annotation geodatabase " + annoGDBName);
+                            _searchErrors = true;
+
+                            return false;
+                        }
+
+                        FileFunctions.WriteLine(_logFile, "Annotation geodatabase created");
+                    }
+
                     if (!await _mapFunctions.ConvertLabelsToAnnotationAsync(map.Name, "", _tempGDBName, "_Anno", true, "", false, $"{_groupLayerName}_Anno"))
                     {
                         FileFunctions.WriteLine(_logFile, $"Error converting all labels to annotation in map: {map.Name}");
@@ -2609,16 +2625,20 @@ namespace DataSearches.UI
         /// already existed).
         /// </summary>
         /// <returns></returns>
-        private async Task<bool> PrepareTemporaryGDBAsync(string gisPath)
+        private async Task<bool> PrepareTemporaryGDBAsync()
         {
+            // Set a temporary folder path.
+            string tempFolder = Path.GetTempPath();
+
             // Create the temporary file geodatabase if it doesn't exist.
-            _tempGDBName = gisPath + @"\Temp.gdb";
-            _tempGDB = null;
+            _tempGDBName = tempFolder + @"Temp.gdb";
+
+            Geodatabase tempGDB = null;
             bool tempGDBFound = true;
             if (!FileFunctions.DirExists(_tempGDBName))
             {
-                _tempGDB = ArcGISFunctions.CreateFileGeodatabase(_tempGDBName);
-                if (_tempGDB == null)
+                tempGDB = ArcGISFunctions.CreateFileGeodatabase(_tempGDBName);
+                if (tempGDB == null)
                 {
                     FileFunctions.WriteLine(_logFile, "Error creating temporary geodatabase " + _tempGDBName);
                     _searchErrors = true;
