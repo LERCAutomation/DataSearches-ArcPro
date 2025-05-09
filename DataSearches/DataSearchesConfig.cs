@@ -721,6 +721,19 @@ namespace DataSearches
                 _defaultOverwriteLabels = -1;
             }
 
+            // Should all map labels be converted to annotation? Yes/No.
+            try
+            {
+                _convertLabelsToAnnotation = false;
+                rawText = _xmlDataSearches["ConvertLabelsToAnnotation"].InnerText;
+                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
+                    _convertLabelsToAnnotation = true;
+            }
+            catch
+            {
+                throw new("Could not locate 'ConvertLabelsToAnnotation' in the XML profile.");
+            }
+
             // The units any area measurements will be done in. Choose from Ha, Km2, m2. Default is Ha..
             try
             {
@@ -1554,6 +1567,13 @@ namespace DataSearches
         public int DefaultOverwriteLabels
         {
             get { return _defaultOverwriteLabels; }
+        }
+
+        private bool _convertLabelsToAnnotation;
+
+        public bool ConvertLabelsToAnnotation
+        {
+            get { return _convertLabelsToAnnotation; }
         }
 
         private string _areaMeasurementUnit;

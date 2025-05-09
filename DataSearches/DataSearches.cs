@@ -21,9 +21,6 @@
 
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
-using System;
-using System.Diagnostics;
-using System.IO;
 
 namespace DataSearches
 {

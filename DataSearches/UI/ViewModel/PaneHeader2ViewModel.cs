@@ -20,7 +20,6 @@
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Core.Data;
-using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Framework.Controls;
@@ -1421,7 +1420,7 @@ namespace DataSearches.UI
             SelectedOverwriteLabels = _toolConfig.DefaultOverwriteLabels < 1 ? OverwriteLabelsList[0] : OverwriteLabelsList[_toolConfig.DefaultOverwriteLabels - 1];
 
             // Combined sites table.
-            SelectedCombinedSites = _toolConfig.DefaultCombinedSitesTable <1 ? CombinedSitesList[0] : CombinedSitesList[_toolConfig.DefaultCombinedSitesTable - 1];
+            SelectedCombinedSites = _toolConfig.DefaultCombinedSitesTable < 1 ? CombinedSitesList[0] : CombinedSitesList[_toolConfig.DefaultCombinedSitesTable - 1];
 
             // Log file.
             ClearLogFile = _toolConfig.DefaultClearLogFile;
@@ -1641,6 +1640,9 @@ namespace DataSearches.UI
             string bufferUnitProcess = _bufferUnitOptionsProcess[bufferUnitIndex]; // Unit to be used in process (because of American spelling).
             string bufferUnitShort = _bufferUnitOptionsShort[bufferUnitIndex]; // Unit to be used in file naming (abbreviation).
 
+            // Should labels be converted to annocation?
+            bool convertLabelsToAnnotation = _toolConfig.ConvertLabelsToAnnotation;
+
             // What is the area measurement unit?
             string areaMeasureUnit = _toolConfig.AreaMeasurementUnit;
 
@@ -1712,7 +1714,7 @@ namespace DataSearches.UI
             _groupLayerName = StringFunctions.ReplaceSearchStrings(_toolConfig.GroupLayerName, reference, siteName, shortRef, subref, radius, organisation);
 
             // Replace any standard strings in the bespoke elements.
-            bespokeElements = StringFunctions.ReplaceSearchStrings(bespokeElements, reference, siteName, shortRef, subref, radius, organisation);
+            bespokeElements = StringFunctions.ReplaceSearchStrings(bespokeElements, searchRef, siteName, shortRef, subref, radius, organisation);
 
             // Set the date variables.
             DateTime dateNow = DateTime.Now;
@@ -1876,7 +1878,7 @@ namespace DataSearches.UI
             }
 
             // Prepare the temporary geodatabase
-            if (!await PrepareTemporaryGDBAsync())
+            if (!await PrepareTemporaryGDBAsync(_outputPath))
             {
                 _searchErrors = true;
                 return false;
@@ -2026,7 +2028,7 @@ namespace DataSearches.UI
                     _searchErrors = true;
             }
 
-            _dockPane.ProgressUpdate("Cleaning up...", stepNum, 0);
+            _dockPane.ProgressUpdate("Finishing up...", stepNum, 0);
 
             // Clean up after the search.
             await CleanUpSearchAsync();
@@ -2115,12 +2117,25 @@ namespace DataSearches.UI
                     return false;
                 }
 
+                // Zoom to the layer in the map window.
                 if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, map))
                 {
                     FileFunctions.WriteLine(_logFile, $"Error zooming in map: {map.Name}");
                     _searchErrors = true;
 
                     return false;
+                }
+
+                // Convert labels to annotation if required.
+                if (convertLabelsToAnnotation)
+                {
+                    if (!await _mapFunctions.ConvertLabelsToAnnotationAsync(map.Name, "", _tempGDBName, "_Anno", true, "", false, $"{_groupLayerName}_Anno"))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error converting all labels to annotation in map: {map.Name}");
+                        _searchErrors = true;
+
+                        return false;
+                    }
                 }
             }
 
@@ -2591,13 +2606,10 @@ namespace DataSearches.UI
         /// already existed).
         /// </summary>
         /// <returns></returns>
-        private async Task<bool> PrepareTemporaryGDBAsync()
+        private async Task<bool> PrepareTemporaryGDBAsync(string gisPath)
         {
-            // Set a temporary folder path.
-            string tempFolder = Path.GetTempPath();
-
             // Create the temporary file geodatabase if it doesn't exist.
-            _tempGDBName = tempFolder + @"Temp.gdb";
+            _tempGDBName = gisPath + @"\Temp.gdb";
             _tempGDB = null;
             bool tempGDBFound = true;
             if (!FileFunctions.DirExists(_tempGDBName))

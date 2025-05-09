@@ -19,14 +19,11 @@
 // You should have received a copy of the GNU General Public License
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
-using ActiproSoftware.Windows.Controls.Editors;
 using ArcGIS.Core.CIM;
 using ArcGIS.Core.Data;
 using ArcGIS.Core.Data.DDL;
 using ArcGIS.Core.Data.Exceptions;
-using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ArcGIS.Core.Geometry;
-using ArcGIS.Core.Internal.Geometry;
 using ArcGIS.Desktop.Catalog;
 using ArcGIS.Desktop.Core;
 using ArcGIS.Desktop.Core.Geoprocessing;
@@ -36,11 +33,8 @@ using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Contracts;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Layouts.Utilities;
-using ArcGIS.Desktop.Internal.Mapping;
 using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
-using DataSearches.UI;
-using Microsoft.Identity.Client.Extensions.Msal;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -736,6 +730,114 @@ namespace DataTools
             return true;
         }
 
+        /// <summary>
+        /// Converts labels to annotation for a specified layer or for all layers in a map.
+        /// This wraps the 'Convert Labels to Annotation' geoprocessing tool and supports
+        /// standard or feature-linked annotation, with control over extent and conflict options.
+        /// </summary>
+        /// <param name="input_map">The name of the map containing the layer(s).</param>
+        /// <param name="single_layer">The name of the layer to convert. Use an empty string ("") to convert all layers.</param>
+        /// <param name="output_geodatabase">The path to the output geodatabase for storing annotation feature classes.</param>
+        /// <param name="anno_suffix">The suffix added to the output annotation feature class.</param>
+        /// <param name="addToMap">If true, adds the output annotation layer to the map.</param>
+        /// <param name="conversion_scale">The reference scale at which annotation is created. If empty, the current map view scale is used.</param>
+        /// <param name="featureLinked">If true, creates feature-linked annotation; otherwise, creates standard annotation.</param>
+        /// <param name="output_group_layer"></param>
+        /// <returns>True if annotation was successfully created; otherwise, false.</returns>
+        public async Task<bool> ConvertLabelsToAnnotationAsync(
+            string input_map,
+            string single_layer,
+            string output_geodatabase,
+            string anno_suffix,
+            bool addToMap = false,
+            string conversion_scale = "",
+            bool featureLinked = false,
+            string output_group_layer = "Anno")
+        {
+            // Check for required parameters.
+            if (string.IsNullOrEmpty(input_map) || string.IsNullOrEmpty(output_geodatabase) || string.IsNullOrEmpty(anno_suffix))
+            {
+                TraceLog("ConvertLabelsToAnnotationAsync error: Missing required parameters.");
+                return false;
+            }
+
+            // If no reference scale provided, use the current map view scale.
+            if (string.IsNullOrWhiteSpace(conversion_scale))
+            {
+                if (MapView.Active?.Camera != null)
+                {
+                    conversion_scale = MapView.Active.Camera.Scale.ToString("F0");
+                }
+                else
+                {
+                    TraceLog("ConvertLabelsToAnnotationAsync error: Unable to determine reference scale.");
+                    return false;
+                }
+            }
+
+            // Determine annotation type.
+            string feature_linked = featureLinked ? "FEATURE_LINKED" : "STANDARD";
+
+            // Determine whether to convert all layers or just the specified one.
+            string which_layers = string.IsNullOrWhiteSpace(single_layer)
+                ? "ALL_LAYERS"
+                : "SINGLE_LAYER";
+
+            // Make a value array of strings to be passed to the tool.
+            IReadOnlyList<string> parameters = Geoprocessing.MakeValueArray(
+                input_map,             // Name of the map containing the input layer(s).
+                conversion_scale,      // Reference scale for the annotation.
+                output_geodatabase,    // Output file geodatabase path.
+                anno_suffix,           // Suffix for the output annotation feature class.
+                null,                  // Extent (null = maximum extent of all participating inputs).
+                null,                  // "ONLY_PLACED" (default) or "GENERATE_UNPLACED"
+                null,                  // "NO_REQUIRE_ID" (default) or "REQUIRE_ID"
+                feature_linked,        // "STANDARD" (default) or "FEATURE_LINKED"
+                null,                  // "AUTO_CREATE" (default) or "NO_AUTO_CREATE"
+                null,                  // "SHAPE_UPDATE" (default) or "NO_SHAPE_UPDATE"
+                output_group_layer,    // Group layer that will contain the generated annotation
+                which_layers,          // "ALL_LAYERS" (default) or "SINGLE_LAYER"
+                single_layer,          // Name of the layer to convert ("" = all layers).
+                null,                  // "SINGLE_FEATURE_CLASS" or "FEATURE_CLASS_PER_FEATURE_LAYER" (default)
+                null                   // "MERGE_LABEL_CLASS" or "NO_MERGE_LABEL_CLASS" (default)
+            );
+
+            // Make a value array of the environments to be passed to the tool.
+            var environments = Geoprocessing.MakeEnvironmentArray(overwriteoutput: true);
+
+            // Set the geoprocessing flags.
+            GPExecuteToolFlags executeFlags = GPExecuteToolFlags.GPThread; // | GPExecuteToolFlags.RefreshProjectItems;
+            if (addToMap)
+                executeFlags |= GPExecuteToolFlags.AddOutputsToMap;
+
+            //Geoprocessing.OpenToolDialog("cartography.ConvertLabelsToAnnotation", parameters);  // Useful for debugging.
+
+            try
+            {
+                IGPResult gp_result = await Geoprocessing.ExecuteToolAsync(
+                    "cartography.ConvertLabelsToAnnotation",
+                    parameters,
+                    environments,
+                    null,
+                    null,
+                    executeFlags
+                );
+
+                if (gp_result.IsFailed)
+                {
+                    Geoprocessing.ShowMessageBox(gp_result.Messages, "GP Messages", GPMessageBoxStyle.Error);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                TraceLog($"ConvertLabelsToAnnotationAsync error: Map: {input_map}, Layer: {single_layer}, Exception: {ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
         #endregion Map
 
         #region Layout
@@ -1317,7 +1419,6 @@ namespace DataTools
                     ApplyZoomToMapFrame(mapFrame, ratio, scale, validScales);
 
                     return true;
-
                 }
                 catch (Exception ex)
                 {
@@ -2749,6 +2850,31 @@ namespace DataTools
                 // Log the exception and return null.
                 TraceLog($"GetFeatureClassType error: Exception occurred while getting feature class type. Layer: {layerName}, Exception: {ex.Message}");
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// Recursively retrieves all feature layers from a collection of layers,
+        /// including those nested within group layers.
+        /// </summary>
+        /// <param name="layers">The layer collection to search.</param>
+        /// <returns>All FeatureLayer instances found within the collection.</returns>
+        private static IEnumerable<FeatureLayer> GetAllFeatureLayers(IEnumerable<Layer> layers)
+        {
+            // Loop through each layer in the collection.
+            foreach (var layer in layers)
+            {
+                // If it's a FeatureLayer, return it.
+                if (layer is FeatureLayer fl)
+                {
+                    yield return fl;
+                }
+                // If it's a GroupLayer, search its children recursively.
+                else if (layer is GroupLayer gl)
+                {
+                    foreach (var child in GetAllFeatureLayers(gl.Layers))
+                        yield return child;
+                }
             }
         }
 
