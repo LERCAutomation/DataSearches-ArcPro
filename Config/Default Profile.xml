@@ -217,10 +217,11 @@ used by the ArcGIS Pro add-in to select and export GIS data for each data search
 		<value>2500;5000;7500;10000;12500;15000;20000</value>
 	</ZoomScales>	
 
-	<!-- Are we keeping the search feature as a layer? Yes/No -->
-	<KeepSearchFeature>
-		<value>No</value>
-	</KeepSearchFeature>
+	<!-- The extension names of search features to keep.
+	Leave blank to not keep any. -->
+	<KeepSearchFeatureExtensions>
+		<value>_region;_polyline</value>
+	</KeepSearchFeatureExtensions>
 
 	<!-- The name of the search feature output layer. -->
 	<SearchOutputName>
@@ -261,6 +262,11 @@ used by the ArcGIS Pro add-in to select and export GIS data for each data search
 	<DefaultOverwriteLabels>
 		<value>1</value>
 	</DefaultOverwriteLabels>
+
+	<!-- Should all map labels be converted to annotation? Yes/No -->
+	<ConvertLabelsToAnnotation>
+		<value>No</value>
+	</ConvertLabelsToAnnotation>
 
 	<!-- The units any area measurements will be done in. Choose from Ha, Km2, m2. Default is Ha. -->
 	<AreaMeasurementUnit>
@@ -551,7 +557,6 @@ used by the ArcGIS Pro add-in to select and export GIS data for each data search
 			<CombinedSitesOrderByColumns>
 				<value>SAC_Name</value>
 			</CombinedSitesOrderByColumns>
-
 		</Sites_-_SACs>
 		<Sites_-_SPAs>
 			<LayerName>

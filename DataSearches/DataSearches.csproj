@@ -72,7 +72,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.11.4" />
-    <PackageReference Include="Esri.ArcGISPro.Extensions30" Version="3.3.0.52636" />
+    <PackageReference Include="Esri.ArcGISPro.Extensions30" Version="3.4.0.55405" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.61.3" />
     <PackageReference Include="System.Collections" Version="4.3.0" />

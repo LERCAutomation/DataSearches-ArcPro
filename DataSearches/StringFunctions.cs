@@ -246,7 +246,7 @@ namespace DataTools
             cleanName = cleanName.Replace("%organisation%", organisation);
 
             // Take account of the occurrence of dangling underscores (if no site name was given).
-            if (cleanName.Substring(cleanName.Length - 1, 1) == "_")
+            if (cleanName.Length > 0 && cleanName.Substring(cleanName.Length - 1, 1) == "_")
                 cleanName = cleanName.Substring(0, cleanName.Length - 1);
 
             return cleanName;

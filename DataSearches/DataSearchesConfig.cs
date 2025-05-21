@@ -578,7 +578,7 @@ namespace DataSearches
             catch
             {
                 // This is an optional node
-                _zoomRatio = 0;
+                _zoomRatio = 1;
             }
 
             // The list of zoom scales to use for all layouts, loaded from a semi-colon separated string.
@@ -616,17 +616,27 @@ namespace DataSearches
                 throw new("Error parsing 'ZoomScales' string. Check for correct format.");
             }
 
-            // Are we keeping the search feature as a layer? Yes/No.
+            // The extension names of search features to keep.
             try
             {
-                _keepSearchFeature = false;
-                rawText = _xmlDataSearches["KeepSearchFeature"].InnerText;
-                if (rawText.ToLower(System.Globalization.CultureInfo.CurrentCulture) is "yes" or "y")
-                    _keepSearchFeature = true;
+                rawText = _xmlDataSearches["KeepSearchFeatureExtensions"].InnerText;
             }
             catch
             {
-                throw new("Could not locate 'KeepSearchFeature' in the XML profile.");
+                throw new("Could not locate 'KeepSearchFeatureExtensions' in the XML profile.");
+            }
+            try
+            {
+                char[] chrSplit1Chars = [';'];
+                string[] liRawList = rawText.Split(chrSplit1Chars);
+                foreach (string rawEntry in liRawList)
+                {
+                    _keepSearchFeatureExtensions.Add(rawEntry);
+                }
+            }
+            catch
+            {
+                throw new("Error parsing 'KeepSearchFeatureExtensions' string. Check for correct format.");
             }
 
             // The name of the search feature output layer.
@@ -1513,11 +1523,11 @@ namespace DataSearches
             get { return _zoomScales; }
         }
 
-        private bool _keepSearchFeature;
+        private List<string> _keepSearchFeatureExtensions = [];
 
-        public bool KeepSearchFeature
+        public List<string> KeepSearchFeatureExtensions
         {
-            get { return _keepSearchFeature; }
+            get { return _keepSearchFeatureExtensions; }
         }
 
         private string _searchOutputName;

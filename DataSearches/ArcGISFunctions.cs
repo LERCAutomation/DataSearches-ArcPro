@@ -739,6 +739,7 @@ namespace DataTools
         /// <param name="single_layer">The name of the layer to convert. Use an empty string ("") to convert all layers.</param>
         /// <param name="output_geodatabase">The path to the output geodatabase for storing annotation feature classes.</param>
         /// <param name="anno_suffix">The suffix added to the output annotation feature class.</param>
+        /// <param name="extent">The extent that contains the labels to convert to annotation</param>
         /// <param name="addToMap">If true, adds the output annotation layer to the map.</param>
         /// <param name="conversion_scale">The reference scale at which annotation is created. If empty, the current map view scale is used.</param>
         /// <param name="featureLinked">If true, creates feature-linked annotation; otherwise, creates standard annotation.</param>
@@ -749,6 +750,8 @@ namespace DataTools
             string single_layer,
             string output_geodatabase,
             string anno_suffix,
+            string extent = "MAXOF",
+            string generate_unplaced = "ONLY_PLACED",
             bool addToMap = false,
             string conversion_scale = "",
             bool featureLinked = false,
@@ -789,17 +792,17 @@ namespace DataTools
                 conversion_scale,      // Reference scale for the annotation.
                 output_geodatabase,    // Output file geodatabase path.
                 anno_suffix,           // Suffix for the output annotation feature class.
-                null,                  // Extent (null = maximum extent of all participating inputs).
-                null,                  // "ONLY_PLACED" (default) or "GENERATE_UNPLACED"
-                null,                  // "NO_REQUIRE_ID" (default) or "REQUIRE_ID"
-                feature_linked,        // "STANDARD" (default) or "FEATURE_LINKED"
-                null,                  // "AUTO_CREATE" (default) or "NO_AUTO_CREATE"
-                null,                  // "SHAPE_UPDATE" (default) or "NO_SHAPE_UPDATE"
-                output_group_layer,    // Group layer that will contain the generated annotation
-                which_layers,          // "ALL_LAYERS" (default) or "SINGLE_LAYER"
+                extent,                // "MAXOF" (default), "MINOF", "DISPLAY", LayerName.
+                generate_unplaced,     // "ONLY_PLACED" (default), "GENERATE_UNPLACED".
+                null,                  // "NO_REQUIRE_ID" (default), "REQUIRE_ID".
+                feature_linked,        // "STANDARD" (default), "FEATURE_LINKED".
+                null,                  // "AUTO_CREATE" (default), "NO_AUTO_CREATE".
+                null,                  // "SHAPE_UPDATE" (default), "NO_SHAPE_UPDATE".
+                output_group_layer,    // Group layer that will contain the generated annotation.
+                which_layers,          // "ALL_LAYERS" (default), "SINGLE_LAYER".
                 single_layer,          // Name of the layer to convert ("" = all layers).
-                null,                  // "SINGLE_FEATURE_CLASS" or "FEATURE_CLASS_PER_FEATURE_LAYER" (default)
-                null                   // "MERGE_LABEL_CLASS" or "NO_MERGE_LABEL_CLASS" (default)
+                null,                  // "FEATURE_CLASS_PER_FEATURE_LAYER" (default), "SINGLE_FEATURE_CLASS".
+                null                   // "NO_MERGE_LABEL_CLASS" (default), "MERGE_LABEL_CLASS".
             );
 
             // Make a value array of the environments to be passed to the tool.
@@ -2402,7 +2405,7 @@ namespace DataTools
             foreach (ArcGIS.Core.Data.Field fld in fields)
             {
                 if (fld.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase) ||
-                    fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
+                    (fld.AliasName != null && fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
                 {
                     fldFound = true;
                     break;
@@ -2454,7 +2457,7 @@ namespace DataTools
                         foreach (ArcGIS.Core.Data.Field fld in fields)
                         {
                             if (fld.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase) ||
-                                fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
+                                (fld.AliasName != null && fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
                             {
                                 fldFound = true;
                                 break;
@@ -2536,7 +2539,7 @@ namespace DataTools
                         foreach (ArcGIS.Core.Data.Field fld in fields)
                         {
                             if (fld.Name.Equals(fieldName, StringComparison.OrdinalIgnoreCase) ||
-                                fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase))
+                                (fld.AliasName != null && fld.AliasName.Equals(fieldName, StringComparison.OrdinalIgnoreCase)))
                             {
                                 fldIsNumeric = fld.FieldType switch
                                 {
@@ -2883,42 +2886,39 @@ namespace DataTools
         #region Group Layers
 
         /// <summary>
-        /// Find a group layer by name in the active map.
+        /// Finds a group layer by name in the specified or active map.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <returns>GroupLayer</returns>
-        internal GroupLayer FindGroupLayer(string layerName, Map targetMap = null)
+        /// <param name="layerName">The name of the group layer to find.</param>
+        /// <param name="targetMap">Optional map to search in; defaults to the active map.</param>
+        /// <returns>GroupLayer if found; otherwise, null.</returns>
+        internal async Task<GroupLayer> FindGroupLayerAsync(string layerName, Map targetMap = null)
         {
             // Check there is an input group layer name.
             if (string.IsNullOrEmpty(layerName))
+            {
+                TraceLog("FindGroupLayerAsync error: No layer name provided.");
                 return null;
+            }
 
             // Use provided map or default to _activeMap.
             Map mapToUse = targetMap ?? _activeMap;
 
             try
             {
-                // Finds group layers by name and returns a read only list of group layers.
-                IEnumerable<GroupLayer> groupLayers = mapToUse.FindLayers(layerName).OfType<GroupLayer>();
-
-                while (groupLayers.Any())
+                // Run layer lookup on the QueuedTask to comply with ArcGIS Pro threading model.
+                return await QueuedTask.Run(() =>
                 {
-                    // Get the first group layer found by name.
-                    GroupLayer groupLayer = groupLayers.First();
-
-                    // Check the group layer is in the active map.
-                    if (groupLayer.Map.Name.Equals(mapToUse.Name, StringComparison.OrdinalIgnoreCase))
-                        return groupLayer;
-                }
+                    return mapToUse.FindLayers(layerName, true)
+                                   .OfType<GroupLayer>()
+                                   .FirstOrDefault();
+                });
             }
             catch (Exception ex)
             {
                 // Log the exception and return null.
-                TraceLog($"FindGroupLayer error: Exception occurred while finding group layer. Layer: {layerName}, Exception {ex.Message}");
+                TraceLog($"FindGroupLayerAsync error: Exception occurred while finding group layer. Layer: {layerName}, Exception: {ex.Message}");
                 return null;
             }
-
-            return null;
         }
 
         /// <summary>
@@ -2943,7 +2943,7 @@ namespace DataTools
             Map mapToUse = targetMap ?? _activeMap;
 
             // Does the group layer exist?
-            GroupLayer groupLayer = FindGroupLayer(groupLayerName, mapToUse);
+            GroupLayer groupLayer = await FindGroupLayerAsync(groupLayerName, mapToUse);
             if (groupLayer == null)
             {
                 // Add the group layer to the map.
@@ -3003,7 +3003,7 @@ namespace DataTools
             try
             {
                 // Does the group layer exist?
-                GroupLayer groupLayer = FindGroupLayer(groupLayerName, mapToUse);
+                GroupLayer groupLayer = await FindGroupLayerAsync(groupLayerName, mapToUse);
                 if (groupLayer == null)
                     return false;
 

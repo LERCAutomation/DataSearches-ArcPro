@@ -20,6 +20,7 @@
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Core.Data;
+using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Framework.Controls;
@@ -147,7 +148,7 @@ namespace DataSearches.UI
         private string _searchOutputFile;
         private string _groupLayerName;
 
-        private bool _keepSearchFeature;
+        private List<string> _keepSearchFeatureExtensions;
         private string _searchSymbologyBase;
 
         private string _searchLayerBase;
@@ -253,11 +254,12 @@ namespace DataSearches.UI
             _searchLayerName = _toolConfig.SearchOutputName;
             _groupLayerName = _toolConfig.GroupLayerName;
 
-            _keepSearchFeature = _toolConfig.KeepSearchFeature;
-            _searchSymbologyBase = _toolConfig.SearchSymbologyBase;
-
             _searchLayerBase = _toolConfig.SearchLayer;
             _searchLayerExtensions = _toolConfig.SearchLayerExtensions;
+
+            _searchSymbologyBase = _toolConfig.SearchSymbologyBase;
+            _keepSearchFeatureExtensions = _toolConfig.KeepSearchFeatureExtensions;
+
             _searchColumn = _toolConfig.SearchColumn;
             _siteColumn = _toolConfig.SiteColumn;
             _radiusColumn = _toolConfig.RadiusColumn;
@@ -1974,6 +1976,10 @@ namespace DataSearches.UI
             // Get the full layer path (in case it's nested in one or more groups).
             _bufferLayerPath = await _mapFunctions.GetLayerPathAsync(_bufferLayerName);
 
+            // Change the combined sites table option if the name is empty.
+            if (string.IsNullOrWhiteSpace(_combinedSitesTableName))
+                combinedSitesTableOption = CombinedSitesTableOptions.None;
+
             // Start the combined sites table before we do any analysis.
             _combinedSitesOutputFile = _outputPath + @"\" + _combinedSitesTableName + "." + _combinedSitesTableFormat;
             if (!CreateCombinedSitesTable(_combinedSitesOutputFile, combinedSitesTableOption))
@@ -2071,7 +2077,7 @@ namespace DataSearches.UI
             string searchLayerName = _searchLayerName;
 
             // If the search area is being kept.
-            if (_keepSearchFeature)
+            if (_keepSearchFeatureExtensions.Contains(_searchLayerExtension))
             {
                 // Add the search area layer to all of the map windows.
                 searchLayerName = await AddSearchLayerToMapsAsync(mapWindows);
@@ -2145,7 +2151,11 @@ namespace DataSearches.UI
                         FileFunctions.WriteLine(_logFile, "Annotation geodatabase created");
                     }
 
-                    if (!await _mapFunctions.ConvertLabelsToAnnotationAsync(map.Name, "", _tempGDBName, "_Anno", true, "", false, $"{_groupLayerName}_Anno"))
+                    // Create the annotation group layer name.
+                    string baseAnnoGroupLayerName = $"{_groupLayerName}_Anno";
+                    string annoGroupLayerName = await GetNextAnnoGroupLayerNameAsync(baseAnnoGroupLayerName, map);
+
+                    if (!await _mapFunctions.ConvertLabelsToAnnotationAsync(map.Name, "", annoGDBName, "_Anno", "DISPLAY", null, true, "", false, annoGroupLayerName))
                     {
                         FileFunctions.WriteLine(_logFile, $"Error converting all labels to annotation in map: {map.Name}");
                         _searchErrors = true;
@@ -2154,7 +2164,7 @@ namespace DataSearches.UI
                     }
 
                     // Remove the annotation group layer from the map if it is empty.
-                    await _mapFunctions.RemoveGroupLayerAsync($"{_groupLayerName}_Anno", map);
+                    await _mapFunctions.RemoveGroupLayerAsync(annoGroupLayerName, map);
                 }
             }
 
@@ -2190,6 +2200,37 @@ namespace DataSearches.UI
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Gets the next available annotation group layer name by appending a numeric suffix (without underscore),
+        /// starting with the base name (e.g., "MyLayer_Anno", "MyLayer_Anno2", "MyLayer_Anno3", ...).
+        /// </summary>
+        /// <param name="baseGroupLayerName">The base name to use (e.g. "MyLayer_Anno").</param>
+        /// <param name="map">The map in which to check for name conflicts.</param>
+        /// <returns>A unique group layer name that does not already exist in the map.</returns>
+        internal async Task<string> GetNextAnnoGroupLayerNameAsync(string baseGroupLayerName, Map map)
+        {
+            if (string.IsNullOrEmpty(baseGroupLayerName) || map == null)
+                return null;
+
+            string nextGroupLayerName = baseGroupLayerName;
+            int suffix = 2;
+
+            // First try the base name as-is.
+            GroupLayer existingLayer = await _mapFunctions.FindGroupLayerAsync(nextGroupLayerName, map);
+            if (existingLayer == null)
+                return nextGroupLayerName;
+
+            // Try increasing numeric suffix.
+            while (true)
+            {
+                nextGroupLayerName = $"{baseGroupLayerName}{suffix}";
+                if (await _mapFunctions.FindGroupLayerAsync(nextGroupLayerName, map) == null)
+                    return nextGroupLayerName;
+
+                suffix++;
+            }
         }
 
         /// <summary>
