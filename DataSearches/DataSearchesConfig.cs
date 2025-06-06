@@ -1461,14 +1461,14 @@ namespace DataSearches
             get { return _radiusColumn; }
         }
 
-        private List<string> _mapNames = [];
+        private readonly List<string> _mapNames = [];
 
         public List<string> MapNames
         {
             get { return _mapNames; }
         }
 
-        private List<string> _layoutNames = [];
+        private readonly List<string> _layoutNames = [];
 
         public List<string> LayoutNames
         {
@@ -1516,14 +1516,14 @@ namespace DataSearches
             get { return _zoomRatio; }
         }
 
-        private List<int> _zoomScales = [];
+        private readonly List<int> _zoomScales = [];
 
         public List<int> ZoomScales
         {
             get { return _zoomScales; }
         }
 
-        private List<string> _keepSearchFeatureExtensions = [];
+        private readonly List<string> _keepSearchFeatureExtensions = [];
 
         public List<string> KeepSearchFeatureExtensions
         {

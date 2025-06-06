@@ -336,15 +336,15 @@ namespace DataSearches.UI
             }
         }
 
-        private bool _layersListLoading;
+        private bool _formLoading;
 
         /// <summary>
-        /// Is the layers list loading?
+        /// Is the form loading?
         /// </summary>
-        public bool LayersListLoading
+        public bool FormLoading
         {
-            get { return _layersListLoading; }
-            set { _layersListLoading = value; }
+            get { return _formLoading; }
+            set { _formLoading = value; }
         }
 
         private SearchStatuses _searchStatus;

@@ -41,6 +41,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using MessageBox = ArcGIS.Desktop.Framework.Dialogs.MessageBox;
 
 namespace DataSearches.UI
@@ -112,9 +113,9 @@ namespace DataSearches.UI
         private int _defaultOverwriteLabels;
         private int _defaultCombinedSitesTable;
 
-        private List<string> _bufferUnitOptionsDisplay = ["Centimetres", "Metres", "Kilometres", "Feet", "Yards", "Miles"];
-        private List<string> _bufferUnitOptionsProcess = ["Centimeters", "Meters", "Kilometers", "Feet", "Yards", "Miles"];
-        private List<string> _bufferUnitOptionsShort = ["cm", "m", "km", "ft", "yds", "mi"];
+        private readonly List<string> _bufferUnitOptionsDisplay = ["Centimetres", "Metres", "Kilometres", "Feet", "Yards", "Miles"];
+        private readonly List<string> _bufferUnitOptionsProcess = ["Centimeters", "Meters", "Kilometers", "Feet", "Yards", "Miles"];
+        private readonly List<string> _bufferUnitOptionsShort = ["cm", "m", "km", "ft", "yds", "mi"];
 
         private List<MapLayer> _mapLayers;
 
@@ -1449,7 +1450,12 @@ namespace DataSearches.UI
             // Expand the lists (ready to be resized later).
             _mapLayersListHeight = null;
 
+            _dockPane.FormLoading = true;
             _dockPane.ProgressUpdate("Loading form...");
+
+            // Force UI update
+            //await Task.Delay(1);
+            await Application.Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Background);
 
             // Clear any messages.
             ClearMessage();
@@ -1470,7 +1476,8 @@ namespace DataSearches.UI
             if (!_mapLayersList.Any())
                 ShowMessage("No search layers in active map.", MessageType.Warning);
 
-            _dockPane.LayersListLoading = false;
+            // Indicate the form has loaded.
+            _dockPane.FormLoading = false;
 
             // Update the fields and buttons in the form.
             UpdateFormControls();
@@ -2674,7 +2681,7 @@ namespace DataSearches.UI
             // Create the temporary file geodatabase if it doesn't exist.
             _tempGDBName = tempFolder + @"Temp.gdb";
 
-            Geodatabase tempGDB = null;
+            Geodatabase tempGDB;
             bool tempGDBFound = true;
             if (!FileFunctions.DirExists(_tempGDBName))
             {

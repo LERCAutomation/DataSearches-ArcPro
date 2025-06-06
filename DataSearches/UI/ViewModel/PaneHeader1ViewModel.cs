@@ -227,7 +227,7 @@ namespace DataSearches.UI
             get
             {
                 return ((_dockPane.SearchStatus == DockpaneMainViewModel.SearchStatuses.NotStarted)
-                    && (!_dockPane.LayersListLoading));
+                    && (!_dockPane.FormLoading));
             }
         }
 
@@ -355,7 +355,7 @@ namespace DataSearches.UI
             {
                 return ((!string.IsNullOrEmpty(SelectedXMLProfile))
                     && (_dockPane.SearchStatus == DockpaneMainViewModel.SearchStatuses.NotStarted)
-                    && (!_dockPane.LayersListLoading));
+                    && (!_dockPane.FormLoading));
             }
         }
 

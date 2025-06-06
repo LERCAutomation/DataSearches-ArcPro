@@ -217,12 +217,6 @@ used by the ArcGIS Pro add-in to select and export GIS data for each data search
 		<value>2500;5000;7500;10000;12500;15000;20000</value>
 	</ZoomScales>	
 
-	<!-- The extension names of search features to keep.
-	Leave blank to not keep any. -->
-	<KeepSearchFeatureExtensions>
-		<value>_region;_polyline</value>
-	</KeepSearchFeatureExtensions>
-
 	<!-- The name of the search feature output layer. -->
 	<SearchOutputName>
 		<value>SearchArea_%subref%</value>
@@ -233,6 +227,12 @@ used by the ArcGIS Pro add-in to select and export GIS data for each data search
 	<SearchSymbologyBase>
 		<value>FeatureSymbology</value>
 	</SearchSymbologyBase>
+
+	<!-- The extension names of search features to keep.
+	Leave blank to not keep any. -->
+	<KeepSearchFeatureExtensions>
+		<value>_region;_polyline</value>
+	</KeepSearchFeatureExtensions>
 
 	<!-- The buffer aggregate column values. Delimited with semicolons. -->
 	<AggregateColumns>

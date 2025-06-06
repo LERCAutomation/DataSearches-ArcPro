@@ -11,7 +11,7 @@
 		<Image>Images\AddinDesktop32.png</Image>
 		<Author>Andy Foy, andy@andyfoyconsulting.co.uk</Author>
 		<Company>Andy Foy Consulting</Company>
-		<Date>21/05/2025 17:36:00 AM</Date>
+		<Date>06/06/2025 12:13:00 AM</Date>
 		<Subject>Framework, Geodatabase</Subject>
 		<!-- Note subject can be one or more of these topics:
                     Content, Framework, Editing, Geodatabase, Geometry, Geoprocessing, Layouts, Map Authoring, Map Exploration -->
@@ -35,7 +35,7 @@
 						smallImage="pack://application:,,,/DataSearches;component/Images/DataSearches16.png"
 						largeImage="pack://application:,,,/DataSearches;component/Images/DataSearches32.png">
 					<tooltip heading="Data Searches tool"
-							 image="pack://application:,,,/DataSearches;component/Images/DataSearches16.png">
+							 image="pack://application:,,,/DataSearches;component/Images/DataSearches32.png">
 						Automate spatial data searches.<disabledText />
 					</tooltip>
 				</button>
