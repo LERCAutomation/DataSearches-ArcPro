@@ -126,6 +126,7 @@ namespace DataSearches.UI
         private string _saveFolder;
         private string _extractFolder;
         private string _gisFolder;
+        private string _tempDir;
         private string _outputPath;
         private string _gisPath;
         private string _layerPath;
@@ -244,6 +245,7 @@ namespace DataSearches.UI
             _saveFolder = _toolConfig.SaveFolder;
             _extractFolder = _toolConfig.ExtractFolder;
             _gisFolder = _toolConfig.GISFolder;
+            _tempDir = _toolConfig.TempDir;
             _logFileName = _toolConfig.LogFileName;
             _layerPath = _toolConfig.LayerFolder;
             _combinedSitesTableName = _toolConfig.CombinedSitesTableName;
@@ -1715,6 +1717,7 @@ namespace DataSearches.UI
             _saveFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.SaveFolder, reference, siteName, shortRef, subref, radius, organisation);
             _extractFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.ExtractFolder, reference, siteName, shortRef, subref, radius, organisation);
             _gisFolder = StringFunctions.ReplaceSearchStrings(_toolConfig.GISFolder, reference, siteName, shortRef, subref, radius, organisation);
+            _tempDir = StringFunctions.ReplaceSearchStrings(_toolConfig.TempDir, reference, siteName, shortRef, subref, radius, organisation);
             _logFileName = StringFunctions.ReplaceSearchStrings(_toolConfig.LogFileName, reference, siteName, shortRef, subref, radius, organisation);
             _combinedSitesTableName = StringFunctions.ReplaceSearchStrings(_toolConfig.CombinedSitesTableName, reference, siteName, shortRef, subref, radius, organisation);
             _bufferPrefix = StringFunctions.ReplaceSearchStrings(_toolConfig.BufferPrefix, reference, siteName, shortRef, subref, radius, organisation);
@@ -1747,6 +1750,8 @@ namespace DataSearches.UI
             _extractFolder = _extractFolder.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
             _gisFolder = _gisFolder.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
             _gisFolder = _gisFolder.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _tempDir = _tempDir.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _tempDir = _tempDir.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
             _logFileName = _logFileName.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
             _logFileName = _logFileName.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
 
@@ -1785,7 +1790,7 @@ namespace DataSearches.UI
                 _gisFolder = null;
 
             // Create output folders if required.
-            if (!CreateOutputFolders(_saveRootDir, _saveFolder, _extractFolder, _gisFolder, ref _outputPath, ref _gisPath))
+            if (!CreateOutputFolders(_saveRootDir, _saveFolder, _extractFolder, _gisFolder, _tempDir, ref _outputPath, ref _gisPath))
             {
                 MessageBox.Show("Cannot create output folders");
                 return false;
@@ -2043,6 +2048,9 @@ namespace DataSearches.UI
             _dockPane.ProgressUpdate("Finishing up...", stepNum, 0);
 
             // Clean up after the search.
+            FileFunctions.WriteLine(_logFile, "");
+            FileFunctions.WriteLine(_logFile, "Cleaning up ...");
+
             await CleanUpSearchAsync();
 
             // If there were errors at this stage then exit.
@@ -2052,15 +2060,6 @@ namespace DataSearches.UI
             // If the process was cancelled when exit.
             if (_dockPane.SearchStatus == DockpaneMainViewModel.SearchStatuses.Cancelled)
                 return false;
-
-            // Set the search reference, site name, organisation and radius in all of the layouts.
-            if (!await _mapFunctions.UpdateLayoutsTextAsync(layoutWindowNames, searchRefElement, searchRef, siteNameElement, siteName,
-                organisationElement, organisation, radiusElement, radius, bespokeElementNames, bespokeContents))
-            {
-                _searchErrors = true;
-
-                return false;
-            }
 
             string bufferLayerName = _bufferLayerName;
 
@@ -2108,6 +2107,8 @@ namespace DataSearches.UI
             // Zoom to the buffer layer extent (or the search layer extent if there is no buffer).
             string targetLayer = bufferSize == "0" ? searchLayerName : bufferLayerName;
 
+            FileFunctions.WriteLine(_logFile, "Zooming in to maps ...");
+
             // Zoom in to the search layer map.
             if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, null))
             {
@@ -2141,6 +2142,8 @@ namespace DataSearches.UI
                 // Convert labels to annotation if required.
                 if (convertLabelsToAnnotation)
                 {
+                    FileFunctions.WriteLine(_logFile, "Converting labels ...");
+
                     // Create the annotation file geodatabase if it doesn't exist.
                     string annoGDBName = _gisPath + @"\Anno.gdb";
                     Geodatabase annoGDB = null;
@@ -2174,6 +2177,19 @@ namespace DataSearches.UI
                     await _mapFunctions.RemoveGroupLayerAsync(annoGroupLayerName, map);
                 }
             }
+
+            FileFunctions.WriteLine(_logFile, "Updating layouts ...");
+
+            // Set the search reference, site name, organisation and radius in all of the layouts.
+            if (!await _mapFunctions.UpdateLayoutsTextAsync(layoutWindowNames, searchRefElement, searchRef, siteNameElement, siteName,
+                organisationElement, organisation, radiusElement, radius, bespokeElementNames, bespokeContents))
+            {
+                _searchErrors = true;
+
+                return false;
+            }
+
+            FileFunctions.WriteLine(_logFile, "Zooming in to layouts ...");
 
             // Zoom in to all layout windows.
             foreach (Layout layout in layoutWindows)
@@ -2280,8 +2296,6 @@ namespace DataSearches.UI
         /// <returns>A task representing the asynchronous operation.</returns>
         private async Task<string> AddBufferLayerToMapsAsync(List<Map> mapWindows)
         {
-            FileFunctions.WriteLine(_logFile, "");
-
             string bufferSymbologyFile = _layerPath + "\\" + _bufferLayerFile;
 
             // Add the buffer layer to all maps.
@@ -2444,6 +2458,9 @@ namespace DataSearches.UI
             if (await ArcGISFunctions.TableExistsAsync(_tempTableOutputFile))
                 await ArcGISFunctions.DeleteGeodatabaseTableAsync(_tempGDBName, _tempTableLayerName);
 
+            // Delete the temporary GDB.
+            await ArcGISFunctions.DeleteFileGeodatabaseAsync(_tempGDBName);
+
             // Clear the search features selection in the active map.
             await _mapFunctions.ClearLayerSelectionAsync(_inputLayerName, null);
 
@@ -2459,7 +2476,7 @@ namespace DataSearches.UI
         /// <param name="extractFolder"></param>
         /// <param name="gisFolder"></param>
         /// <returns></returns>
-        private bool CreateOutputFolders(string saveRootDir, string saveFolder, string extractFolder, string gisFolder, ref string extractPath, ref string gisPath)
+        private bool CreateOutputFolders(string saveRootDir, string saveFolder, string extractFolder, string gisFolder, string tempDir, ref string extractPath, ref string gisPath)
         {
             extractPath = null;
             gisPath = null;
@@ -2530,6 +2547,20 @@ namespace DataSearches.UI
                 catch (Exception ex)
                 {
                     FileFunctions.WriteLine(_logFile, "Cannot create directory '" + gisFolder + "'. System error: " + ex.Message);
+                    return false;
+                }
+            }
+
+            // Create temp folder if required.
+            if (!FileFunctions.DirExists(tempDir))
+            {
+                try
+                {
+                    Directory.CreateDirectory(tempDir);
+                }
+                catch (Exception ex)
+                {
+                    FileFunctions.WriteLine(_logFile, "Cannot create directory '" + tempDir + "'. System error: " + ex.Message);
                     return false;
                 }
             }
@@ -2675,11 +2706,9 @@ namespace DataSearches.UI
         /// <returns></returns>
         private async Task<bool> PrepareTemporaryGDBAsync()
         {
-            // Set a temporary folder path.
-            string tempFolder = Path.GetTempPath();
-
             // Create the temporary file geodatabase if it doesn't exist.
-            _tempGDBName = tempFolder + @"Temp.gdb";
+            string uniqueID = Guid.NewGuid().ToString("N").Substring(0, 8); // shorter, easier to read
+            _tempGDBName = Path.Combine(_tempDir, $"Temp_{uniqueID}.gdb");
 
             Geodatabase tempGDB;
             bool tempGDBFound = true;

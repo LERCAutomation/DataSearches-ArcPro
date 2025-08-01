@@ -260,6 +260,16 @@ namespace DataSearches
                 throw new("Could not locate 'GISFolder' in the XML profile.");
             }
 
+            // The file location where the temporary working geodatabase will be created.
+            try
+            {
+                _tempDir = _xmlDataSearches["TempDir"].InnerText;
+            }
+            catch
+            {
+                throw new("Could not locate 'TempDir' in the XML profile.");
+            }
+
             // The log file name created by the tool to output messages.
             try
             {
@@ -1347,6 +1357,13 @@ namespace DataSearches
         public string GISFolder
         {
             get { return _gisFolder; }
+        }
+
+        private string _tempDir;
+
+        public string TempDir
+        {
+            get { return _tempDir; }
         }
 
         private string _logFileName;

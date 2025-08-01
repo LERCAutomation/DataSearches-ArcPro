@@ -5007,6 +5007,64 @@ namespace DataTools
         }
 
         /// <summary>
+        /// Deletes a file geodatabase at the specified path, retrying if it's temporarily locked.
+        /// </summary>
+        /// <param name="fullPath">The full path to the .gdb folder to delete.</param>
+        /// <returns>True if the geodatabase was successfully deleted; false otherwise.</returns>
+        public static async Task<bool> DeleteFileGeodatabaseAsync(string fullPath)
+        {
+            // Check if there is an input full path.
+            if (string.IsNullOrEmpty(fullPath))
+                return false;
+
+            bool success = false;
+
+            // Try up to 5 times in case the geodatabase is temporarily locked.
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    // Run the delete operation on the QueuedTask to ensure it's on the correct ArcGIS Pro thread.
+                    await QueuedTask.Run(() =>
+                    {
+                        // Create a FileGeodatabaseConnectionPath using the full path
+                        FileGeodatabaseConnectionPath fileGeodatabaseConnectionPath = new(new Uri(fullPath));
+
+                        // Delete the file geodatabase using SchemaBuilder
+                        SchemaBuilder.DeleteGeodatabase(fileGeodatabaseConnectionPath);
+                    });
+
+                    // If no exception was thrown, deletion was successful
+                    success = true;
+                    break;
+                }
+                catch (IOException)
+                {
+                    // Likely a file lock — wait briefly before retrying
+                    await Task.Delay(2000);
+                }
+                catch (GeodatabaseNotFoundOrOpenedException)
+                {
+                    // GDB does not exist or is still open in ArcGIS Pro — not retryable
+                    break;
+                }
+                catch (GeodatabaseTableException)
+                {
+                    // One or more tables may still be locked or open — not retryable
+                    break;
+                }
+                catch (Exception)
+                {
+                    // Unexpected error — break to avoid silent failure
+                    break;
+                }
+            }
+
+            // Return whether the operation succeeded
+            return success;
+        }
+
+        /// <summary>
         /// Check if a feature class exists in a geodatabase.
         /// </summary>
         /// <param name="filePath"></param>
