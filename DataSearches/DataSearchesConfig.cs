@@ -429,7 +429,7 @@ namespace DataSearches
                 string[] liRawList = rawText.Split(chrSplit1Chars);
                 foreach (string rawEntry in liRawList)
                 {
-                    SearchLayerExtensions.Add(rawEntry);
+                    SearchLayerExtensions.Add(rawEntry.Trim());
                 }
             }
             catch
@@ -492,7 +492,10 @@ namespace DataSearches
                 string[] layoutRawList = rawText.Split(chrSplit1Chars, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string rawEntry in layoutRawList)
                 {
-                    _mapNames.Add(rawEntry.Trim());
+                    if (!string.IsNullOrWhiteSpace(rawEntry.Trim()))
+                    {
+                        _mapNames.Add(rawEntry.Trim());
+                    }
                 }
             }
             catch
@@ -515,7 +518,10 @@ namespace DataSearches
                 string[] layoutRawList = rawText.Split(chrSplit1Chars, StringSplitOptions.RemoveEmptyEntries);
                 foreach (string rawEntry in layoutRawList)
                 {
-                    _layoutNames.Add(rawEntry.Trim());
+                    if (!string.IsNullOrWhiteSpace(rawEntry.Trim()))
+                    {
+                        _layoutNames.Add(rawEntry.Trim());
+                    }
                 }
             }
             catch
@@ -641,7 +647,10 @@ namespace DataSearches
                 string[] liRawList = rawText.Split(chrSplit1Chars);
                 foreach (string rawEntry in liRawList)
                 {
-                    _keepSearchFeatureExtensions.Add(rawEntry);
+                    if (!string.IsNullOrWhiteSpace(rawEntry.Trim()))
+                    {
+                        _keepSearchFeatureExtensions.Add(rawEntry);
+                    }
                 }
             }
             catch

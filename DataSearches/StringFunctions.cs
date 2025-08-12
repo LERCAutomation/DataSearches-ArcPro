@@ -128,9 +128,16 @@ namespace DataTools
         /// <returns>string</returns>
         public static string StripIllegals(string inputString, string repChar, bool isFileName = false)
         {
+            if (string.IsNullOrWhiteSpace(inputString))
+                return inputString;
+
+            // Fallback to underscore if repChar is null or whitespace
+            if (string.IsNullOrEmpty(repChar))
+                repChar = "_";
+
             // If it is a file name, check if there is a '.' at fourth place before last.
             bool addFileDot = false;
-            if (isFileName)
+            if (isFileName && inputString.Length >= 4)
             {
                 char chTest = inputString[^4];
                 if (chTest == '.') addFileDot = true;
@@ -138,16 +145,20 @@ namespace DataTools
 
             string outputString = inputString;
             List<string> theIllegals = [@"\", "%", "$", ":", "*", "/", "?", "<", ">", "|", "~", "£", "."];
+
             foreach (string searchString in theIllegals)
             {
                 outputString = outputString.Replace(searchString, repChar);
             }
+
             if (addFileDot)
             {
-                if (repChar.Length > 0)
+                if (repChar.Length > 0 && outputString.Length >= repChar.Length + 4)
                     outputString = outputString.Remove(outputString.Length - 4, repChar.Length);
-                outputString = outputString.Insert(outputString.Length - 3, ".");
+                if (outputString.Length >= 3)
+                    outputString = outputString.Insert(outputString.Length - 3, ".");
             }
+
             return outputString;
         }
 

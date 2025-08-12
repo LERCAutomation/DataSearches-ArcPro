@@ -592,7 +592,7 @@ namespace DataSearches.UI
             // Find the features matching the search reference.
             if (!await FindSearchFeaturesAsync(searchClause))
             {
-                ShowMessage("Search ref not found in search layer(s).", MessageType.Warning);
+                ShowMessage($"Search ref not found in search layer(s) '{_searchLayerBase}'.", MessageType.Warning);
                 return;
             }
 
@@ -766,7 +766,7 @@ namespace DataSearches.UI
                     QueuedTask.Run(() =>
                     {
                         if (!FindSearchFeaturesAsync(searchClause).Result)
-                            ShowMessage("Search ref not found in search layer(s).", MessageType.Warning);
+                            ShowMessage($"Search ref not found in search layer(s) '{_searchLayerBase}'.", MessageType.Warning);
                         else
                             ClearMessage();
                     });
@@ -1744,6 +1744,8 @@ namespace DataSearches.UI
             bespokeElements = bespokeElements.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
 
             // Replace any date variables in the file and folder variables.
+            _saveRootDir = _saveRootDir.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _saveRootDir = _saveRootDir.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
             _saveFolder = _saveFolder.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
             _saveFolder = _saveFolder.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
             _extractFolder = _extractFolder.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
@@ -1754,6 +1756,12 @@ namespace DataSearches.UI
             _tempDir = _tempDir.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
             _logFileName = _logFileName.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
             _logFileName = _logFileName.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _combinedSitesTableName = _combinedSitesTableName.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _combinedSitesTableName = _combinedSitesTableName.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _searchLayerName = _searchLayerName.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _searchLayerName = _searchLayerName.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
+            _groupLayerName = _groupLayerName.Replace("%dd%", dateDD).Replace("%mm%", dateMM).Replace("%mmm%", dateMMM).Replace("%mmmm%", dateMMMM);
+            _groupLayerName = _groupLayerName.Replace("%yy%", dateYY).Replace("%qq%", dateQQ).Replace("%yyyy%", dateYYYY).Replace("%ffff%", dateFFFF);
 
             // Split the bespoke elements into pairs of element names and contents.
             List<string> bespokeElementNames = [];
@@ -2083,7 +2091,7 @@ namespace DataSearches.UI
             string searchLayerName = _searchLayerName;
 
             // If the search area is being kept.
-            if (_keepSearchFeatureExtensions.Contains(_searchLayerExtension))
+            if (_keepSearchFeatureExtensions.Count > 0 && _keepSearchFeatureExtensions.Contains(_searchLayerExtension))
             {
                 // Add the search area layer to all of the map windows.
                 searchLayerName = await AddSearchLayerToMapsAsync(mapWindows);
@@ -2107,15 +2115,22 @@ namespace DataSearches.UI
             // Zoom to the buffer layer extent (or the search layer extent if there is no buffer).
             string targetLayer = bufferSize == "0" ? searchLayerName : bufferLayerName;
 
-            FileFunctions.WriteLine(_logFile, "Zooming in to maps ...");
+            bool zoomInToMaps = false;
+            if ((_keepBuffer) || (_keepSearchFeatureExtensions.Count > 0 && _keepSearchFeatureExtensions.Contains(_searchLayerExtension)))
+                zoomInToMaps = true;
 
-            // Zoom in to the search layer map.
-            if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, null))
+            if (zoomInToMaps)
             {
-                FileFunctions.WriteLine(_logFile, "Error zooming in active map");
-                _searchErrors = true;
+                FileFunctions.WriteLine(_logFile, "Zooming in to map(s) ...");
 
-                return false;
+                // Zoom in to the search layer map.
+                if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, null))
+                {
+                    FileFunctions.WriteLine(_logFile, "Error zooming in active map");
+                    _searchErrors = true;
+
+                    return false;
+                }
             }
 
             // Zoom in to all other map windows.
@@ -2130,13 +2145,16 @@ namespace DataSearches.UI
                     return false;
                 }
 
-                // Zoom to the layer in the map window.
-                if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, map))
+                if (zoomInToMaps)
                 {
-                    FileFunctions.WriteLine(_logFile, $"Error zooming in map: {map.Name}");
-                    _searchErrors = true;
+                    // Zoom to the layer in the map window.
+                    if (!await _mapFunctions.ZoomToLayerInMapAsync(targetLayer, false, zoomRatio, null, map))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error zooming in map: {map.Name}");
+                        _searchErrors = true;
 
-                    return false;
+                        return false;
+                    }
                 }
 
                 // Convert labels to annotation if required.
@@ -2178,38 +2196,44 @@ namespace DataSearches.UI
                 }
             }
 
-            FileFunctions.WriteLine(_logFile, "Updating layouts ...");
-
-            // Set the search reference, site name, organisation and radius in all of the layouts.
-            if (!await _mapFunctions.UpdateLayoutsTextAsync(layoutWindowNames, searchRefElement, searchRef, siteNameElement, siteName,
-                organisationElement, organisation, radiusElement, radius, bespokeElementNames, bespokeContents))
+            if (layoutWindowNames.Count > 0)
             {
-                _searchErrors = true;
+                FileFunctions.WriteLine(_logFile, "Updating layouts ...");
 
-                return false;
-            }
-
-            FileFunctions.WriteLine(_logFile, "Zooming in to layouts ...");
-
-            // Zoom in to all layout windows.
-            foreach (Layout layout in layoutWindows)
-            {
-                // Activate the layout window.
-                if (await _mapFunctions.ActivateLayoutAsync(layout) == null)
+                // Set the search reference, site name, organisation and radius in all of the layouts.
+                if (!await _mapFunctions.UpdateLayoutsTextAsync(layoutWindowNames, searchRefElement, searchRef, siteNameElement, siteName,
+                    organisationElement, organisation, radiusElement, radius, bespokeElementNames, bespokeContents))
                 {
-                    FileFunctions.WriteLine(_logFile, $"Error activating layout: {layout.Name}");
                     _searchErrors = true;
 
                     return false;
                 }
+            }
 
-                if (!await _mapFunctions.ZoomToLayerInLayoutAsync(layout, targetLayer, selectedOnly: false,
-                    ratio: zoomRatio, scale: null, validScales: zoomScales, mapFrameName: "Map Frame"))
+            if (zoomInToMaps && layoutWindows.Count > 0)
+            {
+                FileFunctions.WriteLine(_logFile, "Zooming in to layouts ...");
+
+                // Zoom in to all layout windows.
+                foreach (Layout layout in layoutWindows)
                 {
-                    FileFunctions.WriteLine(_logFile, $"Error zooming in layout: {layout}");
-                    _searchErrors = true;
+                    // Activate the layout window.
+                    if (await _mapFunctions.ActivateLayoutAsync(layout) == null)
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error activating layout: {layout.Name}");
+                        _searchErrors = true;
 
-                    return false;
+                        return false;
+                    }
+
+                    if (!await _mapFunctions.ZoomToLayerInLayoutAsync(layout, targetLayer, selectedOnly: false,
+                        ratio: zoomRatio, scale: null, validScales: zoomScales, mapFrameName: "Map Frame"))
+                    {
+                        FileFunctions.WriteLine(_logFile, $"Error zooming in layout: {layout}");
+                        _searchErrors = true;
+
+                        return false;
+                    }
                 }
             }
 
@@ -2320,6 +2344,9 @@ namespace DataSearches.UI
         {
             FileFunctions.WriteLine(_logFile, "");
 
+            if (string.IsNullOrWhiteSpace(_searchSymbologyBase))
+                return null;
+
             string searchLayerFile = _searchSymbologyBase + _searchLayerExtension + ".lyrx";
             string searchSymbologyFile = _layerPath + "\\" + searchLayerFile;
 
@@ -2331,7 +2358,7 @@ namespace DataSearches.UI
             // Turn off labels for the search feature layer in all maps.
             await TurnOffLabelsInAllMapsAsync(nameFromLyrx, mapWindows);
 
-            FileFunctions.WriteLine(_logFile, "Search feature layer added to maps.");
+            FileFunctions.WriteLine(_logFile, "Search feature layer added to map(s).");
 
             return nameFromLyrx;
         }
