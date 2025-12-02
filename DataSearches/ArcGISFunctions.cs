@@ -2388,6 +2388,23 @@ namespace DataTools
             }
         }
 
+        /// Check a string of field names exists in a list of fields.
+        public static bool FieldsExist(IReadOnlyList<ArcGIS.Core.Data.Field> fields, string fieldNames, string separator, bool checkStrings = false)
+        {
+            // Check there is an input field name.
+            if (string.IsNullOrEmpty(fieldNames))
+                return false;
+
+            // Split the field names into a list.
+            string[] fieldNameArray = fieldNames.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (string fieldName in fieldNameArray)
+            {
+                if (!FieldExists(fields, fieldName.Trim()))
+                    return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Check if a field exists in a list of fields.
         /// </summary>
@@ -3374,6 +3391,7 @@ namespace DataTools
             if (string.IsNullOrEmpty(columns))
                 return -1;
 
+            bool missingColumns = false;
             string outColumns;
             FeatureLayer inputFeaturelayer;
             List<string> outColumnsList = [];
@@ -3406,6 +3424,11 @@ namespace DataTools
                         outColumnsList.Add(columnName);
                         outColumns = outColumns + columnName + separator;
                     }
+                    else
+                    {
+                        missingColumns = true;
+                        break;
+                    }
                 }
             }
             catch (Exception ex)
@@ -3419,11 +3442,15 @@ namespace DataTools
             if (outColumnsList.Count == 0 || string.IsNullOrEmpty(outColumns))
                 return -1;
 
+            // Stop if there are any missing columns.
+            if (missingColumns || string.IsNullOrEmpty(columns))
+                return -1;
+
             // Remove the final separator.
             outColumns = outColumns[..^1];
 
             // Open output file.
-            StreamWriter txtFile = new(outFile, append);
+            using StreamWriter txtFile = new(outFile, append);
 
             // Write the header if required.
             if (!append && includeHeader)
@@ -3585,8 +3612,9 @@ namespace DataTools
                 return -1;
 
             bool missingColumns = false;
+            string outColumns;
             StandaloneTable inputTable;
-            List<string> columnsList = [];
+            List<string> outColumnsList = [];
             List<string> orderByColumnsList = [];
             IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
 
@@ -3606,13 +3634,16 @@ namespace DataTools
                     return -1;
 
                 // Align the columns with what actually exists in the layer.
-                columnsList = [.. columns.Split(',')];
-                columns = "";
+                List<string> columnsList = [.. columns.Split(',')];
+                outColumns = "";
                 foreach (string column in columnsList)
                 {
                     string columnName = column.Trim();
                     if ((columnName.Substring(0, 1) == "\"") || (FieldExists(inputfields, columnName)))
-                        columns = columns + columnName + separator;
+                    {
+                        outColumnsList.Add(columnName);
+                        outColumns = outColumns + columnName + separator;
+                    }
                     else
                     {
                         missingColumns = true;
@@ -3627,19 +3658,23 @@ namespace DataTools
                 return -1;
             }
 
+            // Stop if there aren't any columns.
+            if (outColumnsList.Count == 0 || string.IsNullOrEmpty(outColumns))
+                return -1;
+
             // Stop if there are any missing columns.
             if (missingColumns || string.IsNullOrEmpty(columns))
                 return -1;
 
             // Remove the final separator.
-            columns = columns[..^1];
+            outColumns = outColumns[..^1];
 
             // Open output file.
             using StreamWriter txtFile = new(outFile, append);
 
             // Write the header if required.
             if (!append && includeHeader)
-                txtFile.WriteLine(columns);
+                txtFile.WriteLine(outColumns);
 
             int intLineCount = 0;
             try
@@ -3714,9 +3749,11 @@ namespace DataTools
                         using Row record = rowCursor.Current;
 
                         string newRow = "";
-                        foreach (string column in columnsList)
+                        foreach (string column in outColumnsList)
                         {
                             string columnName = column.Trim();
+
+                            // If the column name isn't a literal.
                             if (columnName.Substring(0, 1) != "\"")
                             {
                                 // Get the field value.
@@ -3732,6 +3769,7 @@ namespace DataTools
                             }
                             else
                             {
+                                // Append the literal to the new row.
                                 newRow = newRow + columnName + separator;
                             }
                         }

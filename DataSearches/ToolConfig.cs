@@ -205,7 +205,7 @@ namespace DataTools
             }
             catch
             {
-                throw new("Could not locate item 'HelpURL' in the tool ML file.");
+                throw new("Could not locate item 'HelpURL' in the tool XML file.");
             }
 
             // All mandatory variables were loaded successfully.

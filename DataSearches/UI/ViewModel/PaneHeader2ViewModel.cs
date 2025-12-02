@@ -3474,29 +3474,30 @@ namespace DataSearches.UI
 
                         return -1;
                     }
+                }
 
-                    string geometryProperty = areaColumnName + " AREA";
-                    if (areaUnit.Equals("ha", StringComparison.OrdinalIgnoreCase))
-                    {
-                        areaUnit = "HECTARES";
-                    }
-                    else if (areaUnit.Equals("m2", StringComparison.OrdinalIgnoreCase))
-                    {
-                        areaUnit = "SQUARE_METERS";
-                    }
-                    else if (areaUnit.Equals("km2", StringComparison.OrdinalIgnoreCase))
-                    {
-                        areaUnit = "SQUARE_KILOMETERS";
-                    }
+                // Set the area unit for calculation.
+                string geometryProperty = areaColumnName + " AREA";
+                if (areaUnit.Equals("ha", StringComparison.OrdinalIgnoreCase))
+                {
+                    areaUnit = "HECTARES";
+                }
+                else if (areaUnit.Equals("m2", StringComparison.OrdinalIgnoreCase))
+                {
+                    areaUnit = "SQUARE_METERS";
+                }
+                else if (areaUnit.Equals("km2", StringComparison.OrdinalIgnoreCase))
+                {
+                    areaUnit = "SQUARE_KILOMETERS";
+                }
 
-                    // Calculate the area field.
-                    if (!await ArcGISFunctions.CalculateGeometryAsync(_tempMasterOutputFile, geometryProperty, "", areaUnit))
-                    {
-                        FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
-                        _searchErrors = true;
+                // Calculate the area field.
+                if (!await ArcGISFunctions.CalculateGeometryAsync(_tempMasterOutputFile, geometryProperty, "", areaUnit))
+                {
+                    FileFunctions.WriteLine(_logFile, "Error calculating area field in " + _tempMasterOutputFile);
+                    _searchErrors = true;
 
-                        return -1;
-                    }
+                    return -1;
                 }
             }
 
@@ -3604,6 +3605,27 @@ namespace DataSearches.UI
             FeatureLayer outputFeatureLayer = await _mapFunctions.FindLayerAsync(_tempFCLayerName, null);
             if (outputFeatureLayer == null)
                 return -1;
+
+            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
+            try
+            {
+                // Get the list of fields for the output feature layer.
+                inputfields = await _mapFunctions.GetFCFieldsAsync(_tempFCLayerName, null);
+
+                // Check a list of fields is returned.
+                if (inputfields == null || inputfields.Count == 0)
+                    return -1;
+            }
+            catch (Exception)
+            {
+                FileFunctions.WriteLine(_logFile, "Error getting field names from " + _tempFCLayerName);
+                _searchErrors = true;
+
+                return -1;
+            }
+
+
+
 
             // Check all the requested group by fields exist.
             // Only pass those that do.
