@@ -61,8 +61,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Set the global variables.
         /// </summary>
-        /// <param name="xmlFilesList"></param>
-        /// <param name="defaultXMLFile"></param>
+        /// <param name="dockPane"></param>
         public PaneHeader1ViewModel(DockpaneMainViewModel dockPane)
         {
             // Set the dockpane view model object.
@@ -87,6 +86,10 @@ namespace DataSearches.UI
             // choose which tool XML config file to load or if the default
             // file will be used.
             ToolConfig toolConfig = new(_xmlFolder, _displayName, false);
+
+            // If the user didn't select a folder when prompted.
+            if (toolConfig.SelectCancelled)
+                return;
 
             // If the tool config file can't be found or hasn't been loaded.
             if ((!toolConfig.XMLFound) || (!toolConfig.XMLLoaded))
@@ -168,7 +171,7 @@ namespace DataSearches.UI
             OnPropertyChanged(nameof(AvailableXMLFiles));
             OnPropertyChanged(nameof(SelectedXMLProfile));
             OnPropertyChanged(nameof(CanSelectXMLPath));
-            //OnPropertyChanged(nameof(CanSelectXMLProfile));
+            OnPropertyChanged(nameof(CanSelectXMLProfile));
             OnPropertyChanged(nameof(CanLoadProfile));
 
             // If the XML config file has been set (and it exists) then load it.
@@ -188,8 +191,6 @@ namespace DataSearches.UI
         /// <summary>
         /// Create the SelectXMLPath button command.
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
         /// <remarks></remarks>
         public ICommand SelectXMLPathCommand
         {
@@ -208,7 +209,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Handles the event when the SelectXMLPath button is clicked.
         /// </summary>
-        /// <param name="param"></param>
+        /// <param name="param">The command parameter.</param>
         /// <remarks></remarks>
         private void SelectXMLPathCommandClick(object param)
         {
@@ -219,8 +220,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Can the SelectXMLPath button be pressed?
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
+        /// <returns>True if the button can be pressed, false if not.</returns>
         /// <remarks></remarks>
         public bool CanSelectXMLPath
         {
@@ -266,14 +266,14 @@ namespace DataSearches.UI
         /// <summary>
         /// Can the user select an XML profile?
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
+        /// <returns>True if the user can select an XML profile, false if not.</returns>
         /// <remarks></remarks>
         public bool CanSelectXMLProfile
         {
             get
             {
-                return (!string.IsNullOrEmpty(XMLFolder));
+                return ((_dockPane.SearchStatus == DockpaneMainViewModel.SearchStatuses.NotStarted)
+                    && (!string.IsNullOrEmpty(XMLFolder)));
             }
         }
 
@@ -286,8 +286,6 @@ namespace DataSearches.UI
         /// <summary>
         /// Create the Open XML button command.
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
         /// <remarks></remarks>
         public ICommand LoadProfileCommand
         {
@@ -306,7 +304,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Handles the event when the Open XML button is clicked.
         /// </summary>
-        /// <param name="param"></param>
+        /// <param name="param">The command parameter.</param>
         /// <remarks></remarks>
         private async void LoadProfileCommandClick(object param)
         {
@@ -346,8 +344,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Can the Load Profile button be pressed (has a profile been selected)?
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
+        /// <returns>True if the button can be pressed, false if not.</returns>
         /// <remarks></remarks>
         public bool CanLoadProfile
         {
@@ -429,8 +426,7 @@ namespace DataSearches.UI
             // Open the tool XML config file and determine if the user will
             // choose which tool XML config file to load or if the default
             // file will be used.
-            ToolConfig toolConfig;
-            toolConfig = new(_xmlFolder, _displayName, true);
+            ToolConfig toolConfig = new(_xmlFolder, _displayName, true);
 
             // If the user didn't select a folder when prompted.
             if (toolConfig.SelectCancelled)
@@ -541,11 +537,11 @@ namespace DataSearches.UI
         /// Get a list of valid XML files from the specified folder, and check
         /// if any of the files is the default profile and if only the
         /// </summary>
-        /// <param name="strXMLFolder"></param>
-        /// <param name="strDefaultXMLName"></param>
-        /// <param name="xmlFilesList"></param>
-        /// <param name="blDefaultFound"></param>
-        /// <param name="blOnlyDefault"></param>
+        /// <param name="strXMLFolder">The folder containing the XML files.</param>
+        /// <param name="strDefaultXMLName">The default XML file name.</param>
+        /// <param name="xmlFilesList">The list of valid XML files found.</param>
+        /// <param name="blDefaultFound">Whether the default XML file was found.</param>
+        /// <param name="blOnlyDefault">Whether only the default XML file was found.</param>
         private static void GetValidXMLFiles(string strXMLFolder, string strDefaultXMLName, ref List<string> xmlFilesList, ref bool blDefaultFound, ref bool blOnlyDefault)
         {
             blDefaultFound = false;
@@ -579,7 +575,8 @@ namespace DataSearches.UI
         /// <summary>
         /// Load the selected XML profile.
         /// </summary>
-        /// <param name="xmlConfigPath"></param>
+        /// <param name="xmlConfigPath">The full path to the XML config file.</param>
+        /// <param name="msgErrors">Whether to report any errors to the user.</param>
         public void LoadXMLProfile(string xmlConfigPath, bool msgErrors)
         {
             // Load the selected XML config file.

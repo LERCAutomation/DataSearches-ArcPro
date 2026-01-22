@@ -198,8 +198,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Can the Cancel button be pressed?
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
+        /// <returns>True if the Cancel button can be pressed.</returns>
         /// <remarks></remarks>
         public bool CancelButtonEnabled
         {
@@ -214,8 +213,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Can the Run button be pressed?
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
+        /// <returns>True if the Run button can be pressed.</returns>
         /// <remarks></remarks>
         public bool RunButtonEnabled
         {
@@ -389,7 +387,7 @@ namespace DataSearches.UI
         {
             // Ignore map view changes whilst search is initialising
             // or completing as that's probably the add-in switching panes.
-            if ((_searchStatus == SearchStatuses.Initialising)
+            if ((SearchStatus == SearchStatuses.Initialising)
                 || (SearchStatus == SearchStatuses.Completing))
                 return;
 
@@ -443,7 +441,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Initialise the search pane.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The task returns true if the search pane was initialised.</returns>
         public async Task<bool> InitialiseSearchPaneAsync()
         {
             _paneH2VM = new PaneHeader2ViewModel(_dockPane, _paneH1VM.ToolConfig);
@@ -599,9 +597,9 @@ namespace DataSearches.UI
         /// <summary>
         /// Update the progress bar.
         /// </summary>
-        /// <param name="processText"></param>
-        /// <param name="progressValue"></param>
-        /// <param name="maxProgressValue"></param>
+        /// <param name="processText">The process text to show.</param>
+        /// <param name="progressValue">The current progress value; 0 to maxProgressValue, or -1 to ignore.</param>
+        /// <param name="maxProgressValue">The maximum progress value; greater than 0, or -1 to ignore.</param>
         public void ProgressUpdate(string processText = null, int progressValue = -1, int maxProgressValue = -1)
         {
             if (Application.Current.Dispatcher.CheckAccess())
@@ -651,8 +649,6 @@ namespace DataSearches.UI
         /// <summary>
         /// Create Run button command.
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
         /// <remarks></remarks>
         public ICommand RunCommand
         {
@@ -671,7 +667,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Handles event when Run button is clicked.
         /// </summary>
-        /// <param name="param"></param>
+        /// <param name="param">The command parameter.</param>
         /// <remarks></remarks>
         private void RunCommandClick(object param)
         {
@@ -688,8 +684,6 @@ namespace DataSearches.UI
         /// <summary>
         /// Create Cancel button command.
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
         /// <remarks></remarks>
         public ICommand CancelCommand
         {
@@ -707,7 +701,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Handles event when Cancel button is pressed.
         /// </summary>
-        /// <param name="param"></param>
+        /// <param name="param">The command parameter.</param>
         /// <remarks></remarks>
         private void CancelCommandClick(object param)
         {

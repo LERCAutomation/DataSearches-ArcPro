@@ -19,7 +19,6 @@
 // You should have received a copy of the GNU General Public License
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
-using DataSearches.UI;
 using DataTools;
 using System;
 using System.Collections.Generic;
@@ -44,6 +43,8 @@ namespace DataSearches
         // Initialise component to read XML
         private readonly XmlElement _xmlDataSearches;
 
+        private readonly string _xmlFile;
+
         #endregion Fields
 
         #region Constructor
@@ -51,10 +52,13 @@ namespace DataSearches
         /// <summary>
         /// Load the XML profile and read the variables.
         /// </summary>
-        /// <param name="xmlFile"></param>
+        /// <param name="xmlFile">The XML file path.</param>
+        /// <param name="toolName">The name of the tool.</param>
+        /// <param name="msgErrors">Whether to message errors.</param>
         public DataSearchesConfig(string xmlFile, string toolName, bool msgErrors)
         {
             _toolName = toolName;
+            _xmlFile = xmlFile;
 
             // The user has specified the xmlFile and we've checked it exists.
             _xmlFound = true;
@@ -108,7 +112,7 @@ namespace DataSearches
         /// <summary>
         /// Get the mandatory variables from the XML file.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True if all mandatory variables were loaded successfully.</returns>
         public bool GetMandatoryVariables()
         {
             string rawText;
@@ -1273,6 +1277,17 @@ namespace DataSearches
             }
         }
 
+        /// <summary>
+        /// The XML profile file path.
+        /// </summary>
+        public string XMLFile
+        {
+            get
+            {
+                return _xmlFile;
+            }
+        }
+
         #endregion Members
 
         #region Variables
@@ -1537,6 +1552,7 @@ namespace DataSearches
         }
 
         private double _zoomRatio;
+
         public double ZoomRatio
         {
             get { return _zoomRatio; }

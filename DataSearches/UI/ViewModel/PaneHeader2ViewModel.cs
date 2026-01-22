@@ -20,7 +20,6 @@
 // along with with program.  If not, see <http://www.gnu.org/licenses/>.
 
 using ArcGIS.Core.Data;
-using ArcGIS.Core.Data.UtilityNetwork.Trace;
 using ArcGIS.Desktop.Framework;
 using ArcGIS.Desktop.Framework.Threading.Tasks;
 using ArcGIS.Desktop.Internal.Framework.Controls;
@@ -85,6 +84,13 @@ namespace DataSearches.UI
         };
 
         #endregion Enums
+
+        #region Constants
+
+        private const string _displayName = "DataSearches";
+        private const string _addInId = "{454f6ef2-f0b6-4ef9-8da5-cb04e5937182}";
+
+        #endregion Constants
 
         #region Fields
 
@@ -181,8 +187,6 @@ namespace DataSearches.UI
         private string _tempSearchPointsLayerName;
         private string _tempSearchPointsOutputFile;
 
-        private const string _displayName = "DataSearches";
-
         private readonly DataSearchesConfig _toolConfig;
         private MapFunctions _mapFunctions;
 
@@ -202,8 +206,8 @@ namespace DataSearches.UI
         /// <summary>
         /// Set the global variables.
         /// </summary>
-        /// <param name="xmlFilesList"></param>
-        /// <param name="defaultXMLFile"></param>
+        /// <param name="dockPane">The main dockpane view model.</param>
+        /// <param name="toolConfig">The tool configuration object.</param>
         public PaneHeader2ViewModel(DockpaneMainViewModel dockPane, DataSearchesConfig toolConfig)
         {
             _dockPane = dockPane;
@@ -553,8 +557,8 @@ namespace DataSearches.UI
         /// <summary>
         /// Show the message with the required icon (message type).
         /// </summary>
-        /// <param name="msg"></param>
-        /// <param name="messageLevel"></param>
+        /// <param name="msg">The message to display.</param>
+        /// <param name="messageLevel">The type of message; Error, Warning, Confirmation, Information</param>
         public void ShowMessage(string msg, MessageType messageLevel)
         {
             MessageLevel = messageLevel;
@@ -642,15 +646,12 @@ namespace DataSearches.UI
             // Update the fields and buttons in the form.
             UpdateFormControls();
             _dockPane.RefreshPanel1Buttons();
-
-            // Flushes and closes all trace listeners.
-            CloseTraceLogging();
         }
 
         /// <summary>
         /// Validate the form parameters.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True if parameters are valid, false if not.</returns>
         private bool ValidateParameters()
         {
             // Site ref is mandatory.
@@ -1204,7 +1205,7 @@ namespace DataSearches.UI
         /// and listener setup for reliable logging output.
         /// </summary>
         /// <param name="logFilePath">The full path to the log file.</param>
-        private void InitializeTraceLogging(string logFilePath)
+        private static void InitializeTraceLogging(string logFilePath)
         {
             // Close any existing listeners before setting up a new one.
             CloseTraceLogging();
@@ -1237,23 +1238,44 @@ namespace DataSearches.UI
         }
 
         /// <summary>
-        /// Flushes and closes all trace listeners, then clears them from the Trace system.
-        /// Call this during application shutdown or before reinitializing logging.
+        /// Closes and removes all FilteredTraceListener instances from the Trace listeners collection, ensuring that
+        /// any buffered trace output is flushed and resources are released.
         /// </summary>
+        /// <remarks>This method only affects listeners of type FilteredTraceListener and does not remove
+        /// or modify other trace listeners. It should be called when trace logging is no longer needed to release file
+        /// handles and other resources associated with custom trace listeners.</remarks>
         private static void CloseTraceLogging()
         {
-            foreach (TraceListener listener in Trace.Listeners)
+            // Only remove our own listeners; don't clobber ArcGIS Pro / other add-ins.
+            for (int i = Trace.Listeners.Count - 1; i >= 0; i--)
             {
-                listener.Flush(); // Ensure all buffered output is written to the underlying stream.
-                listener.Close(); // Release the file handle and resources used by the listener.
+                if (Trace.Listeners[i] is FilteredTraceListener listener)
+                {
+                    listener.Flush(); // Ensure all buffered output is written to the underlying stream.
+                    listener.Close(); // Release the file handle and resources used by the listener.
+                    Trace.Listeners.RemoveAt(i);
+                }
             }
-
-            Trace.Listeners.Clear(); // Remove all listeners from the Trace system.
         }
 
         #endregion Debug Logging
 
         #region Methods
+
+        /// <summary>
+        /// Gets the add-in version as declared in config.daml.
+        /// </summary>
+        /// <returns>The add-in version, or "Unknown" if it cannot be resolved.</returns>
+        public static string GetAddInVersion()
+        {
+            var addInInfo = FrameworkApplication
+                .GetAddInInfos()
+                .FirstOrDefault(ai =>
+                    ai != null &&
+                    string.Equals(ai.ID, _addInId, StringComparison.OrdinalIgnoreCase));
+
+            return addInInfo?.Version ?? "Unknown";
+        }
 
         /// <summary>
         /// Update the fields and buttons in the form.
@@ -1300,10 +1322,10 @@ namespace DataSearches.UI
         /// <summary>
         /// Lookup the search reference in the database.
         /// </summary>
-        /// <param name="searchRefText"></param>
-        /// <param name="siteName"></param>
-        /// <param name="organisation"></param>
-        /// <returns>bool</returns>
+        /// <param name="searchRefText">The search reference to look up.</param>
+        /// <param name="siteName">The returned site name.</param>
+        /// <param name="organisation">The returned organisation name.</param>
+        /// <returns>True if successful.</returns>
         public bool LookupSearchRef(string searchRefText, ref string siteName, ref string organisation)
         {
             // Use connection string for .accdb or .mdb as appropriate.
@@ -1390,8 +1412,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Set all of the form fields to their default values.
         /// </summary>
-        /// <param name="reset"></param>
-        /// <returns></returns>
+        /// <returns>The task representing the asynchronous operation.</returns>
         public async Task ResetFormAsync()
         {
             // Clear the selections first (to avoid selections being retained).
@@ -1440,9 +1461,8 @@ namespace DataSearches.UI
         /// <summary>
         /// Load the list of open GIS layers.
         /// </summary>
-        /// <param name="reset"></param>
-        /// <param name="message"></param>
-        /// <returns></returns>
+        /// <param name="message">Whether to show any messages in a message box.</param>
+        /// <returns>The task representing the asynchronous operation.</returns>
         public async Task LoadLayersAsync(bool message)
         {
             // If already processing then exit.
@@ -1500,7 +1520,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Load the list of open GIS layers.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The task representing the asynchronous operation.</returns>
         public async Task<string> LoadMapLayersAsync()
         {
             // Reset the list of open layers.
@@ -1596,8 +1616,6 @@ namespace DataSearches.UI
         /// <summary>
         /// Clear the list of open GIS layers.
         /// </summary>
-        /// <param name="selectedTable"></param>
-        /// <returns></returns>
         public void ClearLayers()
         {
             // Clear the list of open layers.
@@ -1629,7 +1647,7 @@ namespace DataSearches.UI
             int bufferUnitIndex = SelectedBufferUnitsIndex;
 
             // Selected layers.
-            _selectedLayers = MapLayersList.Where(p => p.IsSelected).ToList();
+            _selectedLayers = [.. MapLayersList.Where(p => p.IsSelected)];
 
             // List of output map and window names.
             List<string> mapWindowNames = _toolConfig.MapNames;
@@ -1879,6 +1897,10 @@ namespace DataSearches.UI
             FileFunctions.WriteLine(_logFile, "Processing search '" + searchRef + "'");
             FileFunctions.WriteLine(_logFile, "-----------------------------------------------------------------------");
 
+            // Log version info.
+            FileFunctions.WriteLine(_logFile, "DataSearches version: " + GetAddInVersion());
+            FileFunctions.WriteLine(_logFile, "XML profile: " + _toolConfig.XMLFile);
+
             FileFunctions.WriteLine(_logFile, "Parameters are as follows:");
             FileFunctions.WriteLine(_logFile, "Buffer distance: " + radius);
             FileFunctions.WriteLine(_logFile, "Output location: " + _saveRootDir + @"\" + _saveFolder);
@@ -2012,7 +2034,7 @@ namespace DataSearches.UI
             if (overwriteLabelOption == OverwriteLabelOptions.ResetByLayer ||
                 overwriteLabelOption == OverwriteLabelOptions.ResetByGroup)
             {
-                _mapGroupNames = _selectedLayers.Select(l => l.NodeGroup).Distinct().ToList();
+                _mapGroupNames = [.. _selectedLayers.Select(l => l.NodeGroup).Distinct()];
                 _mapGroupLabels = [];
                 foreach (string groupName in _mapGroupNames)
                 {
@@ -2284,8 +2306,8 @@ namespace DataSearches.UI
         /// Indicate that the search process has stopped (either
         /// successfully or otherwise).
         /// </summary>
-        /// <param name="searchRef"></param>
-        /// <param name="success"></param>
+        /// <param name="message">The message to show the user.</param>
+        /// <param name="image">The image to show the user.</param>
         private void StopSearch(string message, string image)
         {
             FileFunctions.WriteLine(_logFile, "---------------------------------------------------------------------------");
@@ -2307,6 +2329,9 @@ namespace DataSearches.UI
                 ImageSource = new BitmapImage(new Uri(imageSource)) as ImageSource
             };
             FrameworkApplication.AddNotification(notification);
+
+            // Flushes and closes all trace listeners.
+            CloseTraceLogging();
 
             // Open the log file (if required).
             if (OpenLogFile || _searchErrors)
@@ -2459,7 +2484,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Clean up after the search has completed (successfully or not).
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The task representing the asynchronous operation.</returns>
         private async Task CleanUpSearchAsync()
         {
             // Remove all temporary feature classes and tables from the active map.
@@ -2498,11 +2523,11 @@ namespace DataSearches.UI
         /// <summary>
         /// Create the output folders if required.
         /// </summary>
-        /// <param name="saveRootDir"></param>
-        /// <param name="saveFolder"></param>
-        /// <param name="extractFolder"></param>
-        /// <param name="gisFolder"></param>
-        /// <returns></returns>
+        /// <param name="saveRootDir">The root save directory.</param>
+        /// <param name="saveFolder">The save sub-folder.</param>
+        /// <param name="extractFolder">The extract sub-folder.</param>
+        /// <param name="gisFolder">The GIS sub-folder.</param>
+        /// <returns>True if successful, false if not.</returns>
         private bool CreateOutputFolders(string saveRootDir, string saveFolder, string extractFolder, string gisFolder, string tempDir, ref string extractPath, ref string gisPath)
         {
             extractPath = null;
@@ -2601,9 +2626,9 @@ namespace DataSearches.UI
         /// <summary>
         /// Create an empty combined sites table (with just the column headers).
         /// </summary>
-        /// <param name="combinedSitesTable"></param>
-        /// <param name="combinedSitesTableOption"></param>
-        /// <returns></returns>
+        /// <param name="combinedSitesTable">The combined sites table file path.</param>
+        /// <param name="combinedSitesTableOption">The combined sites table option; overwrite, append or none.</param>
+        /// <returns>True if successful, false if not.</returns>
         private bool CreateCombinedSitesTable(string combinedSitesTable, CombinedSitesTableOptions combinedSitesTableOption)
         {
             // Start the table if overwrite has been selected, or if the table doesn't exist (and append has been selected).
@@ -2627,8 +2652,8 @@ namespace DataSearches.UI
         /// <summary>
         /// Find the search reference features in the search layers.
         /// </summary>
-        /// <param name="reference"></param>
-        /// <returns>Name of the target layer.</returns>
+        /// <param name="searchClause">The search clause.</param>
+        /// <returns>The task returns true if found, false if not.</returns>
         private async Task<bool> FindSearchFeaturesAsync(string searchClause)
         {
             // Loop through all base layer and extension combinations.
@@ -2655,7 +2680,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Count the search reference features in the search layers.
         /// </summary>
-        /// <param name="reference"></param>
+        /// <param name="searchClause">The search clause.</param>
         /// <returns>Name of the target layer.</returns>
         private async Task<long> CountSearchFeaturesAsync(string searchClause)
         {
@@ -2730,7 +2755,7 @@ namespace DataSearches.UI
         /// Prepare a new temporary GDB to use and check it's empty (in case it
         /// already existed).
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> PrepareTemporaryGDBAsync()
         {
             // Create the temporary file geodatabase if it doesn't exist.
@@ -2816,7 +2841,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Save the selected search feature(s) to a new layer.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> SaveSearchFeaturesAsync()
         {
             // Get the full layer path (in case it's nested in one or more groups).
@@ -2845,10 +2870,10 @@ namespace DataSearches.UI
         /// <summary>
         /// Buffer the selected search feature(s) to a new layer.
         /// </summary>
-        /// <param name="bufferSize"></param>
-        /// <param name="bufferUnitProcess"></param>
-        /// <param name="bufferUnitShort"></param>
-        /// <returns></returns>
+        /// <param name="bufferSize">The buffer size.</param>
+        /// <param name="bufferUnitProcess">The buffer unit for processing; e.g., "Meters".</param>
+        /// <param name="bufferUnitShort">The buffer unit short form; e.g., "m".</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> BufferSearchFeaturesAsync(string bufferSize, string bufferUnitProcess, string bufferUnitShort)
         {
             // Get the full layer path (in case it's nested in one or more groups).
@@ -2900,10 +2925,10 @@ namespace DataSearches.UI
         /// <summary>
         /// Apply any symbology to the new layer and move it to the group layer.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <param name="symbologyFile"></param>
-        /// <param name="position"></param>
-        /// <returns></returns>
+        /// <param name="layerName">The name of the layer to set.</param>
+        /// <param name="symbologyFile">The symbology layer file.</param>
+        /// <param name="position">The position in the group layer (-1 for last).</param>
+        /// <returns>The task returns the name of the layer in case it was changed in the symbology file, or null if there was an error.</returns>
         private async Task<string> SetLayerInMapAsync(string layerName, string symbologyFile, int position = -1, Map targetMap = null)
         {
             string nameFromLyrx = layerName;
@@ -2949,18 +2974,18 @@ namespace DataSearches.UI
         /// <summary>
         /// Process each of the selected map layers.
         /// </summary>
-        /// <param name="selectedLayer"></param>
-        /// <param name="reference"></param>
-        /// <param name="siteName"></param>
-        /// <param name="shortRef"></param>
-        /// <param name="subref"></param>
-        /// <param name="radius"></param>
-        /// <param name="areaMeasureUnit"></param>
-        /// <param name="keepSelectedLayers"></param>
-        /// <param name="addSelectedLayersOption"></param>
-        /// <param name="overwriteLabelOption"></param>
-        /// <param name="combinedSitesTableOption"></param>
-        /// <returns></returns>
+        /// <param name="selectedLayer">The selected map layer.</param>
+        /// <param name="reference">The reference.</param>
+        /// <param name="siteName">The site name.</param>
+        /// <param name="shortRef">The short reference.</param>
+        /// <param name="subref">The sub-reference.</param>
+        /// <param name="radius">The radius.</param>
+        /// <param name="areaMeasureUnit">The area measurement unit.</param>
+        /// <param name="keepSelectedLayers">Whether to keep selected layers.</param>
+        /// <param name="addSelectedLayersOption">Whether to add selected layers.</param>
+        /// <param name="overwriteLabelOption">Whether to overwrite labels.</param>
+        /// <param name="combinedSitesTableOption">Whether to update the combined sites table; overwrite, append or none.</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> ProcessMapLayerAsync(MapLayer selectedLayer, string reference, string siteName,
             string shortRef, string subref, string radius, string organisation, string areaMeasureUnit,
             bool keepSelectedLayers,
@@ -3195,11 +3220,11 @@ namespace DataSearches.UI
         /// <summary>
         /// Create the required temporary output type from the current layer.
         /// </summary>
-        /// <param name="mapLayerName"></param>
-        /// <param name="mapLayerPath"></param>
-        /// <param name="bufferLayerPath"></param>
-        /// <param name="mapOutputType"></param>
-        /// <returns></returns>
+        /// <param name="mapLayerName">The map layer name.</param>
+        /// <param name="mapLayerPath">The map layer path.</param>
+        /// <param name="bufferLayerPath">The buffer layer path.</param>
+        /// <param name="mapOutputType">The map output type; CLIP, OVERLAY or INTERSECT.</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> CreateMapOutputAsync(string mapLayerName, string mapLayerPath, string bufferLayerPath, string mapOutputType)
         {
             // Get the input feature class type.
@@ -3327,12 +3352,12 @@ namespace DataSearches.UI
         /// <summary>
         /// Add the map labels to the current layer.
         /// </summary>
-        /// <param name="overwriteLabelOption"></param>
-        /// <param name="overwriteLabels"></param>
-        /// <param name="mapLabelColumn"></param>
-        /// <param name="mapKeyColumn"></param>
-        /// <param name="mapGroupName"></param>
-        /// <returns></returns>
+        /// <param name="overwriteLabelOption">The overwrite label option.</param>
+        /// <param name="overwriteLabels">The overwrite labels flag.</param>
+        /// <param name="mapLabelColumn">The map label column.</param>
+        /// <param name="mapKeyColumn">The map key column.</param>
+        /// <param name="mapGroupName">The map group name.</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> AddMapLabelsAsync(OverwriteLabelOptions overwriteLabelOption, bool overwriteLabels,
             string mapLabelColumn, string mapKeyColumn, string mapGroupName)
         {
@@ -3372,11 +3397,11 @@ namespace DataSearches.UI
         /// <summary>
         /// Create map labels for the current layer.
         /// </summary>
-        /// <param name="overwriteLabelOption"></param>
-        /// <param name="mapLabelColumn"></param>
-        /// <param name="mapKeyColumn"></param>
-        /// <param name="mapGroupName"></param>
-        /// <returns></returns>
+        /// <param name="overwriteLabelOption">The overwrite label option.</param>
+        /// <param name="mapLabelColumn">The map label column.</param>
+        /// <param name="mapKeyColumn">The map key column.</param>
+        /// <param name="mapGroupName">The map group name.</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> CreateMapLabelsAsync(OverwriteLabelOptions overwriteLabelOption, string mapLabelColumn, string mapKeyColumn,
             string mapGroupName)
         {
@@ -3427,18 +3452,18 @@ namespace DataSearches.UI
         /// <summary>
         /// Export the selected features from the current layer to a text file.
         /// </summary>
-        /// <param name="outputTableName"></param>
-        /// <param name="outputFormat"></param>
-        /// <param name="mapColumns"></param>
-        /// <param name="mapGroupColumns"></param>
-        /// <param name="mapStatsColumns"></param>
-        /// <param name="mapOrderColumns"></param>
-        /// <param name="includeHeaders"></param>
-        /// <param name="append"></param>
-        /// <param name="areaUnit"></param>
-        /// <param name="includeNearFields"></param>
-        /// <param name="radiusText"></param>
-        /// <returns></returns>
+        /// <param name="outputTableName">The output table name.</param>
+        /// <param name="outputFormat">The output format.</param>
+        /// <param name="mapColumns">The map columns.</param>
+        /// <param name="mapGroupColumns">The map group columns.</param>
+        /// <param name="mapStatsColumns">The map statistics columns.</param>
+        /// <param name="mapOrderColumns">The map order columns.</param>
+        /// <param name="includeHeaders">Whether to include headers.</param>
+        /// <param name="append">Whether to append to existing file.</param>
+        /// <param name="areaUnit">The area unit.</param>
+        /// <param name="includeNearFields">Whether to include near fields.</param>
+        /// <param name="radiusText">The radius text.</param>
+        /// <returns>The task returns the number of lines exported, -1 if there was an error.</returns>
         private async Task<int> ExportSelectionAsync(string outputTableName, string outputFormat,
             string mapColumns, string mapGroupColumns, string mapStatsColumns, string mapOrderColumns,
             bool includeHeaders, bool append, string areaUnit, string includeNearFields, string radiusText)
@@ -3606,7 +3631,7 @@ namespace DataSearches.UI
             if (outputFeatureLayer == null)
                 return -1;
 
-            IReadOnlyList<ArcGIS.Core.Data.Field> inputfields;
+            IReadOnlyList<Field> inputfields;
             try
             {
                 // Get the list of fields for the output feature layer.
@@ -3623,9 +3648,6 @@ namespace DataSearches.UI
 
                 return -1;
             }
-
-
-
 
             // Check all the requested group by fields exist.
             // Only pass those that do.
@@ -3781,14 +3803,15 @@ namespace DataSearches.UI
         /// Save the selected features from the current layer to a new layer
         /// and add it to the map if required.
         /// </summary>
-        /// <param name="layerName"></param>
-        /// <param name="outputFile"></param>
-        /// <param name="addSelectedLayersOption"></param>
-        /// <param name="layerFileName"></param>
-        /// <param name="displayLabels"></param>
-        /// <param name="labelClause"></param>
-        /// <param name="labelColumn"></param>
-        /// <returns></returns>
+        /// <param name="layerName">The layer name.</param>
+        /// <param name="outputFile">The output file.</param>
+        /// <param name="addSelectedLayersOption">The add selected layers option; No, WithoutLabels, WithLabels.</param>
+        /// <param name="layerFileName">The layer file name.</param>
+        /// <param name="displayLabels">Whether to display labels.</param>
+        /// <param name="labelClause">The label clause.</param>
+        /// <param name="labelColumn">The label column.</param>
+        /// <param name="targetMap">The target map.</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         private async Task<bool> KeepLayerAsync(string layerName, string outputFile, AddSelectedLayersOptions addSelectedLayersOption,
             string layerFileName, bool displayLabels, string labelClause, string labelColumn, Map targetMap)
         {
@@ -3892,10 +3915,10 @@ namespace DataSearches.UI
         /// Trigger the required VB macro to post-process the outputs for the
         /// current layer.
         /// </summary>
-        /// <param name="macroName"></param>
-        /// <param name="mapTableOutputName"></param>
-        /// <param name="mapFormat"></param>
-        /// <returns></returns>
+        /// <param name="macroName">The macro name.</param>
+        /// <param name="mapTableOutputName">The map table output name.</param>
+        /// <param name="mapFormat">The map format; e.g. CSV, TXT.</param>
+        /// <returns>The task returns true if successful, false if not.</returns>
         public bool StartProcess(string macroName, string mapTableOutputName, string mapFormat)
         {
             using Process scriptProc = new();
@@ -3942,8 +3965,6 @@ namespace DataSearches.UI
         /// <summary>
         /// Create LayersList Expand button command.
         /// </summary>
-        /// <value></value>
-        /// <returns></returns>
         /// <remarks></remarks>
         public ICommand MapLayersListExpandCommand
         {
@@ -3961,7 +3982,7 @@ namespace DataSearches.UI
         /// <summary>
         /// Handles event when LayersListExpand button is pressed.
         /// </summary>
-        /// <param name="param"></param>
+        /// <param name="param">The command parameter.</param>
         /// <remarks></remarks>
         private void MapLayersListExpandCommandClick(object param)
         {
@@ -4024,130 +4045,6 @@ namespace DataSearches.UI
         internal virtual void OnPropertyChanged(string propertyName)
         {
             VerifyPropertyName(propertyName);
-
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null)
-            {
-                PropertyChangedEventArgs e = new(propertyName);
-                handler(this, e);
-            }
-        }
-
-        #endregion INotifyPropertyChanged Members
-    }
-
-    /// <summary>
-    /// Map layers to search.
-    /// </summary>
-    public class MapLayer : INotifyPropertyChanged
-    {
-        #region Fields
-
-        public string NodeName { get; set; }
-
-        public string NodeGroup { get; set; }
-
-        public string NodeLayer { get; set; }
-
-        public string LayerName { get; set; }
-
-        public string MapName { get; set; }
-
-        public string GISOutputName { get; set; }
-
-        public string TableOutputName { get; set; }
-
-        public string Columns { get; set; }
-
-        public string GroupColumns { get; set; }
-
-        public string StatisticsColumns { get; set; }
-
-        public string OrderColumns { get; set; }
-
-        public string Criteria { get; set; }
-
-        public bool IncludeArea { get; set; }
-
-        public string IncludeNearFields { get; set; }
-
-        public bool IncludeRadius { get; set; }
-
-        public string KeyColumn { get; set; }
-
-        public string Format { get; set; }
-
-        public bool KeepLayer { get; set; }
-
-        public string OutputType { get; set; }
-
-        public bool LoadWarning { get; set; }
-
-        public bool PreselectLayer { get; set; }
-
-        public bool DisplayLabels { get; set; }
-
-        public string LayerFileName { get; set; }
-
-        public bool OverwriteLabels { get; set; }
-
-        public string LabelColumn { get; set; }
-
-        public string LabelClause { get; set; }
-
-        public string MacroName { get; set; }
-
-        public string CombinedSitesColumns { get; set; }
-
-        public string CombinedSitesGroupColumns { get; set; }
-
-        public string CombinedSitesStatisticsColumns { get; set; }
-
-        public string CombinedSitesOrderByColumns { get; set; }
-
-        private bool _isSelected;
-
-        public bool IsSelected
-        {
-            get { return _isSelected; }
-            set
-            {
-                _isSelected = value;
-
-                OnPropertyChanged(nameof(IsSelected));
-            }
-        }
-
-        #endregion Fields
-
-        #region Creator
-
-        public MapLayer()
-        {
-            // constructor takes no arguments.
-        }
-
-        public MapLayer(string nodeName)
-        {
-            NodeName = nodeName;
-        }
-
-        #endregion Creator
-
-        #region INotifyPropertyChanged Members
-
-        /// <summary>
-        /// Raised when a property on this object has a new value.
-        /// </summary>
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        /// <summary>
-        /// Raises this object's PropertyChanged event.
-        /// </summary>
-        /// <param name="propertyName">The property that has a new value.</param>
-        internal virtual void OnPropertyChanged(string propertyName)
-        {
-            //VerifyPropertyName(propertyName);
 
             PropertyChangedEventHandler handler = PropertyChanged;
             if (handler != null)

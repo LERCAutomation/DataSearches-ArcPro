@@ -122,10 +122,10 @@ namespace DataTools
         /// <summary>
         /// Remove all potentially special characters from a string and return the result.
         /// </summary>
-        /// <param name="inputString"></param>
-        /// <param name="repChar"></param>
-        /// <param name="isFileName"></param>
-        /// <returns>string</returns>
+        /// <param name="inputString">The input string to clean.</param>
+        /// <param name="repChar">The replacement character.</param>
+        /// <param name="isFileName">Whether the input string is a file name.</param>
+        /// <returns>The cleaned string.</returns>
         public static string StripIllegals(string inputString, string repChar, bool isFileName = false)
         {
             if (string.IsNullOrWhiteSpace(inputString))
@@ -165,8 +165,8 @@ namespace DataTools
         /// <summary>
         /// Check if the supplied replacement character is a valid character.
         /// </summary>
-        /// <param name="repChar"></param>
-        /// <returns>bool</returns>
+        /// <param name="repChar">The replacement character.</param>
+        /// <returns>True if valid, false if not.</returns>
         public static bool IsValid(string repChar)
         {
             List<string> theIllegals = [@"\", "%", "$", ":", "*", "/", "?", "<", ">", "|", "~", "£", "."];
@@ -179,9 +179,9 @@ namespace DataTools
         /// <summary>
         /// Keeps numbers and spaces from an input string and returns the results.
         /// </summary>
-        /// <param name="inputString"></param>
-        /// <param name="repChar"></param>
-        /// <returns>string</returns>
+        /// <param name="inputString">The input string to clean.</param>
+        /// <param name="repChar">The replacement character.</param>
+        /// <returns>The cleaned string.</returns>
         public static string KeepNumbersAndSpaces(string inputString, string repChar)
         {
             string strOutputString = "";
@@ -203,8 +203,8 @@ namespace DataTools
         /// <summary>
         /// Calculate the current financial year.
         /// </summary>
-        /// <param name="curDate"></param>
-        /// <returns></returns>
+        /// <param name="curDate">The current date.</param>
+        /// <returns>The financial year string.</returns>
         public static string FinancialYear(DateTime curDate)
         {
             string CurrYr = curDate.ToString("yy");
@@ -227,9 +227,9 @@ namespace DataTools
         /// <summary>
         /// Gets the sub-reference out of a short reference string.
         /// </summary>
-        /// <param name="inputString"></param>
-        /// <param name="repChar"></param>
-        /// <returns>string</returns>
+        /// <param name="inputString">The input string to process.</param>
+        /// <param name="repChar">The replacement character.</param>
+        /// <returns>The sub-reference string.</returns>
         public static string GetSubref(string inputString, string repChar)
         {
             // Input should look like xx.xxxx or xxxx where x is an integer.
@@ -240,12 +240,12 @@ namespace DataTools
         /// <summary>
         /// Replace standard search strings in a supplied text string.
         /// </summary>
-        /// <param name="rawName"></param>
-        /// <param name="reference"></param>
-        /// <param name="siteName"></param>
-        /// <param name="shortRef"></param>
-        /// <param name="subRef"></param>
-        /// <returns>string</returns>
+        /// <param name="rawName">The raw input string.</param>
+        /// <param name="reference">The full reference.</param>
+        /// <param name="siteName">The site name.</param>
+        /// <param name="shortRef">The short reference.</param>
+        /// <param name="subRef">The sub-reference.</param>
+        /// <returns>The cleaned string.</returns>
         public static string ReplaceSearchStrings(string rawName, string reference, string siteName, string shortRef, string subRef, string radius = "", string organisation = "")
         {
             string cleanName = rawName;
@@ -270,8 +270,8 @@ namespace DataTools
         /// <summary>
         /// Replace a comma separated string with semi-colon separators.
         /// </summary>
-        /// <param name="aGroupColumnString"></param>
-        /// <returns>string</returns>
+        /// <param name="aGroupColumnString">The input string of group columns.</param>
+        /// <returns>The formatted string.</returns>
         public static string GetGroupColumnsFormatted(string aGroupColumnString)
         {
             List<string> strColumns = [.. aGroupColumnString.Split(',')];
@@ -289,8 +289,8 @@ namespace DataTools
         /// <summary>
         /// Replace a dollar separated string with semi-colon separators.
         /// </summary>
-        /// <param name="aStatsColumnString"></param>
-        /// <returns>string</returns>
+        /// <param name="aStatsColumnString">The input string of statistics columns.</param>
+        /// <returns>The formatted string.</returns>
         public static string GetStatsColumnsFormatted(string aStatsColumnString)
         {
             List<string> strEntries = [.. aStatsColumnString.Split('$')];
@@ -312,10 +312,10 @@ namespace DataTools
         /// <summary>
         /// Align statistics columns.
         /// </summary>
-        /// <param name="AllColumns"></param>
-        /// <param name="StatsColumns"></param>
-        /// <param name="GroupColumns"></param>
-        /// <returns>string</returns>
+        /// <param name="AllColumns">The input string of all columns.</param>
+        /// <param name="StatsColumns">The input string of statistics columns.</param>
+        /// <param name="GroupColumns">The input string of group columns.</param>
+        /// <returns>The aligned statistics columns string.</returns>
         public static string AlignStatsColumns(string AllColumns, string StatsColumns, string GroupColumns)
         {
             if (string.IsNullOrEmpty(GroupColumns) || string.IsNullOrEmpty(AllColumns))
@@ -353,8 +353,8 @@ namespace DataTools
         /// Look at each layer in a list of layers and returns the unique
         /// group names (in front of any hyphen in the layer names).
         /// </summary>
-        /// <param name="LayerList"></param>
-        /// <returns>List<string></returns>
+        /// <param name="LayerList">The list of layer names.</param>
+        /// <returns>The list of group names.</returns>
         public static List<string> ExtractGroups(List<string> LayerList)
         {
             List<string> liGroups = [];
@@ -377,8 +377,8 @@ namespace DataTools
         /// Return the group name from the front of a hyphen in
         /// the layer name.
         /// </summary>
-        /// <param name="LayerName"></param>
-        /// <returns>string</returns>
+        /// <param name="LayerName">The layer name string.</param>
+        /// <returns>The group name string.</returns>
         public static string GetGroupName(string LayerName)
         {
             int intHyphenIndex = LayerName.IndexOf('-');

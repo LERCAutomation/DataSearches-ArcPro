@@ -52,9 +52,9 @@ namespace DataTools
         /// <summary>
         /// Get the tool XML file and read the variables.
         /// </summary>
-        /// <param name="xmlFolder"></param>
-        /// <param name="toolName"></param>
-        /// <param name="promptFilePath"></param>
+        /// <param name="xmlFolder">The folder containing the tool XML file.</param>
+        /// <param name="toolName">The name of the tool.</param>
+        /// <param name="promptFilePath">Whether to prompt the user for the XML file path if not found.</param>
         public ToolConfig(string xmlFolder, string toolName, bool promptFilePath)
         {
             _toolName = toolName;
@@ -116,10 +116,10 @@ namespace DataTools
         /// <summary>
         /// Check the XML file exists and prompt the user if not.
         /// </summary>
-        /// <param name="xmlFolder"></param>
-        /// <param name="toolName"></param>
-        /// <param name="promptFilePath"></param>
-        /// <returns></returns>
+        /// <param name="xmlFolder">The folder containing the tool XML file.</param>
+        /// <param name="toolName">The name of the tool.</param>
+        /// <param name="promptFilePath">Whether to prompt the user for the XML file path if not found.</param>
+        /// <returns>True if the XML file was found; otherwise false.</returns>
         private bool XMLFileFound(string xmlFolder, string toolName, bool promptFilePath)
         {
             string xmlFile = xmlFolder + String.Format(@"\{0}.xml", _toolName);
@@ -166,7 +166,7 @@ namespace DataTools
         /// <summary>
         /// Get the mandatory variables from the XML file.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>True if all mandatory variables were loaded; otherwise false.</returns>
         public bool GetMandatoryVariables()
         {
             string strRawText;
@@ -320,11 +320,11 @@ namespace DataTools
         /// <summary>
         /// Prompt the user for the file path containing the tool XML file.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The selected folder path; otherwise null if cancelled.</returns>
         private static string GetConfigFilePath()
         {
             // Create folder dialog.
-            FolderBrowserDialog xmlFolder = new()
+            using FolderBrowserDialog xmlFolder = new()
             {
                 // Set the folder dialog title.
                 Description = string.Format("Select folder containing '{0}.xml' file ...", _toolName),
@@ -336,12 +336,10 @@ namespace DataTools
             if (xmlFolder.ShowDialog() == DialogResult.OK)
             {
                 // Return the selected path.
-                xmlFolder.Dispose();
                 return xmlFolder.SelectedPath;
             }
             else
             {
-                xmlFolder.Dispose();
                 return null;
             }
         }

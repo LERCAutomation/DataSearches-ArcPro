@@ -40,12 +40,12 @@ namespace DataSearches.UI
         /// <summary>
         /// Ensure any removed map layers are actually unselected.
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        /// <param name="sender">The sender object.</param>
+        /// <param name="e">The event arguments.</param>
         private void ListViewLayers_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Get the list of removed items.
-            List<MapLayer> removed = e.RemovedItems.OfType<MapLayer>().ToList();
+            List<MapLayer> removed = [.. e.RemovedItems.OfType<MapLayer>()];
 
             // Ensure any removed items are actually unselected.
             if (removed.Count > 1)
@@ -65,8 +65,8 @@ namespace DataSearches.UI
         /// <summary>
         /// Reset the width of the map layer column to match the width of the list view.
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
+        /// <param name="sender">The sender object.</param>
+        /// <param name="e">The event arguments.</param>
         private void ListViewLayers_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             var listView = sender as System.Windows.Controls.ListView;
@@ -83,9 +83,8 @@ namespace DataSearches.UI
         /// Return the first visual child object of the required type
         /// for the specified object.
         /// </summary>
-        /// <typeparam name="childItem"></typeparam>
-        /// <param name="obj"></param>
-        /// <returns></returns>
+        /// <typeparam name="childItem">The type of child object to find.</typeparam>
+        /// <param name="obj">The parent object.</param>
         private static childItem FindVisualChild<childItem>(DependencyObject obj)
                where childItem : DependencyObject
         {
