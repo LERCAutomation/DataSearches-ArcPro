@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 
 <!--
 WARNING: This file should be changed carefully and a backup should be
@@ -92,6 +92,11 @@ used by the ArcGIS Pro add-in to select and export GIS data for each data search
 	<GISFolder>
 		<value>GIS Files</value>
 	</GISFolder>
+
+	<!-- The file location where the temporary working geodatabase will be created. -->
+	<TempDir>
+		<value>C:\temp\ArcGIS Pro</value>
+	</TempDir>
 
 	<!-- The log file name created by the tool to output messages. -->
 	<LogFileName>
