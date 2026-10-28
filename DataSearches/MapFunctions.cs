@@ -1,8 +1,8 @@
-ï»¿// The DataTools are a suite of ArcGIS Pro addins used to extract, sync
+// The DataTools are a suite of ArcGIS Pro addins used to extract, sync
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
-// Copyright Â© 2024-25 Andy Foy Consulting.
+// Copyright © 2024-25 Andy Foy Consulting.
 //
 // This file is part of DataTools suite of programs.
 //
@@ -130,7 +130,7 @@ namespace DataTools
         /// <returns>
         /// A <see cref="Map"/> instance if found; otherwise, <c>null</c>.
         /// </returns>
-        public async Task<Map> GetMapFromNameAsync(string mapName)
+        public static async Task<Map> GetMapFromNameAsync(string mapName)
         {
             // Return null if the input name is invalid.
             if (mapName == null)
@@ -161,7 +161,7 @@ namespace DataTools
         /// <returns>
         /// The corresponding <see cref="Map"/> if the pane is open and initialized; otherwise, <c>null</c>.
         /// </returns>
-        public async Task<Map> GetMapFromCaptionAsync(string mapViewCaption)
+        public static async Task<Map> GetMapFromCaptionAsync(string mapViewCaption)
         {
             if (string.IsNullOrWhiteSpace(mapViewCaption))
             {
@@ -223,7 +223,7 @@ namespace DataTools
 
             if (pane != null)
             {
-                // Already open â€” activate it.
+                // Already open — activate it.
                 pane.Activate();
 
                 // Check it worked.
@@ -231,7 +231,7 @@ namespace DataTools
             }
             else
             {
-                // Not open â€” open and activate it.
+                // Not open — open and activate it.
                 var newPane = await ProApp.Panes.CreateMapPaneAsync(map);
             }
         }
@@ -297,7 +297,7 @@ namespace DataTools
         /// <returns>
         /// A <see cref="MapView"/> instance if the map caption is found in an open pane; otherwise, <c>null</c>.
         /// </returns>
-        public MapView GetMapViewFromName(string mapName)
+        public static MapView GetMapViewFromName(string mapName)
         {
             // Return null if no map name was provided.
             if (mapName == null)
@@ -330,7 +330,7 @@ namespace DataTools
         /// A task that returns the <see cref="MapView"/> displaying the map,
         /// or <c>null</c> if no such map view is found.
         /// </returns>
-        public async Task<MapView> GetMapViewFromMapAsync(Map map)
+        public static async Task<MapView> GetMapViewFromMapAsync(Map map)
         {
             if (map == null)
             {
@@ -373,7 +373,7 @@ namespace DataTools
             MapView mapViewToUse = GetMapViewFromName(mapToUse.Name);
             if (mapViewToUse == null)
             {
-                // Log if the view could not be found â€” the map may not be open.
+                // Log if the view could not be found — the map may not be open.
                 TraceLog("PauseDrawingAsync error: MapView not found.");
                 return;
             }
@@ -774,7 +774,7 @@ namespace DataTools
         /// <param name="featureLinked">If true, creates feature-linked annotation; otherwise, creates standard annotation.</param>
         /// <param name="output_group_layer">The name of the group layer to contain the generated annotation.</param>
         /// <returns>True if annotation was successfully created; otherwise, false.</returns>
-        public async Task<bool> ConvertLabelsToAnnotationAsync(
+        public static async Task<bool> ConvertLabelsToAnnotationAsync(
             string input_map,
             string single_layer,
             string output_geodatabase,
@@ -881,7 +881,7 @@ namespace DataTools
         /// <returns>
         /// The corresponding <see cref="Layout"/> if the pane is open and initialized; otherwise, <c>null</c>.
         /// </returns>
-        public async Task<Layout> GetLayoutFromCaptionAsync(string layoutViewCaption)
+        public static async Task<Layout> GetLayoutFromCaptionAsync(string layoutViewCaption)
         {
             if (string.IsNullOrWhiteSpace(layoutViewCaption))
             {
@@ -932,7 +932,7 @@ namespace DataTools
         /// <returns>
         /// The <see cref="LayoutView"/> associated with the activated pane, or <c>null</c> if not found.
         /// </returns>
-        public async Task<LayoutView> ActivateLayoutAsync(Layout targetLayout)
+        public static async Task<LayoutView> ActivateLayoutAsync(Layout targetLayout)
         {
             if (targetLayout == null)
             {
@@ -991,7 +991,7 @@ namespace DataTools
         /// <param name="bespokeElementNames">List of bespoke text element names to update.</param>
         /// <param name="bespokeContents">List of bespoke text values to set for the corresponding elements.</param>
         /// <returns>True if all text updates succeeded across all open layouts; otherwise, false.</returns>
-        public async Task<bool> UpdateLayoutsTextAsync(
+        public static async Task<bool> UpdateLayoutsTextAsync(
             List<string> layoutNames,
             string searchRefElement,
             string searchRef,
@@ -1106,7 +1106,7 @@ namespace DataTools
         /// <param name="textName">The name of the text element to update.</param>
         /// <param name="textString">The new string to set as the text element's content.</param>
         /// <returns>True if the update was successful; otherwise, false.</returns>
-        public async Task<bool> SetTextElementsAsync(string layoutName, string textName, string textString)
+        public static async Task<bool> SetTextElementsAsync(string layoutName, string textName, string textString)
         {
             // Validate inputs.
             if (string.IsNullOrWhiteSpace(layoutName))
@@ -1574,7 +1574,7 @@ namespace DataTools
         /// <returns>
         /// The extent of the selected features, or null if there are no selections or the layer is not a FeatureLayer.
         /// </returns>
-        private async Task<Envelope> GetSelectedExtentAsync(Layer layer)
+        private static async Task<Envelope> GetSelectedExtentAsync(Layer layer)
         {
             // Ensure the layer is a feature layer.
             if (layer is not FeatureLayer featureLayer)
@@ -1599,7 +1599,7 @@ namespace DataTools
         /// <param name="currentScale">The current map scale.</param>
         /// <param name="scaleList">A list of valid scales in ascending order.</param>
         /// <returns>The next scale up from the list or extrapolated value.</returns>
-        private double GetNextScaleUp(double currentScale, List<int> scaleList)
+        private static double GetNextScaleUp(double currentScale, List<int> scaleList)
         {
             if (scaleList == null || scaleList.Count < 2)
                 throw new ArgumentException("Scale list must contain at least two values.");
@@ -1635,7 +1635,7 @@ namespace DataTools
         /// <param name="ratio">Optional zoom ratio to apply to the current scale.</param>
         /// <param name="scale">Optional fixed scale to apply.</param>
         /// <param name="validScales">Optional list of allowed scales to use for zooming out.</param>
-        private void ApplyZoomToMapFrame(MapFrame mapFrame,
+        private static void ApplyZoomToMapFrame(MapFrame mapFrame,
             double? ratio,
             double? scale,
             List<int> validScales = null)
@@ -1659,14 +1659,14 @@ namespace DataTools
                     }
                     else
                     {
-                        // No scale list â€” apply ratio directly.
+                        // No scale list — apply ratio directly.
                         camera.Scale *= ratio.Value;
                         mapFrame.SetCamera(camera);
                     }
                 }
                 else if (scale.HasValue && scale.Value > 0)
                 {
-                    // No ratio â€” use fixed scale.
+                    // No ratio — use fixed scale.
                     camera.Scale = scale.Value;
                     mapFrame.SetCamera(camera);
                 }
@@ -2135,7 +2135,7 @@ namespace DataTools
                 // Attempt to get the selected ObjectIDs in the search layer.
                 var oidSet = searchLayer.GetSelection()?.GetObjectIDs();
 
-                // Use a query filter â€” either for selected features or all features.
+                // Use a query filter — either for selected features or all features.
                 QueryFilter queryFilter;
 
                 // If any selected features to build the geometry.
@@ -2149,7 +2149,7 @@ namespace DataTools
                 }
                 else
                 {
-                    // No selected features â€” fallback to using all features.
+                    // No selected features — fallback to using all features.
                     queryFilter = new QueryFilter();
                 }
 
@@ -2182,7 +2182,7 @@ namespace DataTools
                     // Use the spatial reference of the search geometry to maintain units.
                     var spatialRef = searchGeometry.SpatialReference;
 
-                    // Buffer assumes units match geometryâ€™s spatial reference (e.g., meters if projected).
+                    // Buffer assumes units match geometry’s spatial reference (e.g., meters if projected).
                     searchGeometry = GeometryEngine.Instance.Buffer(searchGeometry, distance);
 
                     if (searchGeometry == null)
@@ -2438,10 +2438,8 @@ namespace DataTools
         /// <param name="fieldNames">A delimited string containing the names of the fields to check for existence. Field names are separated by
         /// the specified separator character or a comma.</param>
         /// <param name="separator">The character used to separate field names in the <paramref name="fieldNames"/> string.</param>
-        /// <param name="checkStrings">Indicates whether to perform additional string-based checks when verifying field existence. The default is
-        /// <see langword="false"/>.</param>
         /// <returns>True if all specified field names exist in the collection; otherwise, false.</returns>
-        public static bool FieldsExist(IReadOnlyList<Field> fields, string fieldNames, char separator, bool checkStrings = false)
+        public static bool FieldsExist(IReadOnlyList<Field> fields, string fieldNames, char separator)
         {
             // Check there is an input field name.
             if (string.IsNullOrEmpty(fieldNames))
@@ -2778,7 +2776,7 @@ namespace DataTools
         /// </summary>
         /// <param name="layer">The layer to get the path for.</param>
         /// <returns>The task result is the full layer path as a string.</returns>
-        public Task<string> GetLayerPathAsync(Layer layer)
+        public static Task<string> GetLayerPathAsync(Layer layer)
         {
             return QueuedTask.Run(async () =>
             {
@@ -2858,7 +2856,7 @@ namespace DataTools
         /// </summary>
         /// <param name="featureLayer">The feature layer.</param>
         /// <returns>The task result is string: point, line, polygon</returns>
-        public async Task<string> GetFeatureClassTypeAsync(FeatureLayer featureLayer)
+        public static async Task<string> GetFeatureClassTypeAsync(FeatureLayer featureLayer)
         {
             // Check there is an input feature layer.
             if (featureLayer == null)

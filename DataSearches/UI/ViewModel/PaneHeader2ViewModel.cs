@@ -1,8 +1,8 @@
-﻿// The DataTools are a suite of ArcGIS Pro addins used to extract, sync
+// The DataTools are a suite of ArcGIS Pro addins used to extract, sync
 // and manage biodiversity information from ArcGIS Pro and SQL Server
 // based on pre-defined or user specified criteria.
 //
-// Copyright © 2024-25 Andy Foy Consulting.
+// Copyright � 2024-25 Andy Foy Consulting.
 //
 // This file is part of DataTools suite of programs.
 //
@@ -1863,7 +1863,7 @@ namespace DataSearches.UI
             foreach (string mapName in mapWindowNames)
             {
                 // Get the map pane with the window (caption) name.
-                Map map = await _mapFunctions.GetMapFromCaptionAsync(mapName);
+                Map map = await MapFunctions.GetMapFromCaptionAsync(mapName);
 
                 if (map != null)
                     mapWindows.Add(map);
@@ -1874,7 +1874,7 @@ namespace DataSearches.UI
             foreach (string layoutName in layoutWindowNames)
             {
                 // Get the map pane with the window (caption) name.
-                Layout layout = await _mapFunctions.GetLayoutFromCaptionAsync(layoutName);
+                Layout layout = await MapFunctions.GetLayoutFromCaptionAsync(layoutName);
 
                 if (layout != null)
                     layoutWindows.Add(layout);
@@ -1903,9 +1903,19 @@ namespace DataSearches.UI
 
             FileFunctions.WriteLine(_logFile, "Parameters are as follows:");
             FileFunctions.WriteLine(_logFile, "Buffer distance: " + radius);
+            FileFunctions.WriteLine(_logFile, "Buffer unit: " + bufferUnitText);
             FileFunctions.WriteLine(_logFile, "Output location: " + _saveRootDir + @"\" + _saveFolder);
             FileFunctions.WriteLine(_logFile, "Layers to process: " + SelectedLayers.Count.ToString());
             FileFunctions.WriteLine(_logFile, "Area measurement unit: " + areaMeasureUnit);
+
+            // Log key user choices that influence processing
+            FileFunctions.WriteLine(_logFile, "Keep selected layers: " + (keepSelectedLayers ? "Yes" : "No"));
+            FileFunctions.WriteLine(_logFile, "Add selected layers option: " + addSelectedLayersOption.ToString());
+            FileFunctions.WriteLine(_logFile, "Overwrite labels option: " + overwriteLabelOption.ToString());
+            FileFunctions.WriteLine(_logFile, "Combined sites table option: " + combinedSitesTableOption.ToString());
+            FileFunctions.WriteLine(_logFile, "Convert labels to annotation: " + (convertLabelsToAnnotation ? "Yes" : "No"));
+            FileFunctions.WriteLine(_logFile, "Keep buffer output: " + (_keepBuffer ? "Yes" : "No"));
+            FileFunctions.WriteLine(_logFile, "Update attributes in search layer: " + (_updateTable ? "Yes" : "No"));
 
             // Create the search query.
             string searchClause = _searchColumn + " = '" + searchRef + "'";
@@ -2205,7 +2215,7 @@ namespace DataSearches.UI
                     string baseAnnoGroupLayerName = $"{_groupLayerName}_Anno";
                     string annoGroupLayerName = await GetNextAnnoGroupLayerNameAsync(baseAnnoGroupLayerName, map);
 
-                    if (!await _mapFunctions.ConvertLabelsToAnnotationAsync(map.Name, "", annoGDBName, "_Anno", "DISPLAY", null, true, "", false, annoGroupLayerName))
+                    if (!await MapFunctions.ConvertLabelsToAnnotationAsync(map.Name, "", annoGDBName, "_Anno", "DISPLAY", null, true, "", false, annoGroupLayerName))
                     {
                         FileFunctions.WriteLine(_logFile, $"Error converting all labels to annotation in map: {map.Name}");
                         _searchErrors = true;
@@ -2223,7 +2233,7 @@ namespace DataSearches.UI
                 FileFunctions.WriteLine(_logFile, "Updating layouts ...");
 
                 // Set the search reference, site name, organisation and radius in all of the layouts.
-                if (!await _mapFunctions.UpdateLayoutsTextAsync(layoutWindowNames, searchRefElement, searchRef, siteNameElement, siteName,
+                if (!await MapFunctions.UpdateLayoutsTextAsync(layoutWindowNames, searchRefElement, searchRef, siteNameElement, siteName,
                     organisationElement, organisation, radiusElement, radius, bespokeElementNames, bespokeContents))
                 {
                     _searchErrors = true;
@@ -2240,7 +2250,7 @@ namespace DataSearches.UI
                 foreach (Layout layout in layoutWindows)
                 {
                     // Activate the layout window.
-                    if (await _mapFunctions.ActivateLayoutAsync(layout) == null)
+                    if (await MapFunctions.ActivateLayoutAsync(layout) == null)
                     {
                         FileFunctions.WriteLine(_logFile, $"Error activating layout: {layout.Name}");
                         _searchErrors = true;
@@ -2317,6 +2327,9 @@ namespace DataSearches.UI
             // Indicate search has finished.
             _dockPane.SearchStatus = DockpaneMainViewModel.SearchStatuses.NotStarted;
             _dockPane.ProgressUpdate(null, -1, -1);
+
+            // Refresh the panel 1 controls now the search has finished.
+            _dockPane.RefreshPanel1Buttons();
 
             string imageSource = string.Format("pack://application:,,,/DataSearches;component/Images/{0}32.png", image);
 
@@ -3058,7 +3071,7 @@ namespace DataSearches.UI
             Map targetMap = null;
             if (!string.IsNullOrWhiteSpace(mapMapName))
             {
-                targetMap = await _mapFunctions.GetMapFromNameAsync(mapMapName);
+                targetMap = await MapFunctions.GetMapFromNameAsync(mapMapName);
                 if (targetMap == null)
                 {
                     FileFunctions.WriteLine(_logFile, "Error finding map '" + mapMapName + "'");
@@ -3480,7 +3493,7 @@ namespace DataSearches.UI
                 return -1;
 
             // Get the input feature class type.
-            string inputFeatureType = await _mapFunctions.GetFeatureClassTypeAsync(inputFeaturelayer);
+            string inputFeatureType = await MapFunctions.GetFeatureClassTypeAsync(inputFeaturelayer);
             if (inputFeatureType == null)
                 return -1;
 
